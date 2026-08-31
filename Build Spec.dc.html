@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/january-advisors-design-system-996b8a6f-e9e2-4b98-8040-665899eaee7c/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/january-advisors-design-system-996b8a6f-e9e2-4b98-8040-665899eaee7c/tokens/colors.css">
+<link rel="stylesheet" href="_ds/january-advisors-design-system-996b8a6f-e9e2-4b98-8040-665899eaee7c/tokens/typography.css">
+<link rel="stylesheet" href="_ds/january-advisors-design-system-996b8a6f-e9e2-4b98-8040-665899eaee7c/tokens/layout.css">
+<link rel="stylesheet" href="_ds/january-advisors-design-system-996b8a6f-e9e2-4b98-8040-665899eaee7c/tokens/base.css">
+<link rel="stylesheet" href="_ds/january-advisors-design-system-996b8a6f-e9e2-4b98-8040-665899eaee7c/styles.css">
+<script src="_ds/january-advisors-design-system-996b8a6f-e9e2-4b98-8040-665899eaee7c/_ds_bundle.js"></script>
+<script src="./doc-page.js"></script>
+<style>
+  doc-page:not(:defined) { visibility: hidden; }
+  a { color: #004E7B; }
+  a:hover { color: #0E6FA0; }
+  .spec h1 { font-family: 'Mulish', sans-serif; font-weight: 800; font-size: 34px; line-height: 1.1; letter-spacing: -0.02em; color: #083553; margin: 0 0 14px; }
+  .spec h2 { font-family: 'Mulish', sans-serif; font-weight: 800; font-size: 21px; line-height: 1.22; color: #083553; margin: 34px 0 12px; padding-top: 14px; border-top: 2px solid #083553; }
+  .spec h3 { font-family: 'Borna', sans-serif; font-weight: 600; font-size: 14.5px; line-height: 1.35; color: #262626; margin: 22px 0 8px; }
+  .spec h4 { font-family: 'Borna', sans-serif; font-weight: 600; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #6B6766; margin: 18px 0 7px; }
+  .spec p, .spec li { font-family: 'Onest', sans-serif; font-size: 13.6px; line-height: 1.62; color: #262626; orphans: 3; widows: 3; }
+  .spec p { margin: 0 0 10px; }
+  .spec ul, .spec ol { margin: 0 0 12px; padding-left: 20px; }
+  .spec li { margin-bottom: 5px; }
+  .spec table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; }
+  .spec th { font-family: 'Borna', sans-serif; font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase; color: #6B6766; text-align: left; padding: 7px 9px 7px 0; border-bottom: 1.5px solid #262626; vertical-align: bottom; }
+  .spec td { font-family: 'Onest', sans-serif; font-size: 12.4px; line-height: 1.5; color: #262626; padding: 7px 9px 7px 0; border-bottom: 1px solid #E4DEDE; vertical-align: top; }
+  .spec code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.88em; background: #F0EDED; padding: 1px 4px; border-radius: 3px; color: #083553; }
+  .spec .id { font-family: 'Borna', sans-serif; font-weight: 600; font-size: 11.5px; color: #004E7B; white-space: nowrap; }
+  .spec .box { border: 1px solid #E4DEDE; border-left: 3px solid #004E7B; border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; background: #FAFAFA; break-inside: avoid; orphans: 3; widows: 3; }
+  .spec .warn { border-left-color: #FAA634; background: #FDF8F0; }
+  .spec .stop { border-left-color: #B44A3F; background: #FBF3F2; }
+  .spec .box p:last-child { margin-bottom: 0; }
+</style>
+</helmet>
+
+<doc-page margin="0.7in">
+  <div slot="header" style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-bottom: 7px; border-bottom: 1px solid #E4DEDE; font-family: 'Borna', sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #A89F9F;">
+    <span>Texas SNAP &amp; H.R. 1 · Front-end build spec</span>
+    <span>Feeding Texas · January Advisors</span>
+  </div>
+  <div slot="footer" style="padding-top: 7px; border-top: 1px solid #E4DEDE; font-family: 'Borna', sans-serif; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: #A89F9F;">v1.0 · 31 Aug 2026 · binding unless superseded in writing</div>
+
+  <div class="spec">
+    <h1>Texas SNAP &amp; H.R. 1 dashboard: front-end build spec</h1>
+    <p style="font-size: 15.5px; line-height: 1.62; color: #4a4746; margin-bottom: 18px;">This document specifies the Map page shown in wireframe <code>1a - DASHBOARD</code>, the Insights page, and the provisional Districts view. It exists so the build does not re-decide anything Feeding Texas has already settled and does not design against a data shape the scored file cannot support.</p>
+
+    <table>
+      <tbody>
+        <tr><td style="width: 130px; font-family: 'Borna', sans-serif; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6766;">Deliverable</td><td>D1 county vulnerability dashboard, public web</td></tr>
+        <tr><td style="font-family: 'Borna', sans-serif; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6766;">Primary audience</td><td>Policy and legislative staff. Food-bank program staff second.</td></tr>
+        <tr><td style="font-family: 'Borna', sans-serif; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6766;">Binding inputs</td><td><code>dashboard-map-design.md</code> §2–§5 · <code>requirements.md</code> · the attached wireframe · this spec</td></tr>
+        <tr><td style="font-family: 'Borna', sans-serif; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6B6766;">Design system</td><td>January Advisors, "Seriously Practical". Navy <code>#004E7B</code>, teal <code>#00B9C3</code>, orange <code>#FAA634</code>, ink <code>#262626</code>, warm grey <code>#F0EDED</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="box stop">
+      <p><strong>Read before writing code.</strong> §11 lists options already rejected with reasons. Do not propose or build any of them. §10 lists framing rules from the client that constrain what may appear on a map at all. Both are client decisions, not preferences.</p>
+    </div>
+
+    <h2>1. Scope</h2>
+    <h3>In scope</h3>
+    <ul>
+      <li><strong>Map page</strong> — hero, time-window brush, six layer maps in three render styles, assistance-infrastructure overlay, right rail, three summary charts.</li>
+      <li><strong>Insights page</strong> — five tabbed chapters, thirteen charts (§8).</li>
+      <li><strong>Districts view</strong> — TX House and TX Senate only, shipped behind a provisional banner (§9).</li>
+      <li>CSV/JSON download of whatever the current filter state selects.</li>
+      <li>Responsive down to 1024px. Below that, the map panel goes full-width and the right rail stacks underneath.</li>
+    </ul>
+    <h3>Out of scope for this build</h3>
+    <ul>
+      <li>US House districts. The plan is unchosen, so the crosswalk does not exist.</li>
+      <li>The healthcare-access section. Requirement F10 keeps it separate from the SNAP index; it is its own surface.</li>
+      <li>School-meals layer. Still an open presentation choice.</li>
+      <li>Any authenticated or write surface. The dashboard is read-only.</li>
+      <li>Dark mode in v1. Tokens should be authored as CSS custom properties so it can be added; D1's navy <code>#0E3464</code> fails on a dark ground and needs the lightened ramp noted in §12.</li>
+    </ul>
+
+    <h2>2. Stack</h2>
+    <p>Keep it small. This is a static site with no backend.</p>
+    <table>
+      <thead><tr><th style="width: 120px;">Concern</th><th style="width: 150px;">Choice</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Framework</td><td>React 18 + Vite, TypeScript</td><td>Single-page, no SSR needed. Static build to S3/Pages.</td></tr>
+        <tr><td>Routing</td><td><code>react-router</code>, three routes</td><td><code>/map</code>, <code>/insights/:tab</code>, <code>/districts</code>.</td></tr>
+        <tr><td>State</td><td><code>useReducer</code> + one context, mirrored to URL query params</td><td>No Redux, no Zustand. The whole app state is roughly nine fields (§4). URL mirroring makes every view shareable, which policy staff will use.</td></tr>
+        <tr><td>Maps</td><td>Inline SVG, hand-rendered from TopoJSON</td><td>254 paths per panel performs fine and was proven in the prototype. No Leaflet, no MapLibre — Leaflet is one-map-at-a-time and cannot do synced small multiples.</td></tr>
+        <tr><td>Projection</td><td><code>d3-geo</code> <code>geoAlbers</code> tuned to EPSG:3083</td><td>Texas Albers. Fit once to the state bbox and reuse the same projection object across every panel so thumbnails and the hero map register exactly.</td></tr>
+        <tr><td>Charts</td><td><code>d3-scale</code> + <code>d3-shape</code>, rendered as JSX SVG</td><td>No chart library. Every chart in §8 is a line, column, dumbbell, scatter or small-multiple — all trivial as JSX. Avoids fighting a library's defaults for the axis and annotation treatments this design needs.</td></tr>
+        <tr><td>Data loading</td><td>Static JSON fetched once, cached in context</td><td>Total payload target under 900KB gzipped including geometry.</td></tr>
+        <tr><td>Styling</td><td>CSS modules + custom properties for tokens</td><td>No Tailwind. Token values come from the JA system.</td></tr>
+        <tr><td>Testing</td><td>Vitest for the scale/binning/format helpers only</td><td>Those are where a silent error changes what the map claims. Do not unit-test presentational components.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>3. Data contract</h2>
+    <p>The front end reads four static files from <code>/data/</code>. <code>rscripts/export_tool_data.R</code> is unwritten, so these shapes are the contract the export must satisfy. Do not read <code>vulnerability_county.csv</code> directly in production — build against these.</p>
+
+    <h3>3.1 <code>counties.json</code> — 254 records</h3>
+    <table>
+      <thead><tr><th style="width: 190px;">Field</th><th style="width: 90px;">Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>geoid</code></td><td>string</td><td>5-digit FIPS. Join key to geometry.</td></tr>
+        <tr><td><code>name</code></td><td>string</td><td>County name without the word "County".</td></tr>
+        <tr><td><code>pop</code></td><td>number</td><td>Projected 2026 population.</td></tr>
+        <tr><td><code>d1_score</code> … <code>d5_score</code></td><td>number 0–1</td><td>Within-Texas percentile per layer.</td></tr>
+        <tr><td><code>d1_tier</code> … <code>d5_tier</code></td><td>int 1–5</td><td>Quintile. Drives the top-quintile overlay.</td></tr>
+        <tr><td><code>d1_n</code> … <code>d5_n</code></td><td>int</td><td>Component count. Rendered on every panel — D4 has two and the reader must know.</td></tr>
+        <tr><td><code>d1_moe</code> … <code>d5_moe</code></td><td>number</td><td>Margin of error. Required on every estimate.</td></tr>
+        <tr><td><code>vulnerability_score</code></td><td>number 0–4</td><td>Sum of the four original domain percentiles.</td></tr>
+        <tr><td><code>cumulative_impact</code></td><td>int 0–4</td><td>Domains at Q5. Overlay and filter only, never a fill.</td></tr>
+        <tr><td><code>newly_subject_persons</code></td><td>int</td><td>D1 count basis. PUMS-modelled — flag wherever shown.</td></tr>
+        <tr><td><code>noncit_snap_persons</code></td><td>int</td><td>D2 count basis.</td></tr>
+        <tr><td><code>snap_enrolled[]</code></td><td>number[]</td><td>Monthly enrolled individuals, parallel to <code>meta.months</code>.</td></tr>
+        <tr><td><code>infra</code></td><td>object</td><td><code>{ food_bank: int, cms_navigator: int, chw: int, counselor: int }</code>. Counts of listed sites, not capacity.</td></tr>
+        <tr><td><code>is_gap</code></td><td>boolean</td><td>Top-quintile vulnerability with zero food-bank sites and zero navigators. Precomputed so the definition lives in one place.</td></tr>
+        <tr><td><code>small_denominator</code></td><td>boolean</td><td><code>pop &lt; 10000</code>. 92 counties. Drives dimming in rate view.</td></tr>
+        <tr><td><code>centroid</code></td><td>[number, number]</td><td>Projected x/y for bubble placement and infrastructure marks.</td></tr>
+        <tr><td><code>grid</code></td><td>{r, c}</td><td>Tile-cartogram cell. Precomputed and fixed — never solved at runtime.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>3.2 <code>geometry.json</code></h3>
+    <p>TopoJSON, quantized, simplified to roughly 40KB. County polygons keyed by <code>geoid</code>, plus a state outline object for the hairline border. CRS assigned EPSG:4326 at export, projected client-side.</p>
+
+    <h3>3.3 <code>statewide.json</code></h3>
+    <p>The monthly enrollment series (44 months of history plus the policy window), monthly change, age-band series, participation share, households vs. people, county-type rollup, and the funnel-plot control limits. Everything the Insights page and the brush chart need, precomputed.</p>
+
+    <h3>3.4 <code>districts.json</code></h3>
+    <p>TX House (PlanH2316, 150) and TX Senate (PlanS2168, 31). Same score fields as counties, but <strong>re-percentiled within the district set</strong> — see §9. Absent until the aggregation method is settled; the app must render the Districts route from an empty-state if the file 404s.</p>
+
+    <div class="box warn">
+      <p><strong>Layer five has no source.</strong> The wireframe adds a <em>Children</em> layer to the four scored domains. There is no <code>d5_*</code> column in <code>vulnerability_county.csv</code>. Either it is defined and added to <code>build_scores.R</code> before the build, or the layer strip ships with five entries. Do not synthesize it from the SNAP age bands — those are statewide, not county-level.</p>
+    </div>
+
+    <h2>4. State model</h2>
+    <p>One reducer. Every field is mirrored to a query param so any view is a link.</p>
+    <table>
+      <thead><tr><th style="width: 130px;">Field</th><th style="width: 175px;">Values</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>measure</code></td><td><code>rate</code> | <code>count</code></td><td>Global. Switches every map and the layer thumbnails between percentile fill and proportional symbol.</td></tr>
+        <tr><td><code>layer</code></td><td><code>d1</code>…<code>d5</code> | <code>composite</code></td><td>Which layer the hero map shows.</td></tr>
+        <tr><td><code>style</code></td><td><code>geo</code> | <code>grid</code> | <code>density</code></td><td>Render mode for the hero map (§6.5).</td></tr>
+        <tr><td><code>window</code></td><td><code>[startMonth, endMonth]</code></td><td>Set by the brush. Everything below the brush recomputes: the hero number, the map's decline values, all three summary charts.</td></tr>
+        <tr><td><code>infra</code></td><td>Set of 4 keys</td><td>Which infrastructure marks draw on the map.</td></tr>
+        <tr><td><code>overlayQ5</code></td><td>boolean</td><td>Outlines every county in Q5 on the showing layer.</td></tr>
+        <tr><td><code>overlayGap</code></td><td>boolean</td><td>Outlines gap counties in red.</td></tr>
+        <tr><td><code>hovered</code></td><td>geoid | null</td><td>Transient. Not in the URL.</td></tr>
+        <tr><td><code>pinned</code></td><td>geoid | null</td><td>Survives cursor movement. In the URL.</td></tr>
+      </tbody>
+    </table>
+    <p><code>hovered ?? pinned</code> is the county every readout reads from. One selector, used everywhere.</p>
+
+    <h2>5. Global chrome</h2>
+    <table>
+      <thead><tr><th style="width: 52px;">ID</th><th style="width: 150px;">Component</th><th>Behaviour</th></tr></thead>
+      <tbody>
+        <tr><td class="id">C-01</td><td>App header</td><td>Sticky, 64px, white with a hairline bottom border. Navy logo square, "Texas SNAP &amp; H.R. 1" in Borna 600. Right: a two-item segmented control, Map / Insights. Districts is reached from the Map page's geography control, not the header.</td></tr>
+        <tr><td class="id">C-02</td><td>Rate / Count</td><td>Segmented control, pill, hairline border, navy active fill. Sits alone on a second bar so it reads as global rather than as a map control. Persists across pages and routes.</td></tr>
+        <tr><td class="id">C-03</td><td>No-count state</td><td>When <code>measure = count</code> and the active layer has no count basis (D3, D4, composite), the map panel is replaced by an amber-bordered panel naming the reason. Do not grey out the toggle, and do not invent a denominator.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>6. Map page</h2>
+
+    <h3>6.1 Hero band <span class="id">M-01</span></h3>
+    <p>Two columns, roughly 68/32, on warm grey.</p>
+    <ul>
+      <li><strong>Eyebrow:</strong> the active window, e.g. <code>JUL 2025 → MAY 2026</code>, Borna caps 10px, tracked.</li>
+      <li><strong>Headline number:</strong> <code>−547,051</code> at 76px Mulish 800 in burgundy <code>#B44A3F</code>, tabular-nums, set on the same baseline as a 22px Onest phrase: "fewer Texans on SNAP than the month H.R. 1 was signed". The number recomputes from the brush window; the phrase after it changes with the window's start.</li>
+      <li><strong>Body:</strong> two to three sentences, Onest 16px, max 62ch. Not lorem — the copy states the delayed onset, the November drop near 110,000, and the flat 70–80k monthly pace since.</li>
+      <li><strong>Download data:</strong> secondary pill button, navy outline. Exports the current window and layer selection as CSV, with a companion JSON that includes the MOE columns.</li>
+    </ul>
+
+    <h3>6.2 Time-window brush <span class="id">M-02</span></h3>
+    <p>Full-width card under the hero. A 44-month enrollment line, y-axis 2.9M to 3.7M, x-axis 2021 to 2026. The selected window is a burgundy-tinted band with draggable handles at both edges; inside the band the line is drawn in burgundy, outside in muted navy. Endpoint labels sit above the handles.</p>
+    <ul>
+      <li>Instruction text, always visible: "Drag either handle. Everything below follows this window."</li>
+      <li>Four presets, right-aligned: <strong>Since H.R. 1</strong> (default), Last 6 months, Last 12 months, Full history.</li>
+      <li>Debounce the drag at 120ms before recomputing dependents. Handles have a 24px hit area and respond to arrow keys when focused, one month per press.</li>
+      <li>This is the only time control in the app. There is no separate month slider on the map.</li>
+    </ul>
+
+    <h3>6.3 Statement rail <span class="id">M-03</span></h3>
+    <p>Right of the hero, separated by a vertical hairline. Three fixed statements, each a large figure over two lines of Onest. These are statewide narrative points and never become county metrics.</p>
+    <table>
+      <thead><tr><th style="width: 80px;">Figure</th><th>Statement</th></tr></thead>
+      <tbody>
+        <tr><td><strong>−19.1%</strong></td><td>among adults 18–59, the steepest band. Ages 65+ are flat at −0.2%.</td></tr>
+        <tr><td><strong>−22.6%</strong></td><td>excess decline once each county's own pre-policy trend is netted out.</td></tr>
+        <tr><td><strong>9.3%</strong></td><td>of Texans are enrolled, down from 11.0% in July 2025.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>6.4 Layer strip <span class="id">M-04</span></h3>
+    <p>Six selectable cards in a row, each a title plus a live thumbnail map of that layer at roughly 120×90. The thumbnails are real, rendered from the same projection and the same <code>measure</code> as the hero map, so the strip is a legend for the whole page: the reader sees the four geographies disagree before clicking anything.</p>
+    <table>
+      <thead><tr><th style="width: 62px;">Key</th><th style="width: 145px;">Label</th><th style="width: 132px;">Ramp</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>d1</code></td><td>Work requirements</td><td>Navy <code>#F0F3F8 → #7793B8 → #0E3464</code></td><td>5 components. Has a count. Default layer.</td></tr>
+        <tr><td><code>d4</code></td><td>Socioeconomic Need</td><td>Green <code>#EAF4EE → #87BE9C → #288C46</code></td><td>2 components. No count. Caveat on the panel.</td></tr>
+        <tr><td><code>d3</code></td><td>Access to work</td><td>Amber <code>#FDF2E1 → #F8CE87 → #F2A02F</code></td><td>7 components. No count.</td></tr>
+        <tr><td><code>d2</code></td><td>Citizenship</td><td>Teal <code>#EEF6F7 → #9CC8CD → #3F8E96</code></td><td>4 components. Has a count. Runs opposite D1 at r = −0.30.</td></tr>
+        <tr><td><code>d5</code></td><td>Children</td><td>TBD</td><td>No source column yet. See §3 warning.</td></tr>
+        <tr><td><code>composite</code></td><td>Vulnerability Index</td><td>Burgundy, 6 stops</td><td>Visually demoted: last position, lighter card border. Rebin to <code>0.8, 1.35, 1.65, 1.85, 2.05, 2.27, 2.66, 3.4</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>Active card: warm tint fill and a 2px navy left edge. Ramps must match <code>build_scores.R:317–325</code> exactly so the dashboard and the internal leaflet review maps agree. Score bins for domain percentiles are <code>0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0</code>.</p>
+
+    <h3>6.5 Hero map panel <span class="id">M-05</span></h3>
+    <p>Panel header carries the layer's formal name ("D1 — Work-requirement exposure"), two to three sentences of layer-specific copy, the component count, and a right-aligned <strong>Style</strong> segmented control plus the legend. Three render styles, all reading the same data:</p>
+    <table>
+      <thead><tr><th style="width: 74px;">Style</th><th style="width: 110px;">Chart type</th><th>Spec</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Geo</strong></td><td>Choropleth</td><td>True county polygons, Texas Albers. Fill from the layer ramp at the county's percentile. White 0.5px strokes, state outline at 1px navy. Default style. In <code>count</code> measure this becomes a proportional-symbol map over a neutral base — <strong>never a fill of raw counts</strong>.</td></tr>
+        <tr><td><strong>Grid</strong></td><td>Cartogram</td><td>One equal-size square per county on the precomputed <code>grid</code> lattice, roughly 22×24 cells. Every county gets identical visual weight, which is the honest reading of a percentile: Loving and Harris are one square each. Same ramp, same legend. Region labels on hover only.</td></tr>
+        <tr><td><strong>Density</strong></td><td>Bubble map</td><td>Circles at county centroids over a light county outline. Radius is square-root-scaled on the count metric (or on population in rate measure), fill is the layer ramp at percentile. This is the one view that carries magnitude and rate at once. Sort descending by radius when painting so small circles land on top; nudge overlapping metros apart with two passes of simple collision relaxation, no force simulation.</td></tr>
+      </tbody>
+    </table>
+    <p>Legend sits top-right of the panel: a continuous ramp bar labelled <code>PERCENTILE IN TEXAS</code>, <code>p0</code> to <code>p100</code>. In count measure it becomes three nested circles with real values.</p>
+    <h4>Interaction</h4>
+    <ul>
+      <li><strong>Hover</strong> highlights the county in the hero map <em>and</em> in all six layer thumbnails simultaneously. This synced highlight is the mechanism that makes the domain disagreement legible; without it the strip is just six pictures.</li>
+      <li><strong>Click</strong> pins. Pinned county gets a persistent 1.5px ink outline and the readout holds.</li>
+      <li><strong>Tooltip</strong> on hover: name, population, all layer percentiles with their tiers, cumulative impact, the count metric if the layer has one, MOE, and infrastructure presence. Follows the cursor with a 12px offset, flips at the viewport edge.</li>
+      <li><strong>Keyboard:</strong> the map is a single focusable group; arrow keys walk counties in reading order on the grid lattice, Enter pins. Every county path carries an <code>aria-label</code>.</li>
+      <li>Counties with <code>small_denominator</code> render at 0.4 opacity in rate measure, with a footnote naming the guard.</li>
+    </ul>
+
+    <h3>6.6 Assistance-infrastructure marks <span class="id">M-06</span></h3>
+    <p>Point marks drawn over whichever style is active, one per listed site, jittered inside the county so co-located sites stay countable. Four glyphs, deliberately distinguishable without colour:</p>
+    <table>
+      <thead><tr><th style="width: 150px;">Type</th><th style="width: 90px;">Glyph</th><th style="width: 88px;">Counties</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr><td>Food bank enrollment site</td><td>Filled square</td><td>181</td><td>Feeding Texas partner registry</td></tr>
+        <tr><td>CMS-funded navigator</td><td>Open circle</td><td>105</td><td>149 counties have none</td></tr>
+        <tr><td>CHW / promotor network</td><td>Open diamond</td><td>134</td><td>DSHS-certified</td></tr>
+        <tr><td>Certified application counselor</td><td>Plus</td><td>114</td><td>CMS assister locator</td></tr>
+        <tr><td>Gap county</td><td>Red square outline</td><td>—</td><td>Overlay, not a mark type</td></tr>
+      </tbody>
+    </table>
+    <p>Panel footer, always visible: <strong>"Presence, not capacity. Absent mark = not listed, not a confirmed zero."</strong> This line is not optional and does not shrink.</p>
+
+    <h3>6.7 Right rail</h3>
+    <table>
+      <thead><tr><th style="width: 52px;">ID</th><th style="width: 150px;">Card</th><th>Spec</th></tr></thead>
+      <tbody>
+        <tr><td class="id">M-07</td><td>Assistance infrastructure</td><td>A token-style multi-select. Selected types show as removable chips in the field; below, four checkbox rows each with a county count and a "Select all" action. Footnote: "Counts are counties with at least one listed site. Registry pull, not a capacity measure."</td></tr>
+        <tr><td class="id">M-08</td><td>Overlays</td><td>Two switches. <strong>Highlight top quintile</strong> — outlines every county in Q5 on the showing layer. <strong>Gap counties</strong> — top-quintile vulnerability with no food bank site and no navigator listed. Each switch carries one line of definition underneath; the definition is the control's label, not a tooltip.</td></tr>
+        <tr><td class="id">M-09</td><td>Highest on this layer</td><td>Top six, rank / name / mini bar / percentile. Standing subhead: "A within-layer shortlist, not a statewide ranking. Switch layers and the list changes completely — that is the point." Hovering a row highlights that county on the map. <strong>Six rows maximum</strong> — a longer list drifts toward the 1-to-254 ranking requirement F9 rules out.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>6.8 Summary chart row <span class="id">M-10</span></h3>
+    <p>Three cards below the map, equal width, all recomputing from the brush window.</p>
+    <ol>
+      <li><strong>Where need meets capacity.</strong> Scatter: vulnerability percentile on x, listed enrollment-support sites per 10,000 residents on y. Median crosshairs; the bottom-right quadrant is tinted and labelled <code>GAP QUADRANT</code>. Points scale by population. The pinned county is marked and labelled. Footnote names the four registries and states that 149 counties sit flat on the axis at zero navigators.</li>
+      <li><strong>The decline has not stopped.</strong> Month-over-month change in enrolled individuals as columns from a zero line, green above and burgundy below, spanning 2023 to 2026. Annotate the November −110k. Subhead: "Steady losses of 50k to 80k every month since November. No floor in the data yet."</li>
+      <li><strong>Who is falling off.</strong> Dumbbell-with-arrow chart, one row per age band. Dot at July 2025 enrolled, arrowhead at the latest month, x-axis in enrolled individuals to 1.6M, percent change right-aligned. Bands: 18–59 (−19.1%), 5–17 (−16.8%), Under 5 (−16.6%), 60–64 (−10.6%), 65+ (−0.2%).</li>
+    </ol>
+
+    <h2>7. Component inventory</h2>
+    <p>Build these once and reuse. Everything else is page-level composition.</p>
+    <table>
+      <thead><tr><th style="width: 150px;">Component</th><th style="width: 215px;">Props</th><th>Used by</th></tr></thead>
+      <tbody>
+        <tr><td><code>&lt;CountyMap&gt;</code></td><td><code>layer, style, measure, size, marks[], overlays, interactive</code></td><td>Hero map, six thumbnails, Insights small multiples, district maps. One component, four sizes.</td></tr>
+        <tr><td><code>&lt;SegmentedControl&gt;</code></td><td><code>options[], value, onChange, size</code></td><td>Rate/Count, Style, Map/Insights, geography.</td></tr>
+        <tr><td><code>&lt;RampLegend&gt;</code></td><td><code>stops[], loLabel, hiLabel, mode</code></td><td>Map panel, Insights panels.</td></tr>
+        <tr><td><code>&lt;StatBlock&gt;</code></td><td><code>value, body, tone</code></td><td>Statement rail, Insights chapter openers.</td></tr>
+        <tr><td><code>&lt;RankList&gt;</code></td><td><code>rows[], max, onHover</code></td><td>Highest on this layer, Insights tables.</td></tr>
+        <tr><td><code>&lt;BrushChart&gt;</code></td><td><code>series, window, presets[], onChange</code></td><td>Map page only.</td></tr>
+        <tr><td><code>&lt;ColumnChart&gt;</code></td><td><code>series, zeroLine, annotations[]</code></td><td>Decline card, Insights tab 1.</td></tr>
+        <tr><td><code>&lt;DumbbellChart&gt;</code></td><td><code>rows[], xScale, arrow</code></td><td>Who is falling off, Insights tab 2.</td></tr>
+        <tr><td><code>&lt;ScatterChart&gt;</code></td><td><code>points[], quadrant, pinned</code></td><td>Gap card, Insights tabs 4 and 5.</td></tr>
+        <tr><td><code>&lt;Callout&gt;</code></td><td><code>tone: info | caution | blocked</code></td><td>No-count state, provisional banners, method notes.</td></tr>
+        <tr><td><code>&lt;CountyTooltip&gt;</code></td><td><code>geoid</code></td><td>Every map.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>8. Insights page</h2>
+    <p>Five tabs in a left column, one chapter each. Each chapter opens with a one-sentence claim in Mulish, then its charts, then a "what this does not support" line. The Rate/Count control stays visible but is inert on tabs where it does not apply — label it so.</p>
+
+    <h3>Tab 1 — The decline has not stopped</h3>
+    <p><em>Claim:</em> enrollment is still falling, and the pace is flat rather than slowing.</p>
+    <ol>
+      <li><strong>Enrollment line, 2022 → May 2026.</strong> Peak marked at 3,654,101 (Jan 2023); H.R. 1 band from July 2025; endpoint labelled 2,971,598. Pre-window in muted navy, policy window in burgundy.</li>
+      <li><strong>Monthly-change columns.</strong> Same data as M-10 but full width, with every month labelled and the November −110k and May −78,861 called out.</li>
+      <li><strong>Participation share.</strong> Single line, 11.0% → 9.3% of Texans enrolled, with a light band for the 2023 peak.</li>
+    </ol>
+    <p style="color: #6B6766; font-size: 12.6px;">Does not support: causal attribution to H.R. 1. Emergency-allotment expiry and the Medicaid unwinding overlap this window.</p>
+
+    <h3>Tab 2 — Who is falling off</h3>
+    <p><em>Claim:</em> working-age adults and children carry the entire decline; seniors are unchanged.</p>
+    <ol>
+      <li><strong>Age-band indexed lines.</strong> Five lines, indexed to 100 at July 2025, monthly to May 2026. 65+ runs flat along the top; 18–59 drops furthest.</li>
+      <li><strong>Age table.</strong> Band, July 2025 enrolled, latest enrolled, change, percent change. The −19.1% / −0.2% spread is the finding.</li>
+      <li><strong>People vs. households, indexed.</strong> Two lines: people −15.5%, households −13.6%. The gap says households are shrinking as well as exiting.</li>
+    </ol>
+
+    <h3>Tab 3 — The four domains disagree</h3>
+    <p><em>Claim:</em> no single ranking of counties can be honest about all four exposures.</p>
+    <ol>
+      <li><strong>Small multiples.</strong> Four maps at equal size with synced hover, reusing <code>&lt;CountyMap&gt;</code>. Style control applies to all four at once.</li>
+      <li><strong>Correlation matrix.</strong> 4×4 heat grid. Diverging navy-to-burgundy, values printed. The −0.30 D1/D2 cell and the 0.43 maximum are annotated.</li>
+      <li><strong>Cumulative-impact distribution.</strong> Column chart of the 113 / 91 / 38 / 11 / 1 split, with the note that this is why cumulative impact is an outline and not a fill.</li>
+    </ol>
+
+    <h3>Tab 4 — Where exposure meets thin capacity</h3>
+    <p><em>Claim:</em> the counties with the least enrollment help are not the ones with the most.</p>
+    <ol>
+      <li><strong>Gap scatter,</strong> full width, the M-10 chart with a labelled county list beside it.</li>
+      <li><strong>Infrastructure coverage bars.</strong> Four horizontal bars, counties covered out of 254, per registry type.</li>
+      <li><strong>Gap-county table.</strong> Name, vulnerability percentile, sites by type, population.</li>
+    </ol>
+    <div class="box warn"><p>This tab is the weakest half of the project. Feeding Texas still owes food-bank enrollment FTE and households-reached by county. Ship the tab with a standing banner saying capacity is a floor, not a measure, and that requirement F4 cannot be answered from navigator counts alone.</p></div>
+
+    <h3>Tab 5 — Rate and count are two arguments</h3>
+    <p><em>Claim:</em> targeting by rate and targeting by count select different counties, and both are legitimate.</p>
+    <ol>
+      <li><strong>Paired maps.</strong> Percent-decline choropleth beside a proportional-symbol count map, same window.</li>
+      <li><strong>Top-10 absolute losses.</strong> Bar chart: Harris 109,917 down to Montgomery 8,749, with the note that these ten hold 62% of the statewide drop.</li>
+      <li><strong>Funnel plot.</strong> Percent change against caseload with control limits; roughly 93% of counties sit inside, and the ones outside are all tiny — Loving on eight, Borden on seventy. A shrinkage toggle switches raw against stabilized values.</li>
+    </ol>
+    <p style="color: #6B6766; font-size: 12.6px;">County-type rollup as a footer stat: metro −15.6%, micro −14.9%, rural −15.8%. The contraction is broad and even.</p>
+
+    <h2>9. Districts view — provisional</h2>
+    <p>Ship it behind a persistent amber banner reading "Provisional — aggregation method not settled." TX House (PlanH2316, 150 districts) and TX Senate (PlanS2168, 31) only; the US House control is present but disabled with a tooltip naming the blocker.</p>
+    <div class="box stop">
+      <p><strong>The aggregation is a back-end change, not a front-end one.</strong> Percentile scores cannot be population-weighted into districts and stay meaningful. Districts must be re-ranked from the underlying rates through the block-weighted crosswalk, then percentiled within the 150 or 31 district set. Do not compute district scores in the browser.</p>
+    </div>
+    <p>Layout mirrors the Map page: the same layer strip, the same map component fed district geometry, a rank table replacing the county tooltip. Newly-subject count is the lead column, since it is the figure a legislative office asks for.</p>
+
+    <h2>10. Copy and framing rules</h2>
+    <p>These come from Feeding Texas. They constrain content, not just tone.</p>
+    <ul>
+      <li><strong>No single "total impacted" number.</strong> Layered hotspots instead. The hero number is observed enrollment change, not a modelled impact estimate, and the copy must keep that distinction.</li>
+      <li><strong>Descriptive only.</strong> Exposure and at-risk framing. Never causal claims, never precise loss counts.</li>
+      <li><strong>"SNAP families with no workers" may not appear as a vulnerability indicator.</strong> Those households are typically exemption-protected and the frame invites "why aren't these people working." Lead from the work-requirement-subject population.</li>
+      <li><strong>Cost-share and payment error rate stay statewide narrative points</strong> — 9.34% in FY2025, up from 8.32%, inside the 10% match tier. Never a county metric, never mapped.</li>
+      <li><strong>Handle the rural SNAP-retailer decline carefully.</strong> Do not feed a "SNAP won't help rural areas anyway" reading.</li>
+      <li><strong>Flag synthetic estimates.</strong> ABAWD exposure is PUMS-modelled, not a lookup, and says so wherever it appears.</li>
+      <li><strong>Every estimate ships with its MOE.</strong> In the tooltip, in the download, in the table.</li>
+      <li><strong>Three policy levers stay separable</strong> in both index and narrative. Never blended.</li>
+      <li>Voice: first-person plural, Title Case for display and UI labels, sentence case for body. One capsule highlight per headline, on the single most important word, at 50% opacity with circular edges.</li>
+    </ul>
+
+    <h2>11. Rejected options</h2>
+    <p>Recorded so they are not proposed again. Each was ruled out on evidence, not taste.</p>
+    <table>
+      <thead><tr><th style="width: 210px;">Option</th><th>Why it is out</th></tr></thead>
+      <tbody>
+        <tr><td>Dominant-domain map</td><td>Domains "win" 71 / 75 / 44 / 64 counties — a near-even four-way split — and the median margin between first and second is 0.105, with a quarter of counties under 0.044. It would colour Texas on noise.</td></tr>
+        <tr><td>Bivariate hue-and-intensity map</td><td>Inherits the dominant-domain problem and adds a harder encoding on top.</td></tr>
+        <tr><td>Blended composite as the headline</td><td>Publishing the sub-scores is the point of the framework. The composite also reads as a border map: the top twelve counties are all border or South Texas and all score ≥ 0.71 on D2, so the one domain telling a non-border story gets averaged away.</td></tr>
+        <tr><td>Choropleth of raw counts</td><td>Harris at 5.13M residents swamps any fill scale. Counts use proportional symbols or the cartogram.</td></tr>
+        <tr><td>A 1-to-254 ranked list</td><td>Ruled out by requirement F9 at kickoff.</td></tr>
+        <tr><td>Leaflet or any tile-map library</td><td>One map at a time. Small multiples with synced hover are the default view, so the map must be inline SVG.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>12. Open blockers</h2>
+    <table>
+      <thead><tr><th style="width: 175px;">Blocker</th><th style="width: 105px;">Owner</th><th>Effect on the build</th></tr></thead>
+      <tbody>
+        <tr><td><code>export_tool_data.R</code> unwritten</td><td>January Advisors</td><td><code>tool-data/</code> is empty. Build against the §3 shapes with a fixture file; swap the fetch when the export lands.</td></tr>
+        <tr><td>Children layer undefined</td><td>JA + Feeding Texas</td><td>Layer strip ships with five entries until <code>d5_*</code> exists.</td></tr>
+        <tr><td>US House plan unchosen</td><td>Feeding Texas</td><td>PlanC2333 vs PlanC2193. Congressional view cannot be built.</td></tr>
+        <tr><td>District aggregation unsettled</td><td>David / JA</td><td>Districts route renders from an empty-state until <code>districts.json</code> exists.</td></tr>
+        <tr><td>Percent/count asymmetry</td><td>David + FT</td><td>D3 and D4 have no count basis. Until resolved, C-03 is the answer.</td></tr>
+        <tr><td>Food-bank capacity data</td><td>Feeding Texas</td><td>Insights tab 4 ships with its banner.</td></tr>
+        <tr><td>Dark mode ramps</td><td>JA design</td><td>D1 <code>#5B85C4</code>, D2 <code>#5FB4BD</code>, D4 <code>#4FAE6E</code>; D3 amber survives. Author tokens as custom properties now, build the theme later.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>13. Suggested build order</h2>
+    <ol>
+      <li>Fixture data matching §3, plus the projection and binning helpers with their unit tests.</li>
+      <li><code>&lt;CountyMap&gt;</code> in all three styles at thumbnail and hero size. This is the whole risk of the project; get it right before any chrome.</li>
+      <li>State reducer and URL mirroring.</li>
+      <li>Map page composition: layer strip, hero panel, right rail.</li>
+      <li>Brush chart and the recompute path down to the three summary cards.</li>
+      <li>Infrastructure marks and the two overlays.</li>
+      <li>Insights tabs 1, 2, 5 (statewide data, already available), then 3, then 4.</li>
+      <li>Districts empty-state, then the real view when the file lands.</li>
+      <li>Accessibility pass: keyboard map navigation, focus rings, contrast on every ramp's mid stop, and a text-alternative table behind each map.</li>
+    </ol>
+
+    <div class="box">
+      <p><strong>One thing to check before you start.</strong> The domain ramps in §6.4 must match <code>rscripts/build_scores.R:317–325</code> character for character. If the internal leaflet review maps and the dashboard disagree on colour, every conversation about the data turns into a conversation about the tool.</p>
+    </div>
+  </div>
+</doc-page>
+
+</x-dc>
+</body>
+</html>
