@@ -6,8 +6,16 @@
  * chrome." The three render styles all read the same data (§6.5):
  *
  *   geo      true county polygons, Texas Albers, ramp fill at percentile
- *   grid     one equal-size square per county on the precomputed lattice
+ *   grid     population-weighted cartogram — one square per county at its true
+ *            centroid, area proportional to population, relaxed apart
  *   density  centroid bubbles, sqrt-scaled, over a light county outline
+ *
+ * NOTE: §6.5 originally specified Grid as an EQUAL-size lattice, arguing that
+ * identical visual weight is the honest reading of a percentile. That was
+ * superseded by the client on 2026-09-01 in favour of a population-weighted
+ * cartogram, so Harris reads as large and Loving as small. The equal-size
+ * lattice is still precomputed in the data (`grid: {r, c}`) and still drives
+ * keyboard navigation order. See docs/SPEC-DEVIATIONS.md.
  *
  * In count measure, geo becomes a proportional-symbol map over a neutral base —
  * never a fill of raw counts (§11: "Harris at 5.13M residents swamps any fill
@@ -18,7 +26,14 @@ import type { Feature, Geometry } from 'geojson';
 import type { County, InfraKey, LayerKey, MapStyle, Measure } from '../types';
 import type { Projection } from '../lib/projection';
 import { colorFor } from '../lib/scales';
-import { radiusScale, relax, type Bubble } from '../lib/density';
+import {
+  radiusScale,
+  relax,
+  relaxSquares,
+  squareScale,
+  type Bubble,
+  type Square,
+} from '../lib/density';
 import { layerByKey, scoreField } from '../config/layers';
 import { INFRA_GLYPH_ORDER, InfraGlyph } from './InfraGlyph';
 import styles from './CountyMap.module.css';
@@ -26,11 +41,14 @@ import styles from './CountyMap.module.css';
 export type MapSize = 'thumb' | 'small' | 'medium' | 'hero';
 
 /** Stroke weights and mark visibility per size. A thumbnail cannot carry marks. */
-const SIZE_SPEC: Record<MapSize, { county: number; state: number; marks: boolean; maxBubble: number }> = {
-  thumb: { county: 0.15, state: 0.4, marks: false, maxBubble: 11 },
-  small: { county: 0.3, state: 0.7, marks: false, maxBubble: 16 },
-  medium: { county: 0.4, state: 0.9, marks: true, maxBubble: 24 },
-  hero: { county: 0.5, state: 1, marks: true, maxBubble: 34 },
+const SIZE_SPEC: Record<
+  MapSize,
+  { county: number; state: number; marks: boolean; maxBubble: number; maxCell: number }
+> = {
+  thumb: { county: 0.15, state: 0.4, marks: false, maxBubble: 11, maxCell: 26 },
+  small: { county: 0.3, state: 0.7, marks: false, maxBubble: 16, maxCell: 34 },
+  medium: { county: 0.4, state: 0.9, marks: true, maxBubble: 24, maxCell: 44 },
+  hero: { county: 0.5, state: 1, marks: true, maxBubble: 34, maxCell: 54 },
 };
 
 export interface CountyMapProps {
@@ -99,11 +117,10 @@ function CountyMapInner(props: CountyMapProps) {
   const spec = SIZE_SPEC[size];
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Grid is a cartogram — it deliberately does NOT register with the geographic
-  // views, so it gets its own square lattice viewBox.
-  const cell = 40;
-  const gridViewBox = `0 0 ${grid.cols * cell} ${grid.rows * cell}`;
-  const viewBox = style === 'grid' ? gridViewBox : projection.viewBox;
+  // The cartogram places squares at true projected centroids, so unlike the old
+  // equal-size lattice it shares the projection's viewBox and registers with the
+  // geographic views.
+  const viewBox = projection.viewBox;
 
   const proportional = measure === 'count' && style === 'geo';
 
@@ -115,6 +132,22 @@ function CountyMapInner(props: CountyMapProps) {
         .filter((p): p is { geoid: string; d: string } => Boolean(p.d)),
     [geometry, projection],
   );
+
+  // ------------------------------------------------------------- cartogram
+  const cartogram = useMemo<Square[]>(() => {
+    if (style !== 'grid') return [];
+
+    const max = counties.reduce((m, c) => Math.max(m, c.pop), 0);
+    const scale = squareScale(max, spec.maxCell);
+
+    const placed: Square[] = [];
+    for (const c of counties) {
+      const xy = projection.project(c.centroid);
+      if (!xy) continue;
+      placed.push({ geoid: c.geoid, x: xy[0], y: xy[1], h: scale(c.pop) });
+    }
+    return relaxSquares(placed);
+  }, [counties, projection, spec.maxCell, style]);
 
   // --------------------------------------------------------------- bubbles
   const bubbles = useMemo<Bubble[]>(() => {
@@ -275,24 +308,30 @@ function CountyMapInner(props: CountyMapProps) {
         </g>
       )}
 
-      {/* ------------------------------------------------------------ GRID */}
+      {/* -------------------------------------- GRID (population cartogram) */}
       {style === 'grid' && (
         <g>
-          {counties.map((county) => {
-            const value = fillValue(county, layer);
+          {/* Faint true outline behind the blocks, so the reader can still tell
+              where the cartogram has distorted the map. */}
+          {paths.map(({ geoid, d }) => (
+            <path key={`base-${geoid}`} d={d} fill="none" stroke="#e8e5e5" strokeWidth={0.3} />
+          ))}
+          {cartogram.map((sq) => {
+            const county = byGeoid.get(sq.geoid);
+            const value = county ? fillValue(county, layer) : null;
             return (
               <rect
-                key={county.geoid}
-                x={county.grid.c * cell + 1}
-                y={county.grid.r * cell + 1}
-                width={cell - 2}
-                height={cell - 2}
-                rx={2}
+                key={sq.geoid}
+                x={sq.x - sq.h}
+                y={sq.y - sq.h}
+                width={sq.h * 2}
+                height={sq.h * 2}
+                rx={Math.min(2, sq.h / 3)}
                 className={classFor(county)}
                 fill={colorFor(value, layer)}
-                strokeWidth={spec.county * 2}
-                onMouseEnter={() => handleEnter(county.geoid)}
-                onClick={() => handleClick(county.geoid)}
+                strokeWidth={spec.county}
+                onMouseEnter={() => handleEnter(sq.geoid)}
+                onClick={() => handleClick(sq.geoid)}
                 aria-label={label(county)}
               />
             );
@@ -310,13 +349,11 @@ function CountyMapInner(props: CountyMapProps) {
       )}
 
       {/* State hairline sits above the fills, below the marks. */}
-      {style !== 'grid' && (
-        <path
-          d={projection.path(state as never) ?? undefined}
-          className={styles.stateOutline}
-          strokeWidth={spec.state}
-        />
-      )}
+      <path
+        d={projection.path(state as never) ?? undefined}
+        className={styles.stateOutline}
+        strokeWidth={spec.state}
+      />
 
       {/* Bubbles for density style and for proportional-symbol count maps. */}
       {(style === 'density' || proportional) && (
@@ -345,60 +382,63 @@ function CountyMapInner(props: CountyMapProps) {
 
       {/* Overlays (§6.8 M-08). Outlines, never fills — cumulative impact and Q5
           are too lopsided to colour a state by (§11). */}
-      {overlays.q5 && style !== 'grid' && (
-        <g>
-          {paths
-            .filter((p) => q5Set.has(p.geoid))
-            .map(({ geoid, d }) => (
-              <path key={geoid} d={d} className={styles.overlayQ5} />
-            ))}
-        </g>
-      )}
-      {overlays.gap && style !== 'grid' && (
-        <g>
-          {paths
-            .filter((p) => byGeoid.get(p.geoid)?.is_gap)
-            .map(({ geoid, d }) => (
-              <path key={geoid} d={d} className={styles.overlayGap} />
-            ))}
-        </g>
-      )}
-      {overlays.q5 && style === 'grid' && (
-        <g>
-          {counties
-            .filter((c) => q5Set.has(c.geoid))
-            .map((c) => (
-              <rect
-                key={c.geoid}
-                x={c.grid.c * cell + 1}
-                y={c.grid.r * cell + 1}
-                width={cell - 2}
-                height={cell - 2}
-                rx={2}
-                className={styles.overlayQ5}
-              />
-            ))}
-        </g>
-      )}
-      {overlays.gap && style === 'grid' && (
-        <g>
-          {counties
-            .filter((c) => c.is_gap)
-            .map((c) => (
-              <rect
-                key={c.geoid}
-                x={c.grid.c * cell + 1}
-                y={c.grid.r * cell + 1}
-                width={cell - 2}
-                height={cell - 2}
-                rx={2}
-                className={styles.overlayGap}
-              />
-            ))}
-        </g>
-      )}
+      {overlays.q5 &&
+        (style === 'grid' ? (
+          <g>
+            {cartogram
+              .filter((sq) => q5Set.has(sq.geoid))
+              .map((sq) => (
+                <rect
+                  key={sq.geoid}
+                  x={sq.x - sq.h}
+                  y={sq.y - sq.h}
+                  width={sq.h * 2}
+                  height={sq.h * 2}
+                  rx={Math.min(2, sq.h / 3)}
+                  className={styles.overlayQ5}
+                />
+              ))}
+          </g>
+        ) : (
+          <g>
+            {paths
+              .filter((p) => q5Set.has(p.geoid))
+              .map(({ geoid, d }) => (
+                <path key={geoid} d={d} className={styles.overlayQ5} />
+              ))}
+          </g>
+        ))}
+      {overlays.gap &&
+        (style === 'grid' ? (
+          <g>
+            {cartogram
+              .filter((sq) => byGeoid.get(sq.geoid)?.is_gap)
+              .map((sq) => (
+                <rect
+                  key={sq.geoid}
+                  x={sq.x - sq.h}
+                  y={sq.y - sq.h}
+                  width={sq.h * 2}
+                  height={sq.h * 2}
+                  rx={Math.min(2, sq.h / 3)}
+                  className={styles.overlayGap}
+                />
+              ))}
+          </g>
+        ) : (
+          <g>
+            {paths
+              .filter((p) => byGeoid.get(p.geoid)?.is_gap)
+              .map(({ geoid, d }) => (
+                <path key={geoid} d={d} className={styles.overlayGap} />
+              ))}
+          </g>
+        ))}
 
       {/* Assistance-infrastructure marks (§6.6). Presence, not capacity. */}
+      {/* Marks are suppressed on the cartogram: relaxation moves a block off its
+          true centroid, so a centroid-anchored glyph would sit over the wrong
+          block. The panel says so when this style is active. */}
       {spec.marks && marks.length > 0 && style !== 'grid' && (
         <g className={styles.mark}>
           {counties.flatMap((county) => {
@@ -412,7 +452,7 @@ function CountyMapInner(props: CountyMapProps) {
                 type={key}
                 x={xy[0] + (i - (arr.length - 1) / 2) * 4.2}
                 y={xy[1]}
-                size={size === 'hero' ? 3.2 : 2.4}
+                size={size === 'hero' ? 2.6 : 2.1}
               />
             ));
           })}

@@ -52,6 +52,7 @@ The front end reads four static files from `public/data/`. Their shapes are the
 | `counties.json` | **Fixture.** 254 records matching §3.1 |
 | `statewide.json` | **Fixture.** Statewide series matching §3.3 |
 | `districts.json` | Absent by design — the Districts route renders an empty state (§3.4) |
+| `timeline.json` | Hero-column feed copy. Edit freely; no code change needed |
 
 `export_tool_data.R` is unwritten (§12), so per §13 step 1 the build runs against
 fixtures:
@@ -62,8 +63,10 @@ npm run build:geometry   # needs the source geojson, see below
 npm run build:fixtures
 ```
 
-**The fixtures are honest about being fixtures.** Every record carries
-`fixture: true` and the app shows a standing banner while it is set. Statewide
+**The fixtures are synthetic.** Every record carries `fixture: true`, and the
+JSON download repeats it in `meta.notes`, so exported files stay
+self-describing. The on-page banner was removed on client direction
+(SPEC-DEVIATIONS.md §I1) — **the page no longer says so itself**. Statewide
 totals reconcile to every published figure in the spec — the hero number is
 exactly −547,051, and county monthly enrollment is apportioned so county sums
 equal the statewide series in all 55 months. County-level values are synthetic

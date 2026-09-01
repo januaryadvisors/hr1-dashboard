@@ -1,8 +1,8 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-5);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   background: var(--surface-warm);
   min-height: 100%;
 }
@@ -10,7 +10,7 @@
 /* M-01 + M-03: roughly 68/32 with a vertical hairline between. */
 .heroBand {
   display: grid;
-  grid-template-columns: 68fr 32fr;
+  grid-template-columns: minmax(0, 62fr) minmax(300px, 38fr);
   gap: var(--space-6);
   align-items: start;
 }
@@ -18,7 +18,8 @@
 .heroLeft {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .heroNumberRow {
@@ -32,19 +33,22 @@
   font-family: var(--font-figure);
   font-size: var(--step-hero);
   font-weight: 800;
-  line-height: 0.95;
-  letter-spacing: -0.03em;
+  line-height: 0.86;
+  letter-spacing: -0.035em;
   color: var(--ja-burgundy);
 }
 
 .heroPhrase {
-  max-width: 20ch;
-  font-size: 1.375rem;
+  max-width: 22ch;
+  font-size: 1.25rem;
   line-height: 1.25;
 }
 
+/* Minimal by design — the audience already knows the situation. */
 .heroBody {
-  max-width: 62ch;
+  max-width: 66ch;
+  font-size: 0.8125rem;
+  line-height: 1.45;
   color: var(--text-muted);
 }
 
@@ -72,38 +76,50 @@
 }
 
 .statementRail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  padding-left: var(--space-6);
+  padding-left: var(--space-5);
   border-left: 1px solid var(--hairline-strong);
 }
 
-/* M-04: six selectable cards in a row with live thumbnails. */
+/* M-04: compact 3x2 grid, deliberately not full width. M-09 sits below it in
+   the same column, so the six cards span three columns of the sub-grid. */
 .layerStrip {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 300px;
+  align-content: start;
 }
 
+.rankCard {
+  grid-column: 1 / -1;
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+/* Layer strip, hero map and right rail sit in one row so more is visible at once. */
 .mapRow {
   display: grid;
-  grid-template-columns: 1fr 330px;
-  gap: var(--space-5);
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
+  gap: var(--space-4);
   align-items: start;
 }
 
 .layerCard {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  gap: var(--space-1);
+  padding: var(--space-2);
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-left: 2px solid transparent;
   border-radius: var(--radius);
   cursor: pointer;
+  min-width: 0;
 }
 
 .layerCardActive {
@@ -118,9 +134,9 @@
 
 .layerCardTitle {
   font-family: var(--font-display);
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .layerCardDisabled {
@@ -144,7 +160,7 @@
 }
 
 .panel {
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
@@ -152,10 +168,10 @@
 
 .panelHead {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
   align-items: start;
-  padding-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -166,9 +182,10 @@
 }
 
 .panelCopy {
-  max-width: 76ch;
-  margin-top: var(--space-2);
-  font-size: var(--step--1);
+  max-width: 80ch;
+  margin-top: var(--space-1);
+  font-size: 0.75rem;
+  line-height: 1.4;
   color: var(--text-muted);
 }
 
@@ -179,8 +196,19 @@
   align-items: flex-end;
 }
 
+/* The map is the page's centrepiece but was running ~940px tall and pushing
+   everything else off-screen. Capping the height keeps the whole page legible;
+   the SVG scales inside its viewBox. */
 .mapHolder {
-  padding: var(--space-3) 0;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+
+.mapHolder > svg {
+  width: auto;
+  max-width: 100%;
+  max-height: 460px;
 }
 
 .panelFooter {
@@ -211,11 +239,12 @@
 .rail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .railCard {
-  padding: var(--space-4);
+  padding: var(--space-3);
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
@@ -361,25 +390,42 @@
 
 .summaryRow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-5);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
+/* Below ~1400px the three-column map row is too tight; the layer strip moves
+   above the map and stays a compact grid. */
+@media (max-width: 1400px) {
+  .mapRow {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .layerStrip {
+    grid-column: 1 / -1;
+    max-width: none;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  /* Six cards across means the rank list needs its own full-width row. */
+  .rankCard {
+    max-width: 420px;
+  }
+}
+
+/* §1: responsive down to 1024px. Below that the map goes full width and the
+   right rail stacks underneath. */
 @media (max-width: 1023px) {
   .heroBand,
   .mapRow,
   .summaryRow {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .statementRail {
     padding-left: 0;
+    padding-top: var(--space-4);
     border-left: 0;
     border-top: 1px solid var(--hairline-strong);
-    padding-top: var(--space-5);
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
   .layerStrip {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

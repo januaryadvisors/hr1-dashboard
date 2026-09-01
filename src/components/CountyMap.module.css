@@ -39,9 +39,12 @@
   opacity: 0.4;
 }
 
+/* Red border, per client direction 2026-09-01 (was ink). Kept a touch brighter
+   and thinner than the gap outline so the two overlays stay distinguishable
+   when both are on. */
 .overlayQ5 {
   fill: none;
-  stroke: var(--ja-ink);
+  stroke: var(--overlay-q5);
   stroke-width: 1.25;
   pointer-events: none;
 }
@@ -49,7 +52,8 @@
 .overlayGap {
   fill: none;
   stroke: var(--ja-burgundy);
-  stroke-width: 1.5;
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
   pointer-events: none;
 }
 

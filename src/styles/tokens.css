@@ -15,6 +15,9 @@
   --ja-warm-grey: #f0eded;
   /* §6.1 — the hero number and the policy window on every chart. */
   --ja-burgundy: #b44a3f;
+  /* Top-quintile overlay outline. Brighter than burgundy so it reads as an
+     alert rather than as part of the ramp. */
+  --overlay-q5: #d92b1f;
 
   /* Surfaces */
   --surface: #ffffff;
@@ -50,7 +53,8 @@
   --step-1: 1.375rem;
   --step-2: 1.75rem;
   --step-3: 2.5rem;
-  --step-hero: 4.75rem; /* §6.1: 76px */
+  /* §6.1 specified 76px; raised to ~108px on client direction 2026-09-01. */
+  --step-hero: 6.75rem;
 
   /* Space */
   --space-1: 0.25rem;

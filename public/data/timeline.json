@@ -1,0 +1,54 @@
+{
+  "stats": [
+    {
+      "value": "−19.1%",
+      "body": "among adults 18–59, the steepest band. Ages 65+ are flat at −0.2%.",
+      "tone": "negative"
+    },
+    {
+      "value": "−22.6%",
+      "body": "excess decline once each county's own pre-policy trend is netted out."
+    },
+    {
+      "value": "9.3%",
+      "body": "of Texans are enrolled, down from 11.0% in July 2025."
+    }
+  ],
+  "feed": [
+    {
+      "month": "2026-05",
+      "title": "Latest data",
+      "body": "2,971,598 enrolled — 9.3% of Texans. Down 78,861 in the month."
+    },
+    {
+      "month": "2026-01",
+      "title": "No floor yet",
+      "body": "Six consecutive months of 50k–80k losses. The pace is flat, not slowing."
+    },
+    {
+      "month": "2025-11",
+      "title": "The largest single-month drop",
+      "body": "Near 110,000 people in one month — the steepest in the 55-month series."
+    },
+    {
+      "month": "2025-10",
+      "title": "Delayed onset",
+      "body": "August through October together account for under 40,000 of the decline."
+    },
+    {
+      "month": "2025-07",
+      "title": "H.R. 1 signed",
+      "body": "3,518,649 enrolled — 11.0% of Texans. The baseline every figure here is measured against."
+    },
+    {
+      "month": "2023-03",
+      "title": "Emergency allotments end",
+      "body": "A separate shock inside the history window. It is why the pre-policy trend is netted out."
+    },
+    {
+      "month": "2023-01",
+      "title": "Series peak",
+      "body": "3,654,101 enrolled, the highest in the series."
+    }
+  ]
+}

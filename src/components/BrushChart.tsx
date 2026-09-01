@@ -9,9 +9,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fmtMillions, fmtMonth } from '../lib/format';
 import styles from './BrushChart.module.css';
 
-const W = 1000;
-const H = 150;
-const M = { top: 14, right: 12, bottom: 18, left: 34 };
 const DEBOUNCE_MS = 120;
 const HIT = 24;
 
@@ -27,9 +24,21 @@ export interface BrushChartProps {
   window: [string, string];
   presets: Preset[];
   onChange: (window: [string, string]) => void;
+  /** viewBox width — keep near the rendered width so the axis type stays legible. */
+  viewWidth?: number;
+  height?: number;
 }
 
-export function BrushChart({ months, series, window: win, presets, onChange }: BrushChartProps) {
+export function BrushChart({
+  months,
+  series,
+  window: win,
+  presets,
+  onChange,
+  viewWidth: W = 1000,
+  height: H = 150,
+}: BrushChartProps) {
+  const M = { top: 16, right: 10, bottom: 16, left: 30 };
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<null | 'start' | 'end'>(null);
 
@@ -61,13 +70,20 @@ export function BrushChart({ months, series, window: win, presets, onChange }: B
   );
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  // y-axis 2.9M–3.7M per §6.2, but clamp to the data so a different export
-  // cannot silently draw off-panel.
-  const [yMin, yMax] = useMemo(() => {
-    const lo = Math.min(2.9e6, Math.min(...series));
-    const hi = Math.max(3.7e6, Math.max(...series));
-    return [lo, hi];
-  }, [series]);
+  /**
+   * Axis starts at zero, per client direction 2026-09-01. §6.2 specified
+   * 2.9M–3.7M, which exaggerates the slope; a zero baseline shows the decline
+   * against the size of the caseload instead. Top is padded off the data so a
+   * different export cannot draw off-panel.
+   */
+  const [yMin, yMax] = useMemo(() => [0, Math.max(...series) * 1.08], [series]);
+
+  const yTicks = useMemo(() => {
+    const step = 1e6;
+    const ticks: number[] = [];
+    for (let v = 0; v <= yMax; v += step) ticks.push(v);
+    return ticks;
+  }, [yMax]);
 
   const x = (i: number) => M.left + (i / (months.length - 1)) * (W - M.left - M.right);
   const y = (v: number) => M.top + (1 - (v - yMin) / (yMax - yMin)) * (H - M.top - M.bottom);
@@ -166,11 +182,11 @@ export function BrushChart({ months, series, window: win, presets, onChange }: B
       </div>
 
       <svg ref={svgRef} className={styles.svg} viewBox={`0 0 ${W} ${H}`}>
-        {[2.9e6, 3.1e6, 3.3e6, 3.5e6, 3.7e6].map((v) => (
+        {yTicks.map((v) => (
           <g key={v}>
             <line x1={M.left} x2={W - M.right} y1={y(v)} y2={y(v)} className={styles.gridline} />
-            <text x={M.left - 5} y={y(v) + 3} textAnchor="end" className={styles.axis}>
-              {fmtMillions(v)}
+            <text x={M.left - 4} y={y(v) + 3} textAnchor="end" className={styles.axis}>
+              {v === 0 ? '0' : fmtMillions(v)}
             </text>
           </g>
         ))}
@@ -189,7 +205,11 @@ export function BrushChart({ months, series, window: win, presets, onChange }: B
           height={H - M.top - M.bottom}
           className={styles.band}
         />
+        {/* On a zero baseline a bare line floats; the area gives it weight. */}
+        <path d={`${pathFor(0, months.length - 1)}L${x(months.length - 1)} ${y(0)}L${x(0)} ${y(0)}Z`}
+          className={styles.area} />
         <path d={pathFor(0, months.length - 1)} className={styles.line} />
+        <path d={`${pathFor(i0, i1)}L${x(i1)} ${y(0)}L${x(i0)} ${y(0)}Z`} className={styles.areaIn} />
         <path d={pathFor(i0, i1)} className={styles.lineIn} />
 
         {([['start', i0], ['end', i1]] as const).map(([which, i]) => (
@@ -221,8 +241,8 @@ export function BrushChart({ months, series, window: win, presets, onChange }: B
               }}
             />
             <text
-              x={Math.min(W - M.right - 40, Math.max(M.left, x(i)))}
-              y={M.top - 4}
+              x={Math.min(W - M.right, Math.max(M.left + 2, x(i) + (which === 'start' ? 2 : -2)))}
+              y={M.top - 5}
               textAnchor={which === 'start' ? 'start' : 'end'}
               className={styles.endpointLabel}
             >

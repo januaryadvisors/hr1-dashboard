@@ -43,10 +43,3 @@
   border-bottom: 1px solid var(--hairline);
 }
 
-.fixtureBanner {
-  padding: var(--space-2) var(--space-5);
-  font-size: 0.6875rem;
-  color: #6b4a08;
-  background: var(--caution-bg);
-  border-bottom: 1px solid var(--caution-border);
-}

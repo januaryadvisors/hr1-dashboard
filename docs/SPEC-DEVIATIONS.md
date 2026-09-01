@@ -184,6 +184,98 @@ All of it disappears when the real export lands. Every record carries
 
 ---
 
+## I. Client-directed changes, 2026-09-01
+
+The spec is "binding unless superseded in writing". These are that record —
+requested directly by the client after reviewing the first build, and each one
+overrides the section named.
+
+| # | Change | Overrides |
+|---|---|---|
+| I1 | Fixture banner removed | — |
+| I2 | Hero number 76px → ~108px | §6.1 |
+| I3 | Brush moved into the hero's left column | §6.2 |
+| I4 | Brush y-axis anchored at zero | §6.2 |
+| I5 | Statement rail → topline stats + timeline feed | §6.3 |
+| I6 | Grid → population-weighted cartogram | §6.5 |
+| I7 | Layer strip → compact 3×2, not full-width | §6.4 |
+| I8 | Map height capped, page density increased | — |
+| I9 | Top-quintile overlay outline → red | §6.8 M-08 |
+
+Three of these have consequences worth stating plainly.
+
+### I1. The fixture banner is gone — nothing else changed
+
+The client will flag the data as provisional out-of-band. The `fixture: true`
+flag still ships on every record and still appears in the JSON download's
+`meta.notes`, so an exported file remains self-describing. **The page itself no
+longer says the county numbers are synthetic.** Do not screenshot it for anyone
+outside that verbal warning.
+
+### I4. Zero baseline flattens the decline
+
+§6.2 specified a 2.9M–3.7M axis. A zero baseline is the more conservative
+framing — it shows the loss against the size of the caseload rather than filling
+the panel with it — but the trade is that the brush line is now nearly flat and
+harder to read as a shape. An area fill was added to compensate. If window
+selection becomes fiddly in use, this is the first thing to revisit.
+
+### I6. The cartogram overrides §6.5's stated rationale
+
+§6.5 argued for equal-size cells: *"Every county gets identical visual weight,
+which is the honest reading of a percentile: Loving and Harris are one square
+each."* The client asked for population weighting instead, so block area now
+scales with population.
+
+Both readings are defensible and they answer different questions — equal cells
+ask "which counties are exposed", population weighting asks "where are the
+exposed people". The reason it matters: a population-weighted cartogram of a
+*percentile* pulls the eye to metros, which is exactly the emphasis §11's
+rejection of raw-count choropleths was guarding against. Worth a look with
+Feeding Texas before it goes to legislative staff.
+
+Two implementation notes:
+
+- **Strict area-proportionality is unreadable here.** Texas county population
+  spans five orders of magnitude, so at side ∝ pop^0.5 everything under ~200k
+  collapses to a speck. `CARTOGRAM_EXPONENT` in `src/lib/density.ts` is 0.34, a
+  legibility compromise that keeps the ordering and the "Harris is enormous"
+  reading. It is one constant, deliberately, so it can be argued with.
+- **Infra marks are hidden in this view.** Relaxation moves a block off its true
+  centroid, so a centroid-anchored glyph would sit over the wrong county. The
+  panel footer says so rather than leaving the toggle silently inert.
+
+The equal-size lattice is still precomputed (`grid: {r, c}` in `counties.json`)
+and still drives keyboard navigation order, so restoring the old view is a
+render change, not a data change.
+
+### I9. The two overlays are now both red-ish
+
+Top-quintile is `--overlay-q5` (#D92B1F, solid, thin); gap counties stay
+burgundy (#B44A3F) but are now thicker and dashed so the two remain
+distinguishable when both are on. If they still read as one thing in use, gap
+should move to a different hue rather than a different dash.
+
+### I5. The timeline feed reads from a file, not a Google Sheet
+
+The ask was "text we read in from a google sheet or something, and make it seem
+like a timeline feed". The feed is built and content-driven, reading
+`public/data/timeline.json` — so editing copy needs no code change.
+
+A **live** Sheet fetch was not wired, because it is a bigger decision than it
+looks: it adds a runtime dependency on an external host to an otherwise static
+page, needs the sheet published to the web (a private one needs an API key,
+which cannot be hidden in a static build), and needs a fallback for when the
+fetch fails.
+
+The recommended route, if non-developers should own this copy, is to bake it at
+build time: a GitHub Action pulls the sheet and commits `timeline.json`. That
+keeps the runtime static and still lets anyone edit content. `loadTimeline()` in
+`src/data/timeline.ts` is the single swap point either way, and the trade-offs
+are written up there.
+
+---
+
 ## H. Not built yet
 
 Deliberate, following §13's build order. Nothing here is blocked by anything above.

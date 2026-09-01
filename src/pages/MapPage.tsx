@@ -2,7 +2,7 @@
  * Map page — spec §6. Composition only: every piece is a component from §7 and
  * every number recomputes from the brush window (§6.2).
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { activeGeoid, ALL_INFRA } from '../state/appState';
 import { INFRA_TYPES, LAYERS, layerByKey, scoreField } from '../config/layers';
@@ -10,15 +10,16 @@ import { CountyMap } from '../components/CountyMap';
 import { CountyTooltip } from '../components/CountyTooltip';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { RampLegend } from '../components/RampLegend';
-import { StatBlock } from '../components/StatBlock';
 import { RankList, type RankRow } from '../components/RankList';
 import { Callout } from '../components/Callout';
 import { BrushChart, buildPresets } from '../components/BrushChart';
+import { TimelineFeed } from '../components/TimelineFeed';
 import { ColumnChart } from '../components/ColumnChart';
 import { DumbbellChart } from '../components/DumbbellChart';
 import { ScatterChart, type ScatterPoint } from '../components/ScatterChart';
 import { InfraGlyph } from '../components/InfraGlyph';
 import { downloadSelection } from '../lib/download';
+import { loadTimeline, type TimelineContent } from '../data/timeline';
 import { fmtDelta, fmtMonth, fmtMonthBody, fmtPercentile } from '../lib/format';
 import type { InfraKey, MapStyle } from '../types';
 import chartStyles from '../components/charts.module.css';
@@ -31,10 +32,18 @@ import styles from './MapPage.module.css';
  */
 const SUMMARY_VIEW_WIDTH = 460;
 
+/** The brush now sits in the hero's left column, not across the page. */
+const BRUSH_VIEW_WIDTH = 620;
+
 export default function MapPage() {
   const { data, projection, state, dispatch } = useApp();
   const { counties, byGeoid, statewide, geometry } = data;
   const months = statewide.meta.months;
+
+  const [timeline, setTimeline] = useState<TimelineContent>({ stats: [], feed: [] });
+  useEffect(() => {
+    loadTimeline().then(setTimeline);
+  }, []);
 
   const layerDef = layerByKey(state.layer);
   const activeId = activeGeoid(state);
@@ -153,16 +162,24 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* §6.1: not lorem — the copy states the delayed onset, the November
-              drop near 110,000, and the flat 70–80k monthly pace since. */}
+          {/* §6.1 requires real copy, not lorem. Kept short on client direction —
+              the audience already knows the situation. */}
           <p className={styles.heroBody}>
-            The provisions signed in July 2025 took three months to show up in the caseload:
-            August through October together account for under 40,000 of the decline. November
-            broke that pattern with a single-month drop near 110,000, and every month since has
-            removed between 50,000 and 80,000 people. The pace is flat rather than slowing —
-            there is no floor in the data yet. This is observed enrollment change, not a
-            modelled estimate of who H.R. 1 affected.
+            Losses began three months after signing, broke sharply in November, and have run
+            50,000–80,000 a month since. This is observed enrollment change, not a modelled
+            estimate of who H.R. 1 affected.
           </p>
+
+          {/* ---------------------------------------------------------- M-02 */}
+          <BrushChart
+            months={months}
+            series={statewide.enrolled}
+            window={state.window}
+            presets={buildPresets(statewide.meta.policy_start)}
+            onChange={(w) => dispatch({ type: 'setWindow', window: w })}
+            viewWidth={BRUSH_VIEW_WIDTH}
+            height={108}
+          />
 
           <div className={styles.downloadRow}>
             <button
@@ -179,33 +196,13 @@ export default function MapPage() {
         </div>
 
         <div className={styles.statementRail}>
-          <StatBlock
-            value="−19.1%"
-            tone="negative"
-            body="among adults 18–59, the steepest band. Ages 65+ are flat at −0.2%."
-          />
-          <StatBlock
-            value="−22.6%"
-            body="excess decline once each county’s own pre-policy trend is netted out."
-          />
-          <StatBlock
-            value="9.3%"
-            body="of Texans are enrolled, down from 11.0% in July 2025."
-          />
+          <TimelineFeed content={timeline} window={state.window} />
         </div>
       </section>
 
-      {/* ------------------------------------------------------------ M-02 */}
-      <BrushChart
-        months={months}
-        series={statewide.enrolled}
-        window={state.window}
-        presets={buildPresets(statewide.meta.policy_start)}
-        onChange={(w) => dispatch({ type: 'setWindow', window: w })}
-      />
-
-      {/* ------------------------------------------------------------ M-04 */}
-      <section className={styles.layerStrip} aria-label="Indicator layers">
+      {/* --------------------------------- M-04 + M-05 + right rail, one row */}
+      <div className={styles.mapRow}>
+        <section className={styles.layerStrip} aria-label="Indicator layers">
         {LAYERS.map((l) => {
           const disabled = !l.available;
           const classes = [
@@ -250,10 +247,24 @@ export default function MapPage() {
             </button>
           );
         })}
-      </section>
 
-      {/* --------------------------------------------------- M-05 + right rail */}
-      <div className={styles.mapRow}>
+          {/* M-09 sits here rather than in the right rail so the left column is
+              not mostly empty below the strip. */}
+          <div className={styles.rankCard}>
+            <div className={styles.railTitle}>Highest on this layer</div>
+            <p className={styles.railSubhead}>
+              A within-layer shortlist, not a statewide ranking. Switch layers and the list changes
+              completely — that is the point.
+            </p>
+            <RankList
+              rows={rankRows}
+              activeGeoid={activeId}
+              onHover={(geoid) => dispatch({ type: 'hover', geoid })}
+              onSelect={(geoid) => dispatch({ type: 'pin', geoid })}
+            />
+          </div>
+        </section>
+
         <section className={styles.panel}>
           <div className={styles.panelHead}>
             <div>
@@ -272,9 +283,13 @@ export default function MapPage() {
                 label="Render style"
                 size="sm"
                 options={[
-                  { value: 'geo', label: 'Geo' },
-                  { value: 'grid', label: 'Grid' },
-                  { value: 'density', label: 'Density' },
+                  { value: 'geo', label: 'Geo', title: 'True county polygons' },
+                  {
+                    value: 'grid',
+                    label: 'Cartogram',
+                    title: 'Population-weighted — block area is proportional to population',
+                  },
+                  { value: 'density', label: 'Density', title: 'Centroid bubbles' },
                 ]}
                 value={state.style}
                 onChange={(v) => dispatch({ type: 'setStyle', style: v as MapStyle })}
@@ -333,6 +348,12 @@ export default function MapPage() {
             </span>
             {/* §6.6: not optional, does not shrink. */}
             <span className={styles.presenceNote}>
+              {state.style === 'grid' && (
+                <>
+                  Marks are hidden on the cartogram — blocks are moved off their true centroids, so
+                  a mark would sit over the wrong county.{' '}
+                </>
+              )}
               Presence, not capacity. Absent mark = <strong>not listed</strong>, not a confirmed
               zero.
             </span>
@@ -449,20 +470,6 @@ export default function MapPage() {
             </div>
           </div>
 
-          {/* -------------------------------------------------------- M-09 */}
-          <div className={styles.railCard}>
-            <div className={styles.railTitle}>Highest on this layer</div>
-            <p className={styles.railSubhead}>
-              A within-layer shortlist, not a statewide ranking. Switch layers and the list changes
-              completely — that is the point.
-            </p>
-            <RankList
-              rows={rankRows}
-              activeGeoid={activeId}
-              onHover={(geoid) => dispatch({ type: 'hover', geoid })}
-              onSelect={(geoid) => dispatch({ type: 'pin', geoid })}
-            />
-          </div>
         </aside>
       </div>
 
