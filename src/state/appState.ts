@@ -17,6 +17,13 @@ export interface AppState {
   overlayGap: boolean;
   /** Transient. Never in the URL. */
   hovered: string | null;
+  /**
+   * How `hovered` was set. The tooltip anchors to the cursor for 'pointer' and
+   * to the county's own position on the map for 'external' (search, rank list) —
+   * otherwise a search result opens its panel next to the search box, nowhere
+   * near the county it highlighted.
+   */
+  hoverOrigin: 'pointer' | 'external';
 }
 
 export type Action =
@@ -28,7 +35,7 @@ export type Action =
   | { type: 'setInfra'; keys: InfraKey[] }
   | { type: 'toggleOverlayQ5' }
   | { type: 'toggleOverlayGap' }
-  | { type: 'hover'; geoid: string | null };
+  | { type: 'hover'; geoid: string | null; origin?: 'pointer' | 'external' };
 
 export const ALL_INFRA: InfraKey[] = ['food_bank', 'cms_navigator', 'chw', 'counselor'];
 
@@ -45,6 +52,7 @@ export function initialState(policyStart: string, latest: string): AppState {
     overlayQ5: false,
     overlayGap: false,
     hovered: null,
+    hoverOrigin: 'pointer',
   };
 }
 
@@ -72,8 +80,11 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, overlayQ5: !state.overlayQ5 };
     case 'toggleOverlayGap':
       return { ...state, overlayGap: !state.overlayGap };
-    case 'hover':
-      return state.hovered === action.geoid ? state : { ...state, hovered: action.geoid };
+    case 'hover': {
+      const origin = action.origin ?? 'pointer';
+      if (state.hovered === action.geoid && state.hoverOrigin === origin) return state;
+      return { ...state, hovered: action.geoid, hoverOrigin: origin };
+    }
     default:
       return state;
   }

@@ -15,9 +15,10 @@
  * model and the two controls in this header.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { layerByKey, scoreField, VISIBLE_LAYERS } from '../config/layers';
+import { INFRA_TYPES, layerByKey, scoreField, VISIBLE_LAYERS } from '../config/layers';
 import { fmtInt, fmtMonth, fmtPct, fmtPctDelta, fmtPercentile } from '../lib/format';
 import { DomainScale } from './DomainScale';
+import { InfraGlyph } from './InfraGlyph';
 import { Sparkline } from './Sparkline';
 import type { County, LayerKey } from '../types';
 import styles from './CountyTooltip.module.css';
@@ -59,6 +60,11 @@ export interface CountyTooltipProps {
   stats: LayerStats;
   months: string[];
   window: [string, string];
+  /**
+   * 'pointer' anchors the panel to the cursor. 'external' (search, rank list)
+   * anchors it beside the county's own shape on the hero map.
+   */
+  origin: 'pointer' | 'external';
 }
 
 export function CountyTooltip({
@@ -67,14 +73,37 @@ export function CountyTooltip({
   stats,
   months,
   window: win,
+  origin,
 }: CountyTooltipProps) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [countyAnchor, setCountyAnchor] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => setPos({ x: e.clientX, y: e.clientY });
     window.addEventListener('mousemove', onMove);
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
+
+  /**
+   * For an external selection, find the county's shape on the hero map and
+   * anchor to its right edge. Read from the DOM rather than re-deriving screen
+   * coordinates from the projection, because the map is scaled to fit its column
+   * and the rendered geometry is the only thing that knows the true scale.
+   */
+  const geoid = county?.geoid;
+  useEffect(() => {
+    if (origin !== 'external' || !geoid) {
+      setCountyAnchor(null);
+      return;
+    }
+    const el = document.querySelector(`[data-hero-map] [data-geoid="${geoid}"]`);
+    if (!el) {
+      setCountyAnchor(null);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    setCountyAnchor({ x: r.right, y: r.top + r.height / 2 });
+  }, [origin, geoid]);
 
   const i0 = months.indexOf(win[0]);
   const i1 = months.indexOf(win[1]);
@@ -86,8 +115,7 @@ export function CountyTooltip({
 
   if (!county) return null;
 
-  const def = layerByKey(layer);
-  const anchor = pos;
+  const anchor = countyAnchor ?? pos;
 
   // Flip at the viewport edge rather than letting the panel clip.
   const flipX = anchor.x + OFFSET + WIDTH > window.innerWidth;
@@ -103,9 +131,9 @@ export function CountyTooltip({
   const start = enrollment[0] ?? 0;
   const end = enrollment[enrollment.length - 1] ?? 0;
   const pctChange = start > 0 ? (end - start) / start : null;
-  const countField = def.countField;
-  const countValue = countField ? (county[countField] as number) : null;
-  const shareOfCaseload = countValue != null && start > 0 ? countValue / start : null;
+  // Share of the county's own caseload that is newly subject to the work
+  // requirement. Independent of the active layer.
+  const shareOfCaseload = start > 0 ? county.newly_subject_persons / start : null;
 
   return (
     <div
@@ -186,12 +214,11 @@ export function CountyTooltip({
 
       <div className={styles.stats}>
         <div>
-          <div className={styles.statLabel}>
-            {countField === 'noncit_snap_persons' ? 'Non-citizen' : 'Newly subject'}
-          </div>
-          <div className={`${styles.statValue} tabular`}>
-            {countValue == null ? '—' : fmtInt(countValue)}
-          </div>
+          {/* Always the D1 count basis. It is a fact about the county, not about
+              the layer being viewed — reading it off `layer` meant every column
+              here showed an em dash on D3, D4 and the composite. */}
+          <div className={styles.statLabel}>Newly subject</div>
+          <div className={`${styles.statValue} tabular`}>{fmtInt(county.newly_subject_persons)}</div>
         </div>
         <div>
           <div className={styles.statLabel}>Of caseload</div>
@@ -205,6 +232,28 @@ export function CountyTooltip({
             {pctChange == null ? '—' : fmtPctDelta(pctChange)}
           </div>
         </div>
+      </div>
+
+      <div className={styles.resourcesHead}>Listed assistance sites</div>
+      <div className={styles.resources}>
+        {INFRA_TYPES.map((t) => {
+          const count = county.infra[t.key];
+          const present = count > 0;
+          return (
+            <div
+              key={t.key}
+              className={`${styles.resource} ${present ? '' : styles.resourceAbsent}`}
+            >
+              <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true">
+                <g className={present ? undefined : styles.glyphAbsent}>
+                  <InfraGlyph type={t.key} x={6.5} y={6.5} size={3.6} legend />
+                </g>
+              </svg>
+              <span className={styles.resourceLabel}>{t.label}</span>
+              <span className={`${styles.resourceCount} tabular`}>{present ? count : '—'}</span>
+            </div>
+          );
+        })}
       </div>
 
       <div className={styles.sparkHead}>

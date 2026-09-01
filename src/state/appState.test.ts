@@ -99,3 +99,32 @@ describe('URL mirroring', () => {
     ).toEqual(defaults.window);
   });
 });
+
+describe('hoverOrigin', () => {
+  it('defaults to pointer', () => {
+    const s = reducer(defaults, { type: 'hover', geoid: '48201' });
+    expect(s.hoverOrigin).toBe('pointer');
+  });
+
+  it('records an external origin so the tooltip can anchor to the county', () => {
+    const s = reducer(defaults, { type: 'hover', geoid: '48201', origin: 'external' });
+    expect(s.hoverOrigin).toBe('external');
+  });
+
+  it('re-renders when only the origin changes', () => {
+    const external = reducer(defaults, { type: 'hover', geoid: '48201', origin: 'external' });
+    const pointer = reducer(external, { type: 'hover', geoid: '48201', origin: 'pointer' });
+    expect(pointer).not.toBe(external);
+    expect(pointer.hoverOrigin).toBe('pointer');
+  });
+
+  it('stays identical when nothing changes', () => {
+    const a = reducer(defaults, { type: 'hover', geoid: '48201' });
+    expect(reducer(a, { type: 'hover', geoid: '48201' })).toBe(a);
+  });
+
+  it('is not mirrored to the URL', () => {
+    const s = reducer(defaults, { type: 'hover', geoid: '48201', origin: 'external' });
+    expect(toSearchParams(s, defaults).toString()).toBe('');
+  });
+});

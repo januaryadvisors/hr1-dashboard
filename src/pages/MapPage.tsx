@@ -21,6 +21,8 @@ import { ScatterChart, type ScatterPoint } from '../components/ScatterChart';
 import { InfraGlyph } from '../components/InfraGlyph';
 import { downloadSelection } from '../lib/download';
 import { loadTimeline, type TimelineContent } from '../data/timeline';
+import { buildGeometry } from '../lib/mapGeometry';
+import { useCartogramRings, useTransition } from '../lib/useCartogram';
 import { fmtDelta, fmtMonth, fmtMonthBody, fmtPercentile } from '../lib/format';
 import type { InfraKey, MapStyle, Measure } from '../types';
 import chartStyles from '../components/charts.module.css';
@@ -37,8 +39,8 @@ const SUMMARY_VIEW_WIDTH = 460;
 const BRUSH_VIEW_WIDTH = 620;
 
 export default function MapPage() {
-  const { data, projection, cartogram, state, dispatch } = useApp();
-  const { counties, byGeoid, statewide, geometry } = data;
+  const { data, projection, baseRings, statePath, state, dispatch } = useApp();
+  const { counties, byGeoid, statewide } = data;
   const months = statewide.meta.months;
 
   /**
@@ -133,6 +135,41 @@ export default function MapPage() {
       }));
   }, [counties, state.layer]);
 
+  /**
+   * Cartogram weighting: people who left SNAP over the active window.
+   *
+   * Area on a cartogram encodes a quantity, so this is a count, not a
+   * percentile — it answers "where did the losses land" rather than restating
+   * where Texans live. Swap the expression to change the basis: `c.snap_enrolled[i1]`
+   * for current caseload, or the drop as a share of caseload for a rate reading.
+   */
+  const cartogramWeights = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const c of counties) {
+      const drop = c.snap_enrolled[i0] - c.snap_enrolled[i1];
+      // A county that grew contributes nothing to a map of losses, but still has
+      // to be drawn, so it floors at a sliver rather than zero.
+      out.set(c.geoid, Math.max(drop, 1));
+    }
+    return out;
+  }, [counties, i0, i1]);
+
+  const isCartogram = state.style === 'grid';
+  // Skipped entirely unless the cartogram is on screen — it is the one
+  // genuinely expensive computation on the page.
+  const cartRings = useCartogramRings(baseRings, cartogramWeights, isCartogram);
+  const t = useTransition(isCartogram);
+
+  /**
+   * One geometry for all six panels. Rebuilt per animation frame while the
+   * transition runs, which is affordable because the interpolation is a
+   * vertex-wise lerp over a simplified topology.
+   */
+  const geometry = useMemo(
+    () => buildGeometry(baseRings, cartRings, t, statePath),
+    [baseRings, cartRings, t, statePath],
+  );
+
   // Medians and within-layer ranks for the tooltip's domain rows.
   const layerStats = useMemo(() => buildLayerStats(counties), [counties]);
 
@@ -157,11 +194,9 @@ export default function MapPage() {
   const mapProps = {
     counties,
     byGeoid,
-    geometry: geometry.counties,
-    state: geometry.state,
-    projection,
+    geometry,
     grid: statewide.meta.grid,
-    cartogram,
+    viewBox: projection.viewBox,
     measure: state.measure,
   };
 
@@ -276,7 +311,7 @@ export default function MapPage() {
                 <CountySearch
                   counties={counties}
                   layer={state.layer}
-                  onSelect={(geoid) => dispatch({ type: 'hover', geoid })}
+                  onSelect={(geoid) => dispatch({ type: 'hover', geoid, origin: 'external' })}
                 />
               </div>
             </div>
@@ -303,7 +338,8 @@ export default function MapPage() {
                   {
                     value: 'grid',
                     label: 'Cartogram',
-                    title: 'Population-weighted — block area is proportional to population',
+                    title:
+                      'Area encodes people who left SNAP over the selected window, not population',
                   },
                   { value: 'density', label: 'Density', title: 'Centroid bubbles' },
                 ]}
@@ -359,19 +395,6 @@ export default function MapPage() {
                 {t.label}
               </span>
             ))}
-            <span className={styles.markKey}>
-              <svg width="12" height="12" aria-hidden="true">
-                <rect x={2} y={2} width={8} height={8} fill="none"
-                  stroke="var(--ja-burgundy)" strokeWidth={1.2} />
-              </svg>
-              Gap county
-            </span>
-            {state.style === 'grid' && (
-              <span className={styles.presenceNote}>
-                Marks are hidden on the cartogram — county shapes are distorted, so a mark would
-                sit over the wrong place.
-              </span>
-            )}
           </div>
         </section>
         </div>
@@ -496,7 +519,7 @@ export default function MapPage() {
             <RankList
               rows={rankRows}
               activeGeoid={activeId}
-              onHover={(geoid) => dispatch({ type: 'hover', geoid })}
+              onHover={(geoid) => dispatch({ type: 'hover', geoid, origin: 'external' })}
             />
           </div>
         </aside>
@@ -564,6 +587,7 @@ export default function MapPage() {
         stats={layerStats}
         months={months}
         window={state.window}
+        origin={state.hoverOrigin}
       />
     </div>
   );

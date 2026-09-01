@@ -8,19 +8,14 @@ import {
   useEffect,
   useMemo,
   useReducer,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { loadDataset, type Dataset } from '../data/load';
 import { createProjection, type Projection } from '../lib/projection';
-import {
-  dougenikCartogram,
-  ringsToPath,
-  type CartogramRegion,
-  type Ring,
-} from '../lib/cartogram';
+import type { Ring } from '../lib/cartogram';
+import { projectRings } from '../lib/mapGeometry';
 import {
   fromSearchParams,
   initialState,
@@ -33,8 +28,10 @@ import {
 interface AppContextValue {
   data: Dataset;
   projection: Projection;
-  /** Population cartogram paths by geoid. Computed once — see below. */
-  cartogram: Map<string, string>;
+  /** Projected outer rings per county — the base every render mode starts from. */
+  baseRings: Map<string, Ring[]>;
+  /** The true state outline, drawn in every style. */
+  statePath: string;
   state: AppState;
   defaults: AppState;
   dispatch: (action: Action) => void;
@@ -97,55 +94,31 @@ function Ready({ data, children }: { data: Dataset; children: ReactNode }) {
   const projection = useMemo(() => createProjection(data.geometry.state), [data.geometry.state]);
 
   /**
-   * The population cartogram depends only on geometry and population — never on
-   * the active layer or measure — so it is computed here, once, rather than
-   * inside <CountyMap>, which renders six times per page (hero + five
-   * thumbnails).
+   * Projected geometry, built once. Path strings and the cartogram are derived
+   * per render mode in MapPage — see src/lib/mapGeometry.ts.
    */
-  const cartogram = useMemo(() => {
-    const regions: CartogramRegion[] = [];
-    for (const f of data.geometry.counties) {
-      const g = f.geometry;
-      // Outer rings only. Treating a hole as another ring would inflate the
-      // measured area, and Texas counties have none at this simplification.
-      const polys: number[][][] =
-        g.type === 'Polygon'
-          ? [(g.coordinates as number[][][])[0]]
-          : g.type === 'MultiPolygon'
-            ? (g.coordinates as number[][][][]).map((poly) => poly[0])
-            : [];
+  const baseRings = useMemo(
+    () => projectRings(data.geometry.counties, projection),
+    [data.geometry.counties, projection],
+  );
 
-      const rings: Ring[] = [];
-      for (const ring of polys) {
-        const projected: Ring = [];
-        for (const coord of ring) {
-          const xy = projection.project([coord[0], coord[1]]);
-          if (xy) projected.push([xy[0], xy[1]]);
-        }
-        if (projected.length >= 3) rings.push(projected);
-      }
-      if (rings.length) regions.push({ id: f.properties.geoid, rings });
-    }
-
-    const values = new Map(data.counties.map((c) => [c.geoid, c.pop]));
-    const { regions: out } = dougenikCartogram(regions, values, { iterations: 4, blend: 0.75 });
-    return new Map(out.map((r) => [r.id, ringsToPath(r.rings)]));
-  }, [data.geometry.counties, data.counties, projection]);
+  const statePath = useMemo(
+    () => projection.path(data.geometry.state as never) ?? '',
+    [projection, data.geometry.state],
+  );
 
   // Mirror state → URL. replace, not push, so the back button steps through
-  // pages rather than through every hover-free control change.
-  const lastSearch = useRef(location.search);
+  // pages rather than through every control change.
   useEffect(() => {
     const next = toSearchParams(state, defaults).toString();
     const current = new URLSearchParams(location.search).toString();
     if (next === current) return;
-    lastSearch.current = `?${next}`;
     navigate({ pathname: location.pathname, search: next ? `?${next}` : '' }, { replace: true });
   }, [state, defaults, location.pathname, location.search, navigate]);
 
   const value = useMemo(
-    () => ({ data, projection, cartogram, state, defaults, dispatch }),
-    [data, projection, cartogram, state, defaults],
+    () => ({ data, projection, baseRings, statePath, state, defaults, dispatch }),
+    [data, projection, baseRings, statePath, state, defaults],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

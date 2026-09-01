@@ -455,6 +455,101 @@ H.R. 1-related. Worth deciding whether to filter to SNAP-relevant bulletins.
 
 ---
 
+## L. Client-directed changes, round 4 (2026-09-01)
+
+| # | Change | Overrides |
+|---|---|---|
+| L1 | Tooltip anchors to the county on an external selection | §6.5 |
+| L2 | Hover clears outside the Texas silhouette | §6.5 |
+| L3 | Marks now draw on the cartogram | — |
+| L4 | Cartogram weights the enrollment DROP, not population | §6.5 |
+| L5 | Animated transition between geo and cartogram | — |
+| L6 | Tooltip stats no longer layer-dependent | §6.5 |
+| L7 | All four resources always listed in the tooltip | §6.5 |
+| L8 | Gap-county swatch removed from the map key | §6.6 |
+
+### L1 / L2 — two hover bugs, both real
+
+**L1.** A search result opened its tooltip next to the search box, nowhere near
+the county it had highlighted. `hoverOrigin` ('pointer' | 'external') now travels
+with the hover action: pointer hovers anchor to the cursor, search and rank-list
+selections anchor beside the county's own shape on the hero map. The anchor is
+read from the rendered DOM rather than re-derived from the projection, because
+the map is scaled to fit its column and only the rendered geometry knows the
+true scale. Verified: the panel sits 299px from Harris and 829px from the search
+box.
+
+**L2.** The `<svg>` is a rectangle; Texas is not. Relying on the element's
+`mouseleave` meant the tooltip stayed up in the corners and in the gaps between
+counties, still showing whatever was hovered last. County shapes are the only
+things in the map that take pointer events, so a `mousemove` that lands on
+anything else now clears the readout.
+
+### L4. The cartogram no longer encodes population
+
+Area now encodes **people who left SNAP over the active window**. That makes the
+view answer the question the dashboard is about — where did the losses land —
+rather than restating where Texans live.
+
+Consequences worth knowing:
+
+- **It follows the brush.** Changing the window re-solves the cartogram, so it is
+  computed only when the cartogram is actually on screen. Measured on the real
+  geometry (254 regions, 7,840 vertices): **241ms** to solve, **4ms** per morph
+  frame. `src/lib/cartogram.perf.test.ts` guards both.
+- **A percentile is deliberately not offered as a basis.** Area encodes a
+  quantity; a percentile is not one. Current caseload or the drop as a share of
+  caseload are each a one-line change to `cartogramWeights` in MapPage.
+- Counties that *grew* contribute nothing to a map of losses, so their weight
+  floors at a sliver rather than zero — they still have to be drawn.
+
+**`WEIGHT_EXPONENT` is now 1.6, and that is not an honest area encoding.** Raising
+the exponent above 1 pushes large counties further and squeezes small ones harder
+than the data warrants. It was requested as emphasis ("a little more dramatic")
+and it does read more clearly, but area is no longer proportional to the drop.
+Set it to 1 in `src/lib/useCartogram.ts` for a truthful encoding. Iterations are
+9 and blend is 1 (full convergence), which the narrower spread of decline values
+tolerates where population did not.
+
+### L5. The morph
+
+Geo and cartogram animate into each other over 620ms, eased, honouring
+`prefers-reduced-motion`.
+
+This is cheap for a specific reason: the cartogram is a per-vertex *displacement*
+of the projected geometry, so both sides have identical ring and vertex counts in
+the same order. There is no correspondence problem, so a vertex-wise lerp is
+enough — no path-morphing library.
+
+One bug found and fixed while verifying: the outbound transition snapped, because
+the solved rings were dropped on the same render that started the animation,
+leaving nothing to interpolate towards. They are now retained until the
+transition finishes. Verified: 7 distinct frames across a sweep, intermediate
+frames in both directions, and the geometry returns *exactly* to the geographic
+paths.
+
+Path building also moved out of `<CountyMap>` into `src/lib/mapGeometry.ts` —
+it was rebuilding all 254 path strings six times per render (hero plus five
+thumbnails). Marks read `geometry.centroids`, recomputed from the shapes actually
+on screen, which is what lets them sit correctly on a distorted map (L3).
+
+### L6. Why the stats row showed em dashes
+
+"Newly subject" and "Of caseload" were derived from the *active layer's* count
+basis. D3, D4 and the composite have none (C-03), so both columns rendered "—"
+on three of five layers. They now always read `newly_subject_persons` and its
+share of the county's caseload — facts about the county, not about the layer
+being viewed.
+
+### L7. Absent resources are stated, not omitted
+
+All four types always appear. Present ones show their count in colour; absent
+ones show a dash with the glyph greyed. An omitted row would read as "not
+measured" rather than "none listed" — which is the same distinction §6.6's
+removed footer was protecting (§J1).
+
+---
+
 ## H. Not built yet
 
 Deliberate, following §13's build order. Nothing here is blocked by anything above.

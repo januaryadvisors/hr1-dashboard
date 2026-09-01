@@ -6,9 +6,10 @@
  * chrome." The three render styles all read the same data (§6.5):
  *
  *   geo      true county polygons, Texas Albers, ramp fill at percentile
- *   grid     contiguous population cartogram — real county shapes distorted so
- *            each county's AREA is proportional to its population, adjacency
- *            preserved (Dougenik rubber-sheet; see src/lib/cartogram.ts)
+ *   grid     contiguous area cartogram — the same county shapes, distorted so
+ *            area encodes a quantity, adjacency preserved. The distortion is
+ *            baked into `geometry` upstream (src/lib/useCartogram.ts), which is
+ *            what lets geo and cartogram animate into one another.
  *   density  centroid bubbles, sqrt-scaled, over a light county outline
  *
  * NOTE: §6.5 originally specified Grid as an EQUAL-size lattice, arguing that
@@ -22,9 +23,8 @@
  * scale").
  */
 import { memo, useMemo, useRef } from 'react';
-import type { Feature, Geometry } from 'geojson';
 import type { County, InfraKey, LayerKey, MapStyle, Measure } from '../types';
-import type { Projection } from '../lib/projection';
+import type { MapGeometry } from '../lib/mapGeometry';
 import { colorFor } from '../lib/scales';
 import { radiusScale, relax, type Bubble } from '../lib/density';
 import { layerByKey, scoreField } from '../config/layers';
@@ -47,12 +47,11 @@ const SIZE_SPEC: Record<
 export interface CountyMapProps {
   counties: County[];
   byGeoid: Map<string, County>;
-  geometry: Feature<Geometry, { geoid: string; name: string }>[];
-  state: Feature | { type: string };
-  projection: Projection;
+  /** Render-ready shapes, shared by every panel. See src/lib/mapGeometry.ts. */
+  geometry: MapGeometry;
   grid: { cols: number; rows: number };
-  /** Cartogram path per geoid, computed once in AppContext. */
-  cartogram: Map<string, string>;
+  /** Radius basis for the density style, in projected units. */
+  viewBox: string;
 
   layer: LayerKey;
   style: MapStyle;
@@ -90,10 +89,8 @@ function CountyMapInner(props: CountyMapProps) {
     counties,
     byGeoid,
     geometry,
-    state,
-    projection,
     grid,
-    cartogram,
+    viewBox,
     layer,
     style,
     measure,
@@ -109,20 +106,12 @@ function CountyMapInner(props: CountyMapProps) {
   const spec = SIZE_SPEC[size];
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // The cartogram places squares at true projected centroids, so unlike the old
-  // equal-size lattice it shares the projection's viewBox and registers with the
-  // geographic views.
-  const viewBox = projection.viewBox;
-
   const proportional = measure === 'count' && style === 'geo';
 
   // ------------------------------------------------------------- county paths
   const paths = useMemo(
-    () =>
-      geometry
-        .map((f) => ({ geoid: f.properties.geoid, d: projection.path(f as never) }))
-        .filter((p): p is { geoid: string; d: string } => Boolean(p.d)),
-    [geometry, projection],
+    () => [...geometry.paths].map(([geoid, d]) => ({ geoid, d })),
+    [geometry.paths],
   );
 
   // --------------------------------------------------------------- bubbles
@@ -138,14 +127,14 @@ function CountyMapInner(props: CountyMapProps) {
 
     const placed: Bubble[] = [];
     for (const c of counties) {
-      const xy = projection.project(c.centroid);
+      const xy = geometry.centroids.get(c.geoid);
       if (!xy) continue;
       const r = scale(valueOf(c));
       if (r <= 0) continue;
       placed.push({ geoid: c.geoid, x: xy[0], y: xy[1], r });
     }
     return relax(placed);
-  }, [counties, layer, measure, projection, proportional, spec.maxBubble, style]);
+  }, [counties, layer, measure, geometry.centroids, proportional, spec.maxBubble, style]);
 
   // ------------------------------------------------------------- interaction
   const handleEnter = (geoid: string) => {
@@ -153,6 +142,19 @@ function CountyMapInner(props: CountyMapProps) {
   };
   const handleLeave = () => {
     if (interactive) onHover?.(null);
+  };
+
+  /**
+   * The <svg> is a rectangle; Texas is not. Relying on the element's mouseleave
+   * meant the tooltip stayed up in the corners and in the gaps between counties,
+   * still showing whatever was hovered last. County shapes are the only things
+   * in here that take pointer events, so if the target is not one of them the
+   * pointer is over empty space and the readout should clear.
+   */
+  const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!interactive) return;
+    const el = e.target as Element | null;
+    if (!el || !el.closest('[data-geoid]')) onHover?.(null);
   };
   /**
    * §6.5: "arrow keys walk counties in reading order on the grid lattice." The
@@ -221,17 +223,6 @@ function CountyMapInner(props: CountyMapProps) {
     return `${county.name}: ${v == null ? 'no data' : `p${Math.round(v * 100)}`}`;
   };
 
-  /** Whichever geometry the overlays should trace in the active style. */
-  const outlineSource = useMemo(
-    () =>
-      style === 'grid'
-        ? counties
-            .map((c) => ({ geoid: c.geoid, d: cartogram.get(c.geoid) }))
-            .filter((p): p is { geoid: string; d: string } => Boolean(p.d))
-        : paths,
-    [style, counties, cartogram, paths],
-  );
-
   const q5Set = useMemo(() => {
     if (!overlays.q5) return new Set<string>();
     // §6.8 / M-08: outline every county in Q5 on the layer showing.
@@ -253,14 +244,18 @@ function CountyMapInner(props: CountyMapProps) {
       viewBox={viewBox}
       role="img"
       aria-label={title}
+      data-hero-map={size === 'hero' ? '' : undefined}
       tabIndex={interactive ? 0 : -1}
       onKeyDown={handleKeyDown}
+      onMouseMove={handleMove}
       onMouseLeave={handleLeave}
     >
       <title>{title}</title>
 
-      {/* ------------------------------------------------------------- GEO */}
-      {style === 'geo' && (
+      {/* --------------------------------------- GEO and CARTOGRAM shapes --
+          Both draw the same path set; the cartogram is baked into the geometry
+          upstream, which is what lets the two animate into each other. */}
+      {style !== 'density' && (
         <g>
           {paths.map(({ geoid, d }) => {
             const county = byGeoid.get(geoid);
@@ -268,6 +263,7 @@ function CountyMapInner(props: CountyMapProps) {
             return (
               <path
                 key={geoid}
+                data-geoid={geoid}
                 d={d}
                 className={classFor(county)}
                 // In count measure the base goes neutral and magnitude moves to
@@ -282,30 +278,10 @@ function CountyMapInner(props: CountyMapProps) {
         </g>
       )}
 
-      {/* -------------------------------------- GRID (population cartogram) */}
+      {/* Faint true border behind a distorted map, so the reader can see how
+          far the cartogram has stretched things. */}
       {style === 'grid' && (
-        <g>
-          {/* Faint true outline behind the distorted shapes, so the reader can
-              still see where the cartogram has stretched the map. */}
-          {paths.map(({ geoid, d }) => (
-            <path key={`base-${geoid}`} d={d} fill="none" stroke="#e8e5e5" strokeWidth={0.3} />
-          ))}
-          {counties.map((county) => {
-            const d = cartogram.get(county.geoid);
-            if (!d) return null;
-            return (
-              <path
-                key={county.geoid}
-                d={d}
-                className={classFor(county)}
-                fill={colorFor(fillValue(county, layer), layer)}
-                strokeWidth={spec.county}
-                onMouseEnter={() => handleEnter(county.geoid)}
-                aria-label={label(county)}
-              />
-            );
-          })}
-        </g>
+        <path d={geometry.statePath} fill="none" stroke="#ded9d9" strokeWidth={spec.state * 0.8} />
       )}
 
       {/* --------------------------------------------------------- DENSITY */}
@@ -318,11 +294,7 @@ function CountyMapInner(props: CountyMapProps) {
       )}
 
       {/* State hairline sits above the fills, below the marks. */}
-      <path
-        d={projection.path(state as never) ?? undefined}
-        className={styles.stateOutline}
-        strokeWidth={spec.state}
-      />
+      <path d={geometry.statePath} className={styles.stateOutline} strokeWidth={spec.state} />
 
       {/* Bubbles for density style and for proportional-symbol count maps. */}
       {(style === 'density' || proportional) && (
@@ -333,6 +305,7 @@ function CountyMapInner(props: CountyMapProps) {
             return (
               <circle
                 key={b.geoid}
+                data-geoid={b.geoid}
                 cx={b.x}
                 cy={b.y}
                 r={b.r}
@@ -353,7 +326,7 @@ function CountyMapInner(props: CountyMapProps) {
       {/* Overlays trace whichever geometry is on screen. */}
       {overlays.q5 && (
         <g>
-          {outlineSource
+          {paths
             .filter(({ geoid }) => q5Set.has(geoid))
             .map(({ geoid, d }) => (
               <path key={geoid} d={d} className={styles.overlayQ5} />
@@ -362,7 +335,7 @@ function CountyMapInner(props: CountyMapProps) {
       )}
       {overlays.gap && (
         <g>
-          {outlineSource
+          {paths
             .filter(({ geoid }) => byGeoid.get(geoid)?.is_gap)
             .map(({ geoid, d }) => (
               <path key={geoid} d={d} className={styles.overlayGap} />
@@ -371,13 +344,13 @@ function CountyMapInner(props: CountyMapProps) {
       )}
 
       {/* Assistance-infrastructure marks (§6.6). Presence, not capacity. */}
-      {/* Marks are suppressed on the cartogram: relaxation moves a block off its
-          true centroid, so a centroid-anchored glyph would sit over the wrong
-          block. The panel says so when this style is active. */}
-      {spec.marks && marks.length > 0 && style !== 'grid' && (
+      {/* Marks draw in every style. They follow geometry.centroids, which is
+          recomputed from the shapes actually on screen, so on the cartogram they
+          move with the county rather than pointing at where it used to be. */}
+      {spec.marks && marks.length > 0 && (
         <g className={styles.mark}>
           {counties.flatMap((county) => {
-            const xy = projection.project(county.centroid);
+            const xy = geometry.centroids.get(county.geoid);
             if (!xy) return [];
             return INFRA_GLYPH_ORDER.filter(
               (key) => marks.includes(key) && county.infra[key] > 0,

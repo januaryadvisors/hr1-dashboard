@@ -198,6 +198,33 @@ export function dougenikCartogram(
   return { regions: current, error, iterations };
 }
 
+/** Area-weighted centroid of a ring set, exported for mark placement. */
+export function ringsCentroid(rings: Ring[]): [number, number] {
+  return centroidOf(rings);
+}
+
+/**
+ * Vertex-wise blend between two ring sets, for animating between the true map
+ * and the cartogram.
+ *
+ * This works — and is cheap — only because the cartogram is a per-vertex
+ * DISPLACEMENT of the projected geometry: both sides have identical ring counts
+ * and vertex counts, in the same order. There is no correspondence problem to
+ * solve, so no path-morphing library is needed.
+ */
+export function interpolateRings(from: Ring[], to: Ring[], t: number): Ring[] {
+  if (t <= 0) return from;
+  if (t >= 1) return to;
+  return from.map((ring, gi) => {
+    const target = to[gi];
+    if (!target || target.length !== ring.length) return ring;
+    return ring.map(([x, y], vi) => {
+      const [tx, ty] = target[vi];
+      return [x + (tx - x) * t, y + (ty - y) * t] as [number, number];
+    });
+  });
+}
+
 /** SVG path string for a ring set. */
 export function ringsToPath(rings: Ring[]): string {
   return rings
