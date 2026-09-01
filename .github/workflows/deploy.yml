@@ -32,6 +32,16 @@ jobs:
       - run: npm test
       # `build` runs tsc --noEmit first, so a type error fails the deploy too.
       - run: npm run build
+
+      # Pages serves static files only, so deep links like /map depend entirely
+      # on this fallback existing. Without it the site 404s on every route but
+      # the root — which is easy to miss, because `vite preview` fakes it.
+      - name: Verify SPA fallback
+        run: |
+          test -f dist/404.html || { echo "dist/404.html missing — deep links will 404"; exit 1; }
+          cmp -s dist/index.html dist/404.html || { echo "dist/404.html differs from index.html"; exit 1; }
+          echo "SPA fallback present and identical to index.html"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

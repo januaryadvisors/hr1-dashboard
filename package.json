@@ -15,7 +15,8 @@
     "build:geometry": "node scripts/build-geometry.mjs",
     "build:fixtures": "node scripts/build-fixtures.mjs",
     "build:data": "npm run build:geometry && npm run build:fixtures",
-    "fetch:bulletins": "node scripts/fetch-texas-works.mjs"
+    "fetch:bulletins": "node scripts/fetch-texas-works.mjs",
+    "serve:pages": "node scripts/serve-as-pages.mjs"
   },
   "dependencies": {
     "d3-array": "^3.2.4",

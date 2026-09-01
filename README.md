@@ -121,9 +121,31 @@ Push to `main`; `.github/workflows/deploy.yml` runs tests, typechecks, builds an
 publishes. The deploy gates on `npm test`.
 
 One-time setup:
-1. Settings → Pages → Source: **GitHub Actions**
-2. `vite.config.ts` `base` must match the repo path (`/hr1-dashboard/`). It is
+1. Settings → Pages → Source: **GitHub Actions** — do this *before* the first
+   push, or the deploy job fails with "Get Pages site failed".
+2. Settings → Actions → General → Workflow permissions → **Read and write**,
+   which the bulletins refresh job needs in order to commit.
+3. `vite.config.ts` `base` must match the repo path (`/hr1-dashboard/`). It is
    commented as the one place to change; a custom domain means `base: '/'`.
+
+### Deep links
+
+Pages serves static files only, so `/hr1-dashboard/map` has no file to serve and
+would 404. The `githubPagesSpaFallback` plugin in `vite.config.ts` copies
+`index.html` to `dist/404.html` after each build; Pages serves that for any
+unmatched path *without changing the URL*, so the app boots and renders the right
+route. The deploy workflow fails if the file is missing.
+
+**Do not test this with `vite preview`** — it has its own SPA fallback, so every
+deep route works there whether or not the deploy would serve it. Use:
+
+```bash
+npm run build && npm run serve:pages   # replicates Pages exactly
+```
+
+Deep links returning a 404 *status* while rendering correctly is expected and
+harmless here (the site is `noindex`). A true 200 would need the
+redirect-through-query-string trick, which makes the URL visibly flicker.
 
 ## Confidentiality
 
