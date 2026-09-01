@@ -39,26 +39,57 @@
   color: var(--text-muted);
 }
 
+.feedWrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .feedHead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+}
+
+.sourceLink {
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sourceLink:hover {
+  color: var(--ja-navy);
+  text-decoration: underline;
+}
+
+.empty {
+  font-size: 0.6875rem;
+  color: var(--text-faint);
 }
 
 /* Scrolls inside its own box so the feed can be long without growing the page. */
 .feed {
   display: flex;
   flex-direction: column;
-  max-height: 260px;
+  max-height: 320px;
   overflow-y: auto;
-  padding-right: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-2) 0 0;
+  list-style: none;
 }
 
 .item {
   display: grid;
-  grid-template-columns: 4.6rem 1fr;
+  grid-template-columns: 5.2rem 1fr;
   gap: var(--space-3);
-  padding: var(--space-3) 0;
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -70,9 +101,10 @@
   font-family: var(--font-display);
   font-size: 0.5625rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--text-faint);
   padding-top: 2px;
+  white-space: nowrap;
 }
 
 /* The connector that makes the list read as a timeline rather than a table. */
@@ -91,12 +123,52 @@
   border-radius: 50%;
 }
 
+.itemLink {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.itemLink:hover .itemTitle,
+.itemLink:focus-visible .itemTitle {
+  color: var(--ja-navy);
+  text-decoration: underline;
+}
+
+.itemLink:hover .arrow {
+  opacity: 1;
+}
+
 .itemTitle {
+  display: block;
   font-size: 0.75rem;
   font-weight: 600;
 }
 
+.arrow {
+  margin-left: 3px;
+  font-size: 0.625rem;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.tag {
+  margin-left: var(--space-2);
+  padding: 0 4px;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-warm);
+  border-radius: 2px;
+  vertical-align: 1px;
+}
+
 .itemBody {
+  display: block;
   font-size: 0.6875rem;
   line-height: 1.4;
   color: var(--text-muted);

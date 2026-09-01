@@ -17,8 +17,6 @@ export interface AppState {
   overlayGap: boolean;
   /** Transient. Never in the URL. */
   hovered: string | null;
-  /** Survives cursor movement. In the URL. */
-  pinned: string | null;
 }
 
 export type Action =
@@ -30,9 +28,7 @@ export type Action =
   | { type: 'setInfra'; keys: InfraKey[] }
   | { type: 'toggleOverlayQ5' }
   | { type: 'toggleOverlayGap' }
-  | { type: 'hover'; geoid: string | null }
-  | { type: 'pin'; geoid: string | null }
-  | { type: 'unpin' };
+  | { type: 'hover'; geoid: string | null };
 
 export const ALL_INFRA: InfraKey[] = ['food_bank', 'cms_navigator', 'chw', 'counselor'];
 
@@ -49,7 +45,6 @@ export function initialState(policyStart: string, latest: string): AppState {
     overlayQ5: false,
     overlayGap: false,
     hovered: null,
-    pinned: null,
   };
 }
 
@@ -79,12 +74,6 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, overlayGap: !state.overlayGap };
     case 'hover':
       return state.hovered === action.geoid ? state : { ...state, hovered: action.geoid };
-    case 'pin':
-      // Clicking the pinned county again unpins it.
-      return { ...state, pinned: state.pinned === action.geoid ? null : action.geoid };
-    case 'unpin':
-      // Explicit, unlike 'pin' which toggles — a close button must always close.
-      return state.pinned === null ? state : { ...state, pinned: null, hovered: null };
     default:
       return state;
   }
@@ -93,8 +82,12 @@ export function reducer(state: AppState, action: Action): AppState {
 /**
  * §6.5: "hovered ?? pinned is the county every readout reads from. One selector,
  * used everywhere."
+ *
+ * Click-to-pin was removed on 2026-09-01 to be reworked, so for now this is just
+ * `hovered`. The selector stays — every readout goes through it, so restoring a
+ * persistent selection means changing this one line, not hunting call sites.
  */
-export const activeGeoid = (state: AppState): string | null => state.hovered ?? state.pinned;
+export const activeGeoid = (state: AppState): string | null => state.hovered;
 
 // ---------------------------------------------------------------- URL mirroring
 
@@ -123,7 +116,6 @@ export function toSearchParams(state: AppState, defaults: AppState): URLSearchPa
   }
   if (state.overlayQ5) p.set('q5', '1');
   if (state.overlayGap) p.set('gap', '1');
-  if (state.pinned) p.set('county', state.pinned);
   return p;
 }
 
@@ -166,9 +158,6 @@ export function fromSearchParams(
 
   state.overlayQ5 = params.get('q5') === '1';
   state.overlayGap = params.get('gap') === '1';
-
-  const county = params.get('county');
-  if (county && /^\d{5}$/.test(county)) state.pinned = county;
 
   return state;
 }

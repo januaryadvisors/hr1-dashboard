@@ -20,10 +20,9 @@ export interface RankListProps {
   max?: number;
   activeGeoid?: string | null;
   onHover?: (geoid: string | null) => void;
-  onSelect?: (geoid: string) => void;
 }
 
-export function RankList({ rows, max = 6, activeGeoid, onHover, onSelect }: RankListProps) {
+export function RankList({ rows, max = 6, activeGeoid, onHover }: RankListProps) {
   return (
     <div className={styles.root} onMouseLeave={() => onHover?.(null)}>
       {rows.slice(0, Math.min(max, 6)).map((row, i) => (
@@ -33,7 +32,6 @@ export function RankList({ rows, max = 6, activeGeoid, onHover, onSelect }: Rank
           className={`${styles.row} ${row.geoid === activeGeoid ? styles.active : ''}`}
           onMouseEnter={() => onHover?.(row.geoid)}
           onFocus={() => onHover?.(row.geoid)}
-          onClick={() => onSelect?.(row.geoid)}
         >
           <span className={styles.rank}>{i + 1}</span>
           <span className={styles.name}>{row.name}</span>

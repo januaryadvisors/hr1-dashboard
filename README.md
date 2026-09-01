@@ -52,7 +52,8 @@ The front end reads four static files from `public/data/`. Their shapes are the
 | `counties.json` | **Fixture.** 254 records matching §3.1 |
 | `statewide.json` | **Fixture.** Statewide series matching §3.3 |
 | `districts.json` | Absent by design — the Districts route renders an empty state (§3.4) |
-| `timeline.json` | Hero-column feed copy. Edit freely; no code change needed |
+| `timeline.json` | Hero-column topline figures. Editorial — edit freely |
+| `bulletins.json` | **Generated.** Texas Works bulletins + quarterly revisions |
 
 `export_tool_data.R` is unwritten (§12), so per §13 step 1 the build runs against
 fixtures:
@@ -61,7 +62,19 @@ fixtures:
 npm run build:data       # geometry + fixtures
 npm run build:geometry   # needs the source geojson, see below
 npm run build:fixtures
+npm run fetch:bulletins  # re-scrape Texas Works (also runs weekly in CI)
 ```
+
+### The Texas Works feed
+
+`scripts/fetch-texas-works.mjs` scrapes Texas HHS policy bulletins and quarterly
+revisions into `public/data/bulletins.json`, and
+`.github/workflows/refresh-bulletins.yml` runs it weekly and commits on a diff.
+
+It is a **build step, not a runtime fetch**: `fhb.hhs.texas.gov` sends no CORS
+headers, and a static page should not depend on a government host being up. The
+script refuses to write if it parses zero entries, so a markup change upstream
+fails the Action loudly rather than silently blanking the panel.
 
 **The fixtures are synthetic.** Every record carries `fixture: true`, and the
 JSON download repeats it in `meta.notes`, so exported files stay

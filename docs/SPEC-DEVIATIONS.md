@@ -362,6 +362,99 @@ fixed rather than fitted, so the slope means the same thing across exports.
 
 ---
 
+## K. Client-directed changes, round 3 (2026-09-01)
+
+| # | Change | Overrides |
+|---|---|---|
+| K1 | Click-to-pin removed | §4, §6.5 |
+| K2 | County search replaces the components/dimming line | §6.5 |
+| K3 | Map height 500 → 660px | — |
+| K4 | Infra glyphs now coloured and filled | §6.6 |
+| K5 | Feed automated from Texas Works | §6.3 |
+
+### K1. Pinning is out, and it took some things with it
+
+Removed at request, to be reworked. What went with it:
+
+- `pinned` is gone from the state model and from the URL, so **`?county=` no
+  longer restores a selection** — links that encoded one are inert.
+- The tooltip's **Expand** panel is gone. It was the only place MOEs and per-type
+  site counts were shown, which §10 requires to be visible somewhere; the CSV/JSON
+  download still carries both.
+- `Enter` on the keyboard-navigable map no longer does anything.
+
+`activeGeoid()` in `src/state/appState.ts` is now just `hovered` — but the
+selector stays, and every readout still goes through it. Restoring a persistent
+selection is a change to that one function plus a click handler, not a hunt
+through call sites.
+
+### K2. Search selects by setting `hovered`
+
+Because there is no persistent selection any more, choosing a search result sets
+the hovered county — the same path a mouse hover takes, so there is one highlight
+mechanism rather than two. Verified: selecting "Willacy" highlights it on the
+hero map and all five thumbnails, opens its tooltip, and labels it in the gap
+scatter.
+
+The consequence: **the selection is transient.** Move the pointer over the map
+and it is replaced. That is the natural thing to fix when click-to-select returns.
+
+The dimming caveat that shared that line ("Counties under 10,000 residents are
+dimmed") moved to the panel footer rather than being dropped — it explains a
+visible rendering difference.
+
+### K4. Glyphs
+
+§6.6 asked for four glyphs "deliberately distinguishable without colour". They
+still are — square, triangle, circle, diamond — and each now carries a hue:
+orange (food bank), green (navigator), magenta (CHW/promotor), violet
+(application counselor). All filled, area-matched so none reads as heavier, each
+with a white halo so it survives the palest and darkest band of any ramp.
+
+**Open problem:** with all four types on by default (M-07), most counties carry
+two to four marks and the map reads as confetti — the colour made them legible
+individually and illegible collectively. Fixes, cheapest first: default the
+infrastructure filter to empty so marks are opt-in (one line in
+`initialState()`); or show one type at a time; or gate marks behind a size
+threshold. Not chosen unilaterally because M-07's specified default is all-on.
+
+### K5. The feed is scraped, on a schedule, at build time
+
+The right column's dated feed is now Texas HHS **Texas Works** content:
+
+- policy bulletins — `twh-policy-bulletins`, parsed from its date/number/title table
+- quarterly revisions — `twh-revisions`, parsed from its link list
+
+Each entry links to the source PDF or page, verified resolving (`application/pdf`
+for bulletins, HTML for revisions).
+
+**It is a build step, not a runtime fetch**, for the same reason the Google Sheet
+was not wired live: `fhb.hhs.texas.gov` sends no CORS headers, and a static page
+should not depend on a government host being up for every reader.
+`.github/workflows/refresh-bulletins.yml` runs weekly, and commits only on a
+diff — which then triggers the Pages deploy.
+
+Two safeguards worth knowing:
+
+- The script **refuses to write** if it parses zero entries and exits non-zero.
+  A markup change on the HHS side leaves the last good feed on the page instead
+  of blanking the panel; the Action fails loudly instead.
+- No generated-at timestamp in the output, so an unchanged scrape produces no
+  diff and no pointless deploy.
+
+Content stays split by ownership: `timeline.json` holds the three hand-written
+topline figures and is never touched by the job; `bulletins.json` is generated
+and never hand-edited. The hand-written SNAP milestones that used to fill this
+feed (November drop, H.R. 1 signed) are in git history if they should come back
+alongside the bulletins.
+
+**One editorial question:** these bulletins cover Texas Works broadly — CHIP
+renewals, death matches, income verification — not only SNAP or H.R. 1. Useful as
+a policy-activity ticker, but a reader may take everything in that column as
+H.R. 1-related. Worth deciding whether to filter to SNAP-relevant bulletins.
+
+---
+
 ## H. Not built yet
 
 Deliberate, following §13's build order. Nothing here is blocked by anything above.

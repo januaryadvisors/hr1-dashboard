@@ -7,12 +7,15 @@
  * without switching layers, which is the whole framework argument (§8 tab 3).
  * The active layer's row is highlighted.
  *
- * Hovering follows the cursor. Clicking a county pins it: the panel freezes,
- * becomes interactive, and gains Expand and close controls. Expanded shows the
- * underlying numbers rather than just the index positions.
+ * Follows the cursor on hover.
+ *
+ * Click-to-pin (which froze the panel and added Expand / close controls) was
+ * removed on 2026-09-01 to be reworked. The expanded detail block it revealed
+ * lives on in git history — restoring it means reinstating `pinned` in the state
+ * model and the two controls in this header.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { INFRA_TYPES, layerByKey, scoreField, VISIBLE_LAYERS } from '../config/layers';
+import { useEffect, useMemo, useState } from 'react';
+import { layerByKey, scoreField, VISIBLE_LAYERS } from '../config/layers';
 import { fmtInt, fmtMonth, fmtPct, fmtPctDelta, fmtPercentile } from '../lib/format';
 import { DomainScale } from './DomainScale';
 import { Sparkline } from './Sparkline';
@@ -53,11 +56,6 @@ export function buildLayerStats(counties: County[]): LayerStats {
 export interface CountyTooltipProps {
   county: County | null;
   layer: LayerKey;
-  /** True when showing the pinned county rather than a hovered one. */
-  isPinned: boolean;
-  /** The pinned geoid, used to freeze the panel at the moment of the click. */
-  pinnedGeoid: string | null;
-  onClose: () => void;
   stats: LayerStats;
   months: string[];
   window: [string, string];
@@ -66,50 +64,17 @@ export interface CountyTooltipProps {
 export function CountyTooltip({
   county,
   layer,
-  isPinned,
-  pinnedGeoid,
-  onClose,
   stats,
   months,
   window: win,
 }: CountyTooltipProps) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [expanded, setExpanded] = useState(false);
-  // Mirrored in a ref so the pin effect reads the live cursor position rather
-  // than whatever it was on the render that happened to schedule the effect.
-  const posRef = useRef({ x: 0, y: 0 });
-  // Where the panel sat when it was pinned, so it stops chasing the cursor.
-  const frozen = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      posRef.current = { x: e.clientX, y: e.clientY };
-      setPos(posRef.current);
-    };
+    const onMove = (e: MouseEvent) => setPos({ x: e.clientX, y: e.clientY });
     window.addEventListener('mousemove', onMove);
     return () => window.removeEventListener('mousemove', onMove);
   }, []);
-
-  // Freeze on the CLICK, not on the cursor later leaving the map — otherwise the
-  // panel jumps to wherever the pointer happened to exit.
-  useEffect(() => {
-    if (pinnedGeoid) {
-      frozen.current = posRef.current;
-    } else {
-      frozen.current = null;
-      setExpanded(false);
-    }
-  }, [pinnedGeoid]);
-
-  // Escape closes a pinned panel.
-  useEffect(() => {
-    if (!isPinned) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isPinned, onClose]);
 
   const i0 = months.indexOf(win[0]);
   const i1 = months.indexOf(win[1]);
@@ -122,12 +87,12 @@ export function CountyTooltip({
   if (!county) return null;
 
   const def = layerByKey(layer);
-  const anchor = isPinned && frozen.current ? frozen.current : pos;
+  const anchor = pos;
 
   // Flip at the viewport edge rather than letting the panel clip.
   const flipX = anchor.x + OFFSET + WIDTH > window.innerWidth;
   const left = Math.max(8, flipX ? anchor.x - OFFSET - WIDTH : anchor.x + OFFSET);
-  const estHeight = expanded ? 640 : 470;
+  const estHeight = 430;
   const top = Math.max(
     8,
     anchor.y + OFFSET + estHeight > window.innerHeight
@@ -144,9 +109,9 @@ export function CountyTooltip({
 
   return (
     <div
-      className={`${styles.root} ${isPinned ? styles.pinned : ''}`}
+      className={styles.root}
       style={{ left, top }}
-      role={isPinned ? 'dialog' : 'tooltip'}
+      role="tooltip"
       aria-label={`${county.name} County details`}
     >
       <div className={styles.head}>
@@ -156,26 +121,6 @@ export function CountyTooltip({
             FIPS {county.geoid} · {fmtInt(county.pop)} residents
           </span>
         </span>
-        {isPinned && (
-          <span className={styles.headActions}>
-            <button
-              type="button"
-              className={styles.headBtn}
-              aria-expanded={expanded}
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded ? 'Collapse' : 'Expand'}
-            </button>
-            <button
-              type="button"
-              className={`${styles.headBtn} ${styles.closeBtn}`}
-              aria-label="Close"
-              onClick={onClose}
-            >
-              ✕
-            </button>
-          </span>
-        )}
       </div>
 
       {/* Focused layer in full: every band coloured, caret, median tick. */}
@@ -271,70 +216,7 @@ export function CountyTooltip({
         <span>{fmtInt(end)}</span>
       </div>
 
-      {expanded && (
-        <div className={styles.expanded}>
-          <div className={styles.detailGrid}>
-            <span className={styles.detailHead}>Domain</span>
-            <span className={styles.detailHead}>Components</span>
-            <span className={styles.detailHead}>MOE</span>
-            {VISIBLE_LAYERS.filter((l) => l.key !== 'composite').map((l) => {
-              const moe = county[`${l.key}_moe` as keyof County];
-              return (
-                <div key={l.key} style={{ display: 'contents' }}>
-                  <span className={styles.detailLabel}>{l.label}</span>
-                  <span className="tabular">{l.components ?? '—'}</span>
-                  <span className="tabular">
-                    {typeof moe === 'number' ? `±${moe.toFixed(3)}` : '—'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
 
-          <div className={styles.detailGrid} style={{ marginTop: 'var(--space-3)' }}>
-            <span className={styles.detailHead}>Listed sites</span>
-            <span className={styles.detailHead} />
-            <span className={styles.detailHead}>Count</span>
-            {INFRA_TYPES.map((t) => (
-              <div key={t.key} style={{ display: 'contents' }}>
-                <span className={styles.detailLabel}>{t.label}</span>
-                <span />
-                <span className="tabular">{county.infra[t.key] || '—'}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className={styles.detailGrid} style={{ marginTop: 'var(--space-3)' }}>
-            <span className={styles.detailLabel}>Domains at Q5</span>
-            <span />
-            <span className="tabular">{county.cumulative_impact} of 4</span>
-            <span className={styles.detailLabel}>Vulnerability index</span>
-            <span />
-            <span className="tabular">{county.vulnerability_score.toFixed(2)} of 4</span>
-          </div>
-
-          {countField === 'newly_subject_persons' && (
-            // §10: flag synthetic estimates wherever they appear.
-            <div className={styles.flags}>
-              Newly-subject population is a PUMS-modelled estimate, not a lookup.
-            </div>
-          )}
-          {county.is_gap && (
-            <div className={styles.flags}>Gap county — no food bank, no navigator listed.</div>
-          )}
-          {county.small_denominator && (
-            <div className={styles.hint}>
-              Population under 10,000 — rates here are unstable and the map dims this county.
-            </div>
-          )}
-        </div>
-      )}
-
-      {isPinned ? (
-        <div className={styles.hint}>Esc or ✕ to close.</div>
-      ) : (
-        <div className={styles.hint}>Click the county to pin this panel.</div>
-      )}
     </div>
   );
 }

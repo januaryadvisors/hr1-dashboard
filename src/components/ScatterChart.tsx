@@ -55,10 +55,8 @@ export function ScatterChart({
   points,
   height = 260,
   viewWidth: W = 1000,
-  pinned,
   hovered,
   onHover,
-  onSelect,
   xLabel = 'Vulnerability percentile →',
   yLabel = 'Sites per 10k',
 }: {
@@ -66,10 +64,8 @@ export function ScatterChart({
   height?: number;
   /** See ColumnChart: keep near the rendered width so the type stays legible. */
   viewWidth?: number;
-  pinned?: string | null;
   hovered?: string | null;
   onHover?: (geoid: string | null) => void;
-  onSelect?: (geoid: string) => void;
   xLabel?: string;
   yLabel?: string;
 }) {
@@ -109,9 +105,7 @@ export function ScatterChart({
   const byGeoid = (id: string | null | undefined) =>
     id ? points.find((p) => p.geoid === id) : undefined;
 
-  // Hover wins over pin, matching the map's `hovered ?? pinned` selector.
-  const active = byGeoid(hovered) ?? byGeoid(pinned);
-  const isHover = Boolean(byGeoid(hovered));
+  const active = byGeoid(hovered);
 
   return (
     <svg
@@ -182,8 +176,6 @@ export function ScatterChart({
             r={Math.max(4, scales.r(p.weight))}
             fill="transparent"
             onMouseEnter={() => onHover?.(p.geoid)}
-            onClick={() => onSelect?.(p.geoid)}
-            style={{ cursor: 'pointer' }}
           />
         ))}
       </g>
@@ -201,7 +193,7 @@ export function ScatterChart({
             cx={scales.x(active.x)}
             cy={scales.y(active.y)}
             r={scales.r(active.weight) + 4}
-            className={isHover ? styles.highlightRing : styles.highlightRingPinned}
+            className={styles.highlightRing}
           />
           <text
             // Flip the label inboard near the right edge so it never clips.

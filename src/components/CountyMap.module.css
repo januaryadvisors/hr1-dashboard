@@ -21,12 +21,6 @@
   stroke-width: 1.5;
 }
 
-/* §6.5: pinned county gets a persistent 1.5px ink outline. */
-.pinned {
-  stroke: var(--ja-ink);
-  stroke-width: 1.5;
-  stroke-dasharray: none;
-}
 
 .stateOutline {
   fill: none;

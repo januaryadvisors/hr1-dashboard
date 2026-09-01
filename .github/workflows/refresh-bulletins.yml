@@ -1,0 +1,50 @@
+name: Refresh Texas Works bulletins
+
+# Re-scrapes Texas HHS "Texas Works" policy bulletins and quarterly revisions and
+# commits public/data/bulletins.json when it changes. Pushing to main then
+# triggers the Pages deploy.
+#
+# Baking the feed at build time keeps the published page static: fhb.hhs.texas.gov
+# sends no CORS headers, and a reader should not depend on a government host being
+# up. See scripts/fetch-texas-works.mjs.
+
+on:
+  schedule:
+    # 06:20 UTC on Mondays — bulletins post on no fixed day, so weekly is enough.
+    - cron: '20 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-bulletins
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # The script exits non-zero and writes nothing if it parses zero entries,
+      # so a markup change on the HHS side leaves the last good feed in place
+      # rather than blanking the panel.
+      - name: Fetch bulletins
+        id: fetch
+        run: node scripts/fetch-texas-works.mjs
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- public/data/bulletins.json; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/bulletins.json
+          git commit -m "Refresh Texas Works bulletins"
+          git push

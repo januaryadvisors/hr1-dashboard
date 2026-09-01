@@ -8,6 +8,7 @@ import { activeGeoid, ALL_INFRA } from '../state/appState';
 import { INFRA_TYPES, LAYERS, layerByKey, scoreField } from '../config/layers';
 import { CountyMap } from '../components/CountyMap';
 import { buildLayerStats, CountyTooltip } from '../components/CountyTooltip';
+import { CountySearch } from '../components/CountySearch';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { RampLegend } from '../components/RampLegend';
 import { RankList, type RankRow } from '../components/RankList';
@@ -258,7 +259,6 @@ export default function MapPage() {
                   style={state.style}
                   size="thumb"
                   hovered={state.hovered}
-                  pinned={state.pinned}
                   title={`${l.label} thumbnail`}
                 />
               )}
@@ -272,13 +272,13 @@ export default function MapPage() {
             <div>
               <h2 className={styles.panelTitle}>{layerDef.formalName}</h2>
               <p className={styles.panelCopy}>{layerDef.copy}</p>
-              <p className={styles.railFootnote}>
-                {layerDef.components == null
-                  ? 'No components defined.'
-                  : `${layerDef.components} component${layerDef.components === 1 ? '' : 's'}.`}
-                {state.measure === 'rate' &&
-                  ' Counties under 10,000 residents are dimmed — their rates are unstable.'}
-              </p>
+              <div className={styles.panelSearch}>
+                <CountySearch
+                  counties={counties}
+                  layer={state.layer}
+                  onSelect={(geoid) => dispatch({ type: 'hover', geoid })}
+                />
+              </div>
             </div>
             <div className={styles.panelControls}>
               <div className={styles.controlRow}>
@@ -338,15 +338,18 @@ export default function MapPage() {
                 marks={state.infra}
                 overlays={{ q5: state.overlayQ5, gap: state.overlayGap }}
                 hovered={state.hovered}
-                pinned={state.pinned}
                 onHover={(geoid) => dispatch({ type: 'hover', geoid })}
-                onPin={(geoid) => dispatch({ type: 'pin', geoid })}
                 title={`${layerDef.formalName}, ${state.style} view`}
               />
             )}
           </div>
 
           <div className={styles.panelFooter}>
+            {state.measure === 'rate' && (
+              <span className={styles.presenceNote}>
+                Counties under 10,000 residents are dimmed — their rates are unstable.
+              </span>
+            )}
             <span className="eyebrow">Marks</span>
             {INFRA_TYPES.map((t) => (
               <span key={t.key} className={styles.markKey}>
@@ -494,7 +497,6 @@ export default function MapPage() {
               rows={rankRows}
               activeGeoid={activeId}
               onHover={(geoid) => dispatch({ type: 'hover', geoid })}
-              onSelect={(geoid) => dispatch({ type: 'pin', geoid })}
             />
           </div>
         </aside>
@@ -512,10 +514,8 @@ export default function MapPage() {
             points={scatterPoints}
             viewWidth={SUMMARY_VIEW_WIDTH}
             height={230}
-            pinned={state.pinned}
             hovered={activeId}
             onHover={(geoid) => dispatch({ type: 'hover', geoid })}
-            onSelect={(geoid) => dispatch({ type: 'pin', geoid })}
           />
           <p className={chartStyles.footnote}>
             Capacity counts four registries: CMS-certified navigators and application counselors,
@@ -561,11 +561,6 @@ export default function MapPage() {
       <CountyTooltip
         county={activeCounty}
         layer={state.layer}
-        // Pinned view only when nothing is hovered — hovering another county
-        // still previews that one.
-        isPinned={state.hovered === null && state.pinned !== null}
-        pinnedGeoid={state.pinned}
-        onClose={() => dispatch({ type: 'unpin' })}
         stats={layerStats}
         months={months}
         window={state.window}

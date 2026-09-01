@@ -65,9 +65,7 @@ export interface CountyMapProps {
   interactive?: boolean;
 
   hovered?: string | null;
-  pinned?: string | null;
   onHover?: (geoid: string | null) => void;
-  onPin?: (geoid: string) => void;
 
   /** Accessible name; every map needs one (§13 step 9). */
   title: string;
@@ -104,9 +102,7 @@ function CountyMapInner(props: CountyMapProps) {
     overlays = {},
     interactive = false,
     hovered = null,
-    pinned = null,
     onHover,
-    onPin,
     title,
   } = props;
 
@@ -158,30 +154,19 @@ function CountyMapInner(props: CountyMapProps) {
   const handleLeave = () => {
     if (interactive) onHover?.(null);
   };
-  const handleClick = (geoid: string) => {
-    if (interactive) onPin?.(geoid);
-  };
-
   /**
-   * §6.5: "arrow keys walk counties in reading order on the grid lattice, Enter
-   * pins." The lattice drives keyboard order in every style, which is why grid
-   * is precomputed for all of them.
+   * §6.5: "arrow keys walk counties in reading order on the grid lattice." The
+   * lattice drives keyboard order in every style, which is why grid is
+   * precomputed for all of them. Enter/Space did the pinning; it returns with
+   * the reworked selection.
    */
   const handleKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
     if (!interactive) return;
 
-    const current = hovered ?? pinned;
+    const current = hovered;
     const focus = (geoid: string | null) => {
       if (geoid) onHover?.(geoid);
     };
-
-    if (e.key === 'Enter' || e.key === ' ') {
-      if (current) {
-        e.preventDefault();
-        onPin?.(current);
-      }
-      return;
-    }
 
     const deltas: Record<string, [number, number]> = {
       ArrowUp: [-1, 0],
@@ -225,7 +210,6 @@ function CountyMapInner(props: CountyMapProps) {
     const parts = [styles.county];
     if (!county) return parts.join(' ');
     if (county.geoid === hovered) parts.push(styles.hovered);
-    else if (county.geoid === pinned) parts.push(styles.pinned);
     // §6.5: dim small denominators in rate measure only.
     if (measure === 'rate' && county.small_denominator) parts.push(styles.smallDenominator);
     return parts.join(' ');
@@ -291,7 +275,6 @@ function CountyMapInner(props: CountyMapProps) {
                 fill={proportional ? '#f7f6f6' : colorFor(value, layer)}
                 strokeWidth={spec.county}
                 onMouseEnter={() => handleEnter(geoid)}
-                onClick={() => handleClick(geoid)}
                 aria-label={label(county)}
               />
             );
@@ -318,7 +301,6 @@ function CountyMapInner(props: CountyMapProps) {
                 fill={colorFor(fillValue(county, layer), layer)}
                 strokeWidth={spec.county}
                 onMouseEnter={() => handleEnter(county.geoid)}
-                onClick={() => handleClick(county.geoid)}
                 aria-label={label(county)}
               />
             );
@@ -359,7 +341,6 @@ function CountyMapInner(props: CountyMapProps) {
                 fillOpacity={0.85}
                 strokeWidth={spec.county}
                 onMouseEnter={() => handleEnter(b.geoid)}
-                onClick={() => handleClick(b.geoid)}
                 aria-label={label(county)}
               />
             );
@@ -404,9 +385,9 @@ function CountyMapInner(props: CountyMapProps) {
               <InfraGlyph
                 key={`${county.geoid}-${key}`}
                 type={key}
-                x={xy[0] + (i - (arr.length - 1) / 2) * 4.2}
+                x={xy[0] + (i - (arr.length - 1) / 2) * 5.4}
                 y={xy[1]}
-                size={size === 'hero' ? 2.6 : 2.1}
+                size={size === 'hero' ? 3 : 2.2}
               />
             ));
           })}

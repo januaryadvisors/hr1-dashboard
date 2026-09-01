@@ -190,6 +190,10 @@
   font-weight: 600;
 }
 
+.panelSearch {
+  margin-top: var(--space-3);
+}
+
 .panelCopy {
   max-width: 80ch;
   margin-top: var(--space-1);
@@ -224,7 +228,7 @@
 .mapHolder > svg {
   width: auto;
   max-width: 100%;
-  max-height: 500px;
+  max-height: 660px;
 }
 
 .panelFooter {

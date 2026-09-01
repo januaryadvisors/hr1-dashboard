@@ -33,23 +33,15 @@ describe('reducer', () => {
     expect(s.infra).toEqual(ALL_INFRA);
   });
 
-  it('unpins when the pinned county is clicked again', () => {
-    const pinned = reducer(defaults, { type: 'pin', geoid: '48201' });
-    expect(pinned.pinned).toBe('48201');
-    expect(reducer(pinned, { type: 'pin', geoid: '48201' }).pinned).toBeNull();
-  });
-
   it('returns the same object when hover does not change', () => {
     const s = reducer(defaults, { type: 'hover', geoid: '48201' });
     expect(reducer(s, { type: 'hover', geoid: '48201' })).toBe(s);
   });
 });
 
-describe('activeGeoid — hovered ?? pinned (§6.5)', () => {
-  it('prefers hovered, falls back to pinned', () => {
-    const s = { ...defaults, pinned: '48113', hovered: '48201' };
-    expect(activeGeoid(s)).toBe('48201');
-    expect(activeGeoid({ ...s, hovered: null })).toBe('48113');
+describe('activeGeoid (§6.5)', () => {
+  it('is the hovered county, or null', () => {
+    expect(activeGeoid({ ...defaults, hovered: '48201' })).toBe('48201');
     expect(activeGeoid(defaults)).toBeNull();
   });
 });
@@ -69,7 +61,6 @@ describe('URL mirroring', () => {
       infra: ['chw'],
       overlayQ5: true,
       overlayGap: true,
-      pinned: '48201',
     };
     const back = roundTrip(state);
     expect(back).toEqual({ ...state, hovered: null });
@@ -89,14 +80,13 @@ describe('URL mirroring', () => {
 
   it('ignores junk rather than throwing, so a mangled link still opens', () => {
     const s = fromSearchParams(
-      new URLSearchParams('measure=sideways&layer=d9&style=hologram&county=abc&from=nope&to=nope'),
+      new URLSearchParams('measure=sideways&layer=d9&style=hologram&from=nope&to=nope'),
       defaults,
       MONTHS,
     );
     expect(s.measure).toBe(defaults.measure);
     expect(s.layer).toBe(defaults.layer);
     expect(s.style).toBe(defaults.style);
-    expect(s.pinned).toBeNull();
     expect(s.window).toEqual(defaults.window);
   });
 
