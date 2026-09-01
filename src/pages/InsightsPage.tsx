@@ -72,7 +72,7 @@ const CHAPTERS: Chapter[] = [
 
 export default function InsightsPage() {
   const { tab } = useParams();
-  const { data, state } = useApp();
+  const { data } = useApp();
   const chapter = CHAPTERS.find((c) => c.slug === tab) ?? CHAPTERS[0];
   const { statewide } = data;
   const months = statewide.meta.months;
@@ -139,10 +139,6 @@ export default function InsightsPage() {
           <strong>What this does not support:</strong> {chapter.doesNotSupport}
         </p>
 
-        <p className={styles.measureNote}>
-          Rate / Count is currently <strong>{state.measure}</strong>. It does not apply to this
-          chapter’s statewide charts.
-        </p>
       </main>
     </div>
   );

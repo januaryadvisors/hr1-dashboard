@@ -1,7 +1,6 @@
 /** C-01 and C-02 — spec §5. */
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SegmentedControl } from './SegmentedControl';
-import type { Measure } from '../types';
 import styles from './AppHeader.module.css';
 
 export function AppHeader() {
@@ -29,31 +28,4 @@ export function AppHeader() {
   );
 }
 
-export function MeasureBar({
-  measure,
-  onChange,
-  inert = false,
-  note,
-}: {
-  measure: Measure;
-  onChange: (m: Measure) => void;
-  inert?: boolean;
-  note?: string;
-}) {
-  return (
-    <div className={styles.measureBar}>
-      <SegmentedControl
-        label="Measure"
-        options={[
-          { value: 'rate', label: 'Rate' },
-          { value: 'count', label: 'Count' },
-        ]}
-        value={measure}
-        onChange={onChange}
-        inert={inert}
-      />
-      {note && <span style={{ fontSize: '0.6875rem', color: 'var(--text-faint)' }}>{note}</span>}
-    </div>
-  );
-}
 

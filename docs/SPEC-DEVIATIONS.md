@@ -276,6 +276,92 @@ are written up there.
 
 ---
 
+## J. Client-directed changes, round 2 (2026-09-01)
+
+| # | Change | Overrides |
+|---|---|---|
+| J1 | "Presence, not capacity…" footer removed | §6.6 |
+| J2 | Rate/Count moved into the map panel | §5 C-02 |
+| J3 | Grid → contiguous Dougenik area cartogram | §6.5 |
+| J4 | Tooltip redesigned: focused domain full, others two-up | §6.5 |
+| J5 | Scatter highlights the hovered/pinned county | §6.8 |
+| J6 | Columns 62/38 → 72/28 | — |
+| J7 | Hero phrase larger, bolder, last-baseline aligned | §6.1 |
+| J8 | Brush y-axis 2.8M–4.0M (replaces the zero baseline of I4) | §6.2 |
+| J9 | Download helper text removed | — |
+
+### J1 is the one to be uneasy about
+
+§6.6 states: *"Panel footer, always visible: 'Presence, not capacity. Absent mark
+= not listed, not a confirmed zero.' This line is not optional and does not
+shrink."*
+
+It is gone at the client's request. It was not styling — it was the disclaimer
+preventing a reader from treating a county with no mark as a county with no
+services. The registries are an inventory, not a census, and that distinction
+is exactly what §6.6 was protecting.
+
+The tooltip still lists per-type site counts, and the M-07 footnote still reads
+"Counts are counties with at least one listed site. Registry pull, not a capacity
+measure." So the caveat survives in the rail, just not under the map. **Worth
+re-raising before this goes to legislative staff**, who are the readers most
+likely to act on an absent mark.
+
+### J2. Rate/Count still works, it just moved
+
+C-02 put it "alone on a second bar so it reads as global rather than as a map
+control". It now sits beside the Style control in the map panel header.
+
+It is still global — it drives the hero map, all five thumbnails, the legend
+mode, and the C-03 no-count state. It was moved, **not removed**: deleting it
+would have stranded the count measure, proportional symbols, C-03, and the
+nested-circle legend. If the intent was to drop the count measure entirely,
+that is a bigger change and a separate decision.
+
+### J3. Now a real contiguous cartogram
+
+I6 shipped a Demers-style cartogram (squares sized by population). The client
+pointed at the d3 approach — actual polygon shapes distorted so area is
+proportional to population — so `src/lib/cartogram.ts` now implements
+**Dougenik, Chrisman & Niemeyer (1985)**, the rubber-sheet algorithm
+`d3-cartogram` uses. The square version and its helpers are deleted.
+
+Adjacency survives because the displacement is a pure function of position: a
+vertex shared by two counties has one coordinate, so it gets one displacement
+and the border cannot split. There is a test for exactly that.
+
+**The `blend` knob matters.** Texas is a hard case — Harris holds ~16% of the
+population on ~0.7% of the land, so full convergence inflates the metros into
+overlapping near-circles and crushes the rural counties into slivers: correct on
+area, useless as a map. Defaults are `iterations: 4, blend: 0.75` in
+`src/state/AppContext.tsx`, which keeps the state recognisable while still
+showing where the people are. Raise `blend` toward 1 for stricter area accuracy.
+
+Cost is O(vertices × regions), so it is computed **once** in the context — not
+inside `<CountyMap>`, which renders six times per page.
+
+### J4. Tooltip
+
+Focused domain keeps the full treatment (all six bands, caret, median tick,
+highlighted row). The other four sit two-up with only the band the county falls
+in coloured, which halved the panel height (~600px → ~404px). The "this county /
+state median / low → high" legend is gone, so the caret and median tick are now
+unlabelled — self-evident in context, but noting it.
+
+### J5. Scatter highlight
+
+Hovering or pinning a county on the map rings and labels it in "Where need meets
+capacity", using the same `hovered ?? pinned` selector as everything else. The
+254 base points are memoised into their own layer so a hover repaints only the
+two-element overlay — that is what keeps map-hover smooth at 254 points.
+
+### J8 reverses I4
+
+The zero baseline lasted one round. Now a fixed 2.8M–4.0M band — deliberately
+fixed rather than fitted, so the slope means the same thing across exports.
+
+---
+
 ## H. Not built yet
 
 Deliberate, following §13's build order. Nothing here is blocked by anything above.

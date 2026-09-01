@@ -16,6 +16,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { loadDataset, type Dataset } from '../data/load';
 import { createProjection, type Projection } from '../lib/projection';
 import {
+  dougenikCartogram,
+  ringsToPath,
+  type CartogramRegion,
+  type Ring,
+} from '../lib/cartogram';
+import {
   fromSearchParams,
   initialState,
   reducer,
@@ -27,6 +33,8 @@ import {
 interface AppContextValue {
   data: Dataset;
   projection: Projection;
+  /** Population cartogram paths by geoid. Computed once — see below. */
+  cartogram: Map<string, string>;
   state: AppState;
   defaults: AppState;
   dispatch: (action: Action) => void;
@@ -88,6 +96,42 @@ function Ready({ data, children }: { data: Dataset; children: ReactNode }) {
 
   const projection = useMemo(() => createProjection(data.geometry.state), [data.geometry.state]);
 
+  /**
+   * The population cartogram depends only on geometry and population — never on
+   * the active layer or measure — so it is computed here, once, rather than
+   * inside <CountyMap>, which renders six times per page (hero + five
+   * thumbnails).
+   */
+  const cartogram = useMemo(() => {
+    const regions: CartogramRegion[] = [];
+    for (const f of data.geometry.counties) {
+      const g = f.geometry;
+      // Outer rings only. Treating a hole as another ring would inflate the
+      // measured area, and Texas counties have none at this simplification.
+      const polys: number[][][] =
+        g.type === 'Polygon'
+          ? [(g.coordinates as number[][][])[0]]
+          : g.type === 'MultiPolygon'
+            ? (g.coordinates as number[][][][]).map((poly) => poly[0])
+            : [];
+
+      const rings: Ring[] = [];
+      for (const ring of polys) {
+        const projected: Ring = [];
+        for (const coord of ring) {
+          const xy = projection.project([coord[0], coord[1]]);
+          if (xy) projected.push([xy[0], xy[1]]);
+        }
+        if (projected.length >= 3) rings.push(projected);
+      }
+      if (rings.length) regions.push({ id: f.properties.geoid, rings });
+    }
+
+    const values = new Map(data.counties.map((c) => [c.geoid, c.pop]));
+    const { regions: out } = dougenikCartogram(regions, values, { iterations: 4, blend: 0.75 });
+    return new Map(out.map((r) => [r.id, ringsToPath(r.rings)]));
+  }, [data.geometry.counties, data.counties, projection]);
+
   // Mirror state → URL. replace, not push, so the back button steps through
   // pages rather than through every hover-free control change.
   const lastSearch = useRef(location.search);
@@ -100,8 +144,8 @@ function Ready({ data, children }: { data: Dataset; children: ReactNode }) {
   }, [state, defaults, location.pathname, location.search, navigate]);
 
   const value = useMemo(
-    () => ({ data, projection, state, defaults, dispatch }),
-    [data, projection, state, defaults],
+    () => ({ data, projection, cartogram, state, defaults, dispatch }),
+    [data, projection, cartogram, state, defaults],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

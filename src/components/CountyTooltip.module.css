@@ -1,71 +1,252 @@
 .root {
   position: fixed;
   z-index: 50;
-  width: 250px;
-  padding: var(--space-3);
-  font-size: 0.75rem;
+  width: 340px;
+  padding: var(--space-4);
   background: var(--surface);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-panel);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.13);
   pointer-events: none;
 }
 
-.name {
+/* Pinned: stops following the cursor and becomes interactive, so the close and
+   expand controls can be clicked. */
+.pinned {
+  pointer-events: auto;
+  border-color: var(--hairline-strong);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.countyName {
+  display: block;
   font-family: var(--font-display);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.fips {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ja-teal);
+}
+
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.headBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.headBtn:hover {
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+
+.closeBtn {
+  padding: 2px 7px;
+}
+
+/* ------------------------------------------------------------ domain rows */
+.domain {
+  margin-bottom: var(--space-3);
+}
+
+.domainHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: 5px;
+}
+
+.domainLabel {
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
-.pop {
-  color: var(--text-muted);
-  margin-bottom: var(--space-2);
+.domainValue {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.rows {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 1px var(--space-2);
-  align-items: baseline;
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--hairline);
-}
-
-.rowLabel {
-  color: var(--text-muted);
-}
-
-.tier {
-  font-size: 0.625rem;
+.domainUnavailable {
+  font-size: 0.6875rem;
   color: var(--text-faint);
 }
 
+/* The active layer's row is highlighted, so the map and tooltip agree on what
+   is being shown. */
 .active {
-  font-weight: 600;
-  color: var(--text);
+  margin: 0 calc(var(--space-2) * -1) var(--space-3);
+  padding: var(--space-2);
+  background: var(--surface-warm);
+  border-radius: var(--radius);
 }
 
-.section {
-  margin-top: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--hairline);
+/* Unfocused domains, two-up. Halves the tooltip's height. */
+.otherGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.other {
+  min-width: 0;
+}
+
+.otherLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.otherValue {
+  margin-bottom: 3px;
+  font-size: 0.625rem;
   color: var(--text-muted);
 }
 
-.marks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-3);
-  margin-top: 2px;
+.active .domainLabel,
+.active .domainValue {
+  color: var(--ja-navy);
 }
 
-.flag {
-  margin-top: var(--space-2);
-  font-size: 0.6875rem;
+
+/* ---------------------------------------------------------------- stats */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.statLabel {
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.statValue {
+  margin-top: 2px;
+  font-family: var(--font-figure);
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.negative {
   color: var(--ja-burgundy);
 }
 
-.moe {
+/* -------------------------------------------------------------- sparkline */
+.sparkHead {
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--hairline);
+}
+
+.spark {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: var(--space-1);
+}
+
+.foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* --------------------------------------------------------------- expanded */
+.expanded {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 2px var(--space-3);
   font-size: 0.6875rem;
+}
+
+.detailHead {
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding-bottom: 2px;
+}
+
+.detailLabel {
+  color: var(--text-muted);
+}
+
+.flags {
+  margin-top: var(--space-3);
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--ja-burgundy);
+}
+
+.hint {
+  margin-top: var(--space-2);
+  font-size: 0.625rem;
   color: var(--text-faint);
 }

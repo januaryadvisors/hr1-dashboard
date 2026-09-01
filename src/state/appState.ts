@@ -31,7 +31,8 @@ export type Action =
   | { type: 'toggleOverlayQ5' }
   | { type: 'toggleOverlayGap' }
   | { type: 'hover'; geoid: string | null }
-  | { type: 'pin'; geoid: string | null };
+  | { type: 'pin'; geoid: string | null }
+  | { type: 'unpin' };
 
 export const ALL_INFRA: InfraKey[] = ['food_bank', 'cms_navigator', 'chw', 'counselor'];
 
@@ -81,6 +82,9 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'pin':
       // Clicking the pinned county again unpins it.
       return { ...state, pinned: state.pinned === action.geoid ? null : action.geoid };
+    case 'unpin':
+      // Explicit, unlike 'pin' which toggles — a close button must always close.
+      return state.pinned === null ? state : { ...state, pinned: null, hovered: null };
     default:
       return state;
   }

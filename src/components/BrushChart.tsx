@@ -24,6 +24,14 @@ export interface BrushChartProps {
   window: [string, string];
   presets: Preset[];
   onChange: (window: [string, string]) => void;
+  /**
+   * Fires on every drag frame, undebounced. §6.2 debounces `onChange` at 120ms
+   * so the map and the summary charts do not recompute mid-drag — but that made
+   * the hero number appear frozen until the handle was released. Cheap readouts
+   * (the eyebrow, the hero number, the feed highlight) follow this instead.
+   * Null on release, meaning "no preview, use the committed window".
+   */
+  onPreview?: (window: [string, string] | null) => void;
   /** viewBox width — keep near the rendered width so the axis type stays legible. */
   viewWidth?: number;
   height?: number;
@@ -35,6 +43,7 @@ export function BrushChart({
   window: win,
   presets,
   onChange,
+  onPreview,
   viewWidth: W = 1000,
   height: H = 150,
 }: BrushChartProps) {
@@ -61,29 +70,34 @@ export function BrushChart({
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const commit = useCallback(
     (next: [number, number]) => {
+      // Immediate: the readouts that are just an array lookup.
+      onPreview?.([months[next[0]], months[next[1]]]);
+      // Debounced: everything that recomputes.
       clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         onChange([months[next[0]], months[next[1]]]);
       }, DEBOUNCE_MS);
     },
-    [months, onChange],
+    [months, onChange, onPreview],
   );
   useEffect(() => () => clearTimeout(timer.current), []);
 
   /**
-   * Axis starts at zero, per client direction 2026-09-01. §6.2 specified
-   * 2.9M–3.7M, which exaggerates the slope; a zero baseline shows the decline
-   * against the size of the caseload instead. Top is padded off the data so a
-   * different export cannot draw off-panel.
+   * Fixed 2.8M–4.0M band, per client direction 2026-09-01. Deliberately fixed
+   * rather than fitted to the data so the slope means the same thing across
+   * exports; clamped only if a future export would fall outside it.
    */
-  const [yMin, yMax] = useMemo(() => [0, Math.max(...series) * 1.08], [series]);
+  const [yMin, yMax] = useMemo(() => {
+    const lo = Math.min(2.8e6, Math.min(...series));
+    const hi = Math.max(4.0e6, Math.max(...series));
+    return [lo, hi];
+  }, [series]);
 
   const yTicks = useMemo(() => {
-    const step = 1e6;
     const ticks: number[] = [];
-    for (let v = 0; v <= yMax; v += step) ticks.push(v);
+    for (let v = Math.ceil(yMin / 2e5) * 2e5; v <= yMax; v += 2e5) ticks.push(v);
     return ticks;
-  }, [yMax]);
+  }, [yMin, yMax]);
 
   const x = (i: number) => M.left + (i / (months.length - 1)) * (W - M.left - M.right);
   const y = (v: number) => M.top + (1 - (v - yMin) / (yMax - yMin)) * (H - M.top - M.bottom);
@@ -114,7 +128,10 @@ export function BrushChart({
         return next;
       });
     };
-    const onUp = () => setDrag(null);
+    const onUp = () => {
+      setDrag(null);
+      onPreview?.(null);
+    };
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -122,7 +139,7 @@ export function BrushChart({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-  }, [drag, commit]);
+  }, [drag, commit, onPreview]);
 
   const nudge = (which: 'start' | 'end', delta: number) => {
     setRange((prev) => {
@@ -160,6 +177,7 @@ export function BrushChart({
                 type="button"
                 onClick={() => {
                   setRange([a, b]);
+                  onPreview?.(null);
                   onChange([months[a], months[b]]);
                 }}
                 style={{
@@ -182,14 +200,21 @@ export function BrushChart({
       </div>
 
       <svg ref={svgRef} className={styles.svg} viewBox={`0 0 ${W} ${H}`}>
-        {yTicks.map((v) => (
-          <g key={v}>
-            <line x1={M.left} x2={W - M.right} y1={y(v)} y2={y(v)} className={styles.gridline} />
-            <text x={M.left - 4} y={y(v) + 3} textAnchor="end" className={styles.axis}>
-              {v === 0 ? '0' : fmtMillions(v)}
-            </text>
-          </g>
-        ))}
+        {yTicks.map((v) => {
+          // Label the round millions only; the 200k gridlines stay unlabelled so
+          // a short chart does not turn into a wall of numbers.
+          const labelled = v % 1e6 === 0 || v % 1e6 === 5e5;
+          return (
+            <g key={v}>
+              <line x1={M.left} x2={W - M.right} y1={y(v)} y2={y(v)} className={styles.gridline} />
+              {labelled && (
+                <text x={M.left - 4} y={y(v) + 3} textAnchor="end" className={styles.axis}>
+                  {fmtMillions(v)}
+                </text>
+              )}
+            </g>
+          );
+        })}
 
         {yearTicks.map(({ m, i }) => (
           <text key={m} x={x(i)} y={H - 4} textAnchor="middle" className={styles.axis}>
@@ -205,11 +230,7 @@ export function BrushChart({
           height={H - M.top - M.bottom}
           className={styles.band}
         />
-        {/* On a zero baseline a bare line floats; the area gives it weight. */}
-        <path d={`${pathFor(0, months.length - 1)}L${x(months.length - 1)} ${y(0)}L${x(0)} ${y(0)}Z`}
-          className={styles.area} />
         <path d={pathFor(0, months.length - 1)} className={styles.line} />
-        <path d={`${pathFor(i0, i1)}L${x(i1)} ${y(0)}L${x(i0)} ${y(0)}Z`} className={styles.areaIn} />
         <path d={pathFor(i0, i1)} className={styles.lineIn} />
 
         {([['start', i0], ['end', i1]] as const).map(([which, i]) => (

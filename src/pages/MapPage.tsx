@@ -7,7 +7,7 @@ import { useApp } from '../state/AppContext';
 import { activeGeoid, ALL_INFRA } from '../state/appState';
 import { INFRA_TYPES, LAYERS, layerByKey, scoreField } from '../config/layers';
 import { CountyMap } from '../components/CountyMap';
-import { CountyTooltip } from '../components/CountyTooltip';
+import { buildLayerStats, CountyTooltip } from '../components/CountyTooltip';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { RampLegend } from '../components/RampLegend';
 import { RankList, type RankRow } from '../components/RankList';
@@ -21,7 +21,7 @@ import { InfraGlyph } from '../components/InfraGlyph';
 import { downloadSelection } from '../lib/download';
 import { loadTimeline, type TimelineContent } from '../data/timeline';
 import { fmtDelta, fmtMonth, fmtMonthBody, fmtPercentile } from '../lib/format';
-import type { InfraKey, MapStyle } from '../types';
+import type { InfraKey, MapStyle, Measure } from '../types';
 import chartStyles from '../components/charts.module.css';
 import styles from './MapPage.module.css';
 
@@ -36,9 +36,16 @@ const SUMMARY_VIEW_WIDTH = 460;
 const BRUSH_VIEW_WIDTH = 620;
 
 export default function MapPage() {
-  const { data, projection, state, dispatch } = useApp();
+  const { data, projection, cartogram, state, dispatch } = useApp();
   const { counties, byGeoid, statewide, geometry } = data;
   const months = statewide.meta.months;
+
+  /**
+   * Set while a brush handle is being dragged. Only the cheap readouts follow it
+   * (eyebrow, hero number, feed highlight) — the map and summary charts stay on
+   * the debounced committed window so they do not recompute mid-drag.
+   */
+  const [preview, setPreview] = useState<[string, string] | null>(null);
 
   const [timeline, setTimeline] = useState<TimelineContent>({ stats: [], feed: [] });
   useEffect(() => {
@@ -57,6 +64,14 @@ export default function MapPage() {
     () => statewide.enrolled[i1] - statewide.enrolled[i0],
     [statewide.enrolled, i0, i1],
   );
+
+  // What the headline shows: the live drag if there is one, else the committed window.
+  const shownWindow = preview ?? state.window;
+  const shownChange = useMemo(() => {
+    const a = months.indexOf(shownWindow[0]);
+    const b = months.indexOf(shownWindow[1]);
+    return a >= 0 && b >= 0 ? statewide.enrolled[b] - statewide.enrolled[a] : windowChange;
+  }, [months, shownWindow, statewide.enrolled, windowChange]);
 
   // §6.8 "The decline has not stopped" — month-over-month across the window.
   const changeSlice = useMemo(
@@ -117,6 +132,9 @@ export default function MapPage() {
       }));
   }, [counties, state.layer]);
 
+  // Medians and within-layer ranks for the tooltip's domain rows.
+  const layerStats = useMemo(() => buildLayerStats(counties), [counties]);
+
   const infraCounts = useMemo(
     () =>
       Object.fromEntries(
@@ -142,6 +160,7 @@ export default function MapPage() {
     state: geometry.state,
     projection,
     grid: statewide.meta.grid,
+    cartogram,
     measure: state.measure,
   };
 
@@ -152,12 +171,12 @@ export default function MapPage() {
         <div className={styles.heroLeft}>
           <div>
             <div className="eyebrow">
-              {fmtMonth(state.window[0])} → {fmtMonth(state.window[1])}
+              {fmtMonth(shownWindow[0])} → {fmtMonth(shownWindow[1])}
             </div>
             <div className={styles.heroNumberRow}>
-              <span className={`${styles.heroNumber} tabular`}>{fmtDelta(windowChange)}</span>
+              <span className={`${styles.heroNumber} tabular`}>{fmtDelta(shownChange)}</span>
               <span className={styles.heroPhrase}>
-                fewer Texans on SNAP than {fmtMonthBody(state.window[0])}
+                fewer Texans on SNAP than {fmtMonthBody(shownWindow[0])}
               </span>
             </div>
           </div>
@@ -177,8 +196,9 @@ export default function MapPage() {
             window={state.window}
             presets={buildPresets(statewide.meta.policy_start)}
             onChange={(w) => dispatch({ type: 'setWindow', window: w })}
+            onPreview={setPreview}
             viewWidth={BRUSH_VIEW_WIDTH}
-            height={108}
+            height={116}
           />
 
           <div className={styles.downloadRow}>
@@ -189,19 +209,17 @@ export default function MapPage() {
             >
               Download data
             </button>
-            <span style={{ fontSize: '0.6875rem', color: 'var(--text-faint)' }}>
-              CSV of the current window and layer, plus JSON with the MOE columns.
-            </span>
           </div>
         </div>
 
         <div className={styles.statementRail}>
-          <TimelineFeed content={timeline} window={state.window} />
+          <TimelineFeed content={timeline} window={shownWindow} />
         </div>
       </section>
 
       {/* --------------------------------- M-04 + M-05 + right rail, one row */}
       <div className={styles.mapRow}>
+        <div className={styles.mapColumn}>
         <section className={styles.layerStrip} aria-label="Indicator layers">
         {LAYERS.map((l) => {
           const disabled = !l.available;
@@ -247,22 +265,6 @@ export default function MapPage() {
             </button>
           );
         })}
-
-          {/* M-09 sits here rather than in the right rail so the left column is
-              not mostly empty below the strip. */}
-          <div className={styles.rankCard}>
-            <div className={styles.railTitle}>Highest on this layer</div>
-            <p className={styles.railSubhead}>
-              A within-layer shortlist, not a statewide ranking. Switch layers and the list changes
-              completely — that is the point.
-            </p>
-            <RankList
-              rows={rankRows}
-              activeGeoid={activeId}
-              onHover={(geoid) => dispatch({ type: 'hover', geoid })}
-              onSelect={(geoid) => dispatch({ type: 'pin', geoid })}
-            />
-          </div>
         </section>
 
         <section className={styles.panel}>
@@ -279,6 +281,20 @@ export default function MapPage() {
               </p>
             </div>
             <div className={styles.panelControls}>
+              <div className={styles.controlRow}>
+                {/* C-02 originally sat alone on a global second bar. Moved here on
+                    client direction 2026-09-01 — it still drives every map and
+                    thumbnail, it just no longer occupies a strip of the page. */}
+                <SegmentedControl
+                  label="Measure"
+                  size="sm"
+                  options={[
+                    { value: 'rate', label: 'Rate', title: 'Percentile within Texas' },
+                    { value: 'count', label: 'Count', title: 'People, as proportional symbols' },
+                  ]}
+                  value={state.measure}
+                  onChange={(v) => dispatch({ type: 'setMeasure', measure: v as Measure })}
+                />
               <SegmentedControl
                 label="Render style"
                 size="sm"
@@ -294,6 +310,7 @@ export default function MapPage() {
                 value={state.style}
                 onChange={(v) => dispatch({ type: 'setStyle', style: v as MapStyle })}
               />
+              </div>
               <RampLegend
                 layer={state.layer}
                 mode={state.measure === 'count' && layerDef.countField ? 'count' : 'rate'}
@@ -346,19 +363,15 @@ export default function MapPage() {
               </svg>
               Gap county
             </span>
-            {/* §6.6: not optional, does not shrink. */}
-            <span className={styles.presenceNote}>
-              {state.style === 'grid' && (
-                <>
-                  Marks are hidden on the cartogram — blocks are moved off their true centroids, so
-                  a mark would sit over the wrong county.{' '}
-                </>
-              )}
-              Presence, not capacity. Absent mark = <strong>not listed</strong>, not a confirmed
-              zero.
-            </span>
+            {state.style === 'grid' && (
+              <span className={styles.presenceNote}>
+                Marks are hidden on the cartogram — county shapes are distorted, so a mark would
+                sit over the wrong place.
+              </span>
+            )}
           </div>
         </section>
+        </div>
 
         <aside className={styles.rail}>
           {/* -------------------------------------------------------- M-07 */}
@@ -470,6 +483,20 @@ export default function MapPage() {
             </div>
           </div>
 
+          {/* -------------------------------------------------------- M-09 */}
+          <div className={styles.railCard}>
+            <div className={styles.railTitle}>Highest on this layer</div>
+            <p className={styles.railSubhead}>
+              A within-layer shortlist, not a statewide ranking. Switch layers and the list changes
+              completely — that is the point.
+            </p>
+            <RankList
+              rows={rankRows}
+              activeGeoid={activeId}
+              onHover={(geoid) => dispatch({ type: 'hover', geoid })}
+              onSelect={(geoid) => dispatch({ type: 'pin', geoid })}
+            />
+          </div>
         </aside>
       </div>
 
@@ -486,7 +513,7 @@ export default function MapPage() {
             viewWidth={SUMMARY_VIEW_WIDTH}
             height={230}
             pinned={state.pinned}
-            hovered={state.hovered}
+            hovered={activeId}
             onHover={(geoid) => dispatch({ type: 'hover', geoid })}
             onSelect={(geoid) => dispatch({ type: 'pin', geoid })}
           />
@@ -531,7 +558,18 @@ export default function MapPage() {
         </div>
       </section>
 
-      <CountyTooltip county={activeCounty} layer={state.layer} measure={state.measure} />
+      <CountyTooltip
+        county={activeCounty}
+        layer={state.layer}
+        // Pinned view only when nothing is hovered — hovering another county
+        // still previews that one.
+        isPinned={state.hovered === null && state.pinned !== null}
+        pinnedGeoid={state.pinned}
+        onClose={() => dispatch({ type: 'unpin' })}
+        stats={layerStats}
+        months={months}
+        window={state.window}
+      />
     </div>
   );
 }

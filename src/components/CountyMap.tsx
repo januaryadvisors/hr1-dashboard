@@ -6,16 +6,16 @@
  * chrome." The three render styles all read the same data (§6.5):
  *
  *   geo      true county polygons, Texas Albers, ramp fill at percentile
- *   grid     population-weighted cartogram — one square per county at its true
- *            centroid, area proportional to population, relaxed apart
+ *   grid     contiguous population cartogram — real county shapes distorted so
+ *            each county's AREA is proportional to its population, adjacency
+ *            preserved (Dougenik rubber-sheet; see src/lib/cartogram.ts)
  *   density  centroid bubbles, sqrt-scaled, over a light county outline
  *
  * NOTE: §6.5 originally specified Grid as an EQUAL-size lattice, arguing that
- * identical visual weight is the honest reading of a percentile. That was
- * superseded by the client on 2026-09-01 in favour of a population-weighted
- * cartogram, so Harris reads as large and Loving as small. The equal-size
- * lattice is still precomputed in the data (`grid: {r, c}`) and still drives
- * keyboard navigation order. See docs/SPEC-DEVIATIONS.md.
+ * identical visual weight is the honest reading of a percentile. Superseded by
+ * the client on 2026-09-01 in favour of a population-weighted cartogram. The
+ * equal-size lattice is still precomputed in the data (`grid: {r, c}`) and still
+ * drives keyboard navigation order. See docs/SPEC-DEVIATIONS.md.
  *
  * In count measure, geo becomes a proportional-symbol map over a neutral base —
  * never a fill of raw counts (§11: "Harris at 5.13M residents swamps any fill
@@ -26,14 +26,7 @@ import type { Feature, Geometry } from 'geojson';
 import type { County, InfraKey, LayerKey, MapStyle, Measure } from '../types';
 import type { Projection } from '../lib/projection';
 import { colorFor } from '../lib/scales';
-import {
-  radiusScale,
-  relax,
-  relaxSquares,
-  squareScale,
-  type Bubble,
-  type Square,
-} from '../lib/density';
+import { radiusScale, relax, type Bubble } from '../lib/density';
 import { layerByKey, scoreField } from '../config/layers';
 import { INFRA_GLYPH_ORDER, InfraGlyph } from './InfraGlyph';
 import styles from './CountyMap.module.css';
@@ -43,12 +36,12 @@ export type MapSize = 'thumb' | 'small' | 'medium' | 'hero';
 /** Stroke weights and mark visibility per size. A thumbnail cannot carry marks. */
 const SIZE_SPEC: Record<
   MapSize,
-  { county: number; state: number; marks: boolean; maxBubble: number; maxCell: number }
+  { county: number; state: number; marks: boolean; maxBubble: number }
 > = {
-  thumb: { county: 0.15, state: 0.4, marks: false, maxBubble: 11, maxCell: 26 },
-  small: { county: 0.3, state: 0.7, marks: false, maxBubble: 16, maxCell: 34 },
-  medium: { county: 0.4, state: 0.9, marks: true, maxBubble: 24, maxCell: 44 },
-  hero: { county: 0.5, state: 1, marks: true, maxBubble: 34, maxCell: 54 },
+  thumb: { county: 0.15, state: 0.4, marks: false, maxBubble: 11 },
+  small: { county: 0.3, state: 0.7, marks: false, maxBubble: 16 },
+  medium: { county: 0.4, state: 0.9, marks: true, maxBubble: 24 },
+  hero: { county: 0.5, state: 1, marks: true, maxBubble: 34 },
 };
 
 export interface CountyMapProps {
@@ -58,6 +51,8 @@ export interface CountyMapProps {
   state: Feature | { type: string };
   projection: Projection;
   grid: { cols: number; rows: number };
+  /** Cartogram path per geoid, computed once in AppContext. */
+  cartogram: Map<string, string>;
 
   layer: LayerKey;
   style: MapStyle;
@@ -100,6 +95,7 @@ function CountyMapInner(props: CountyMapProps) {
     state,
     projection,
     grid,
+    cartogram,
     layer,
     style,
     measure,
@@ -132,22 +128,6 @@ function CountyMapInner(props: CountyMapProps) {
         .filter((p): p is { geoid: string; d: string } => Boolean(p.d)),
     [geometry, projection],
   );
-
-  // ------------------------------------------------------------- cartogram
-  const cartogram = useMemo<Square[]>(() => {
-    if (style !== 'grid') return [];
-
-    const max = counties.reduce((m, c) => Math.max(m, c.pop), 0);
-    const scale = squareScale(max, spec.maxCell);
-
-    const placed: Square[] = [];
-    for (const c of counties) {
-      const xy = projection.project(c.centroid);
-      if (!xy) continue;
-      placed.push({ geoid: c.geoid, x: xy[0], y: xy[1], h: scale(c.pop) });
-    }
-    return relaxSquares(placed);
-  }, [counties, projection, spec.maxCell, style]);
 
   // --------------------------------------------------------------- bubbles
   const bubbles = useMemo<Bubble[]>(() => {
@@ -257,6 +237,17 @@ function CountyMapInner(props: CountyMapProps) {
     return `${county.name}: ${v == null ? 'no data' : `p${Math.round(v * 100)}`}`;
   };
 
+  /** Whichever geometry the overlays should trace in the active style. */
+  const outlineSource = useMemo(
+    () =>
+      style === 'grid'
+        ? counties
+            .map((c) => ({ geoid: c.geoid, d: cartogram.get(c.geoid) }))
+            .filter((p): p is { geoid: string; d: string } => Boolean(p.d))
+        : paths,
+    [style, counties, cartogram, paths],
+  );
+
   const q5Set = useMemo(() => {
     if (!overlays.q5) return new Set<string>();
     // §6.8 / M-08: outline every county in Q5 on the layer showing.
@@ -311,27 +302,23 @@ function CountyMapInner(props: CountyMapProps) {
       {/* -------------------------------------- GRID (population cartogram) */}
       {style === 'grid' && (
         <g>
-          {/* Faint true outline behind the blocks, so the reader can still tell
-              where the cartogram has distorted the map. */}
+          {/* Faint true outline behind the distorted shapes, so the reader can
+              still see where the cartogram has stretched the map. */}
           {paths.map(({ geoid, d }) => (
             <path key={`base-${geoid}`} d={d} fill="none" stroke="#e8e5e5" strokeWidth={0.3} />
           ))}
-          {cartogram.map((sq) => {
-            const county = byGeoid.get(sq.geoid);
-            const value = county ? fillValue(county, layer) : null;
+          {counties.map((county) => {
+            const d = cartogram.get(county.geoid);
+            if (!d) return null;
             return (
-              <rect
-                key={sq.geoid}
-                x={sq.x - sq.h}
-                y={sq.y - sq.h}
-                width={sq.h * 2}
-                height={sq.h * 2}
-                rx={Math.min(2, sq.h / 3)}
+              <path
+                key={county.geoid}
+                d={d}
                 className={classFor(county)}
-                fill={colorFor(value, layer)}
+                fill={colorFor(fillValue(county, layer), layer)}
                 strokeWidth={spec.county}
-                onMouseEnter={() => handleEnter(sq.geoid)}
-                onClick={() => handleClick(sq.geoid)}
+                onMouseEnter={() => handleEnter(county.geoid)}
+                onClick={() => handleClick(county.geoid)}
                 aria-label={label(county)}
               />
             );
@@ -382,58 +369,25 @@ function CountyMapInner(props: CountyMapProps) {
 
       {/* Overlays (§6.8 M-08). Outlines, never fills — cumulative impact and Q5
           are too lopsided to colour a state by (§11). */}
-      {overlays.q5 &&
-        (style === 'grid' ? (
-          <g>
-            {cartogram
-              .filter((sq) => q5Set.has(sq.geoid))
-              .map((sq) => (
-                <rect
-                  key={sq.geoid}
-                  x={sq.x - sq.h}
-                  y={sq.y - sq.h}
-                  width={sq.h * 2}
-                  height={sq.h * 2}
-                  rx={Math.min(2, sq.h / 3)}
-                  className={styles.overlayQ5}
-                />
-              ))}
-          </g>
-        ) : (
-          <g>
-            {paths
-              .filter((p) => q5Set.has(p.geoid))
-              .map(({ geoid, d }) => (
-                <path key={geoid} d={d} className={styles.overlayQ5} />
-              ))}
-          </g>
-        ))}
-      {overlays.gap &&
-        (style === 'grid' ? (
-          <g>
-            {cartogram
-              .filter((sq) => byGeoid.get(sq.geoid)?.is_gap)
-              .map((sq) => (
-                <rect
-                  key={sq.geoid}
-                  x={sq.x - sq.h}
-                  y={sq.y - sq.h}
-                  width={sq.h * 2}
-                  height={sq.h * 2}
-                  rx={Math.min(2, sq.h / 3)}
-                  className={styles.overlayGap}
-                />
-              ))}
-          </g>
-        ) : (
-          <g>
-            {paths
-              .filter((p) => byGeoid.get(p.geoid)?.is_gap)
-              .map(({ geoid, d }) => (
-                <path key={geoid} d={d} className={styles.overlayGap} />
-              ))}
-          </g>
-        ))}
+      {/* Overlays trace whichever geometry is on screen. */}
+      {overlays.q5 && (
+        <g>
+          {outlineSource
+            .filter(({ geoid }) => q5Set.has(geoid))
+            .map(({ geoid, d }) => (
+              <path key={geoid} d={d} className={styles.overlayQ5} />
+            ))}
+        </g>
+      )}
+      {overlays.gap && (
+        <g>
+          {outlineSource
+            .filter(({ geoid }) => byGeoid.get(geoid)?.is_gap)
+            .map(({ geoid, d }) => (
+              <path key={geoid} d={d} className={styles.overlayGap} />
+            ))}
+        </g>
+      )}
 
       {/* Assistance-infrastructure marks (§6.6). Presence, not capacity. */}
       {/* Marks are suppressed on the cartogram: relaxation moves a block off its

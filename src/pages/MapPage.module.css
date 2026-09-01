@@ -1,4 +1,10 @@
 .page {
+  /* One column definition shared by the hero band and the map row, so the big
+     map lines up with the hero number and the brush above it. */
+  --col-main: minmax(0, 72fr);
+  --col-side: minmax(280px, 28fr);
+  --col-gap: var(--space-6);
+
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -10,9 +16,10 @@
 /* M-01 + M-03: roughly 68/32 with a vertical hairline between. */
 .heroBand {
   display: grid;
-  grid-template-columns: minmax(0, 62fr) minmax(300px, 38fr);
-  gap: var(--space-6);
-  align-items: start;
+  grid-template-columns: var(--col-main) var(--col-side);
+  gap: var(--col-gap);
+  /* stretch, not start, so the divider spans the taller of the two columns. */
+  align-items: stretch;
 }
 
 .heroLeft {
@@ -25,7 +32,9 @@
 .heroNumberRow {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  /* `last baseline` puts the phrase's FINAL line on the number's baseline, so the
+     two sit on one line at the bottom instead of aligning at the phrase's top. */
+  align-items: last baseline;
   gap: var(--space-4);
 }
 
@@ -39,9 +48,12 @@
 }
 
 .heroPhrase {
-  max-width: 22ch;
-  font-size: 1.25rem;
+  /* Narrow on purpose: at 22ch this set as one long line plus an orphan. */
+  max-width: 13ch;
+  font-size: 1.5rem;
+  font-weight: 600;
   line-height: 1.25;
+  text-wrap: balance;
 }
 
 /* Minimal by design — the audience already knows the situation. */
@@ -78,34 +90,31 @@
 .statementRail {
   padding-left: var(--space-5);
   border-left: 1px solid var(--hairline-strong);
+  min-width: 0;
 }
 
-/* M-04: compact 3x2 grid, deliberately not full width. M-09 sits below it in
-   the same column, so the six cards span three columns of the sub-grid. */
+/* M-04: six compact cards in one row, sitting above the hero map inside the
+   left column. */
 .layerStrip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--space-2);
-  width: 100%;
-  max-width: 300px;
-  align-content: start;
 }
 
-.rankCard {
-  grid-column: 1 / -1;
-  margin-top: var(--space-2);
-  padding: var(--space-3);
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-}
-
-/* Layer strip, hero map and right rail sit in one row so more is visible at once. */
+/* Left column: layer strip stacked above the hero map. Right column: the
+   controls. Same column widths as the hero band. */
 .mapRow {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 300px;
-  gap: var(--space-4);
+  grid-template-columns: var(--col-main) var(--col-side);
+  gap: var(--col-gap);
   align-items: start;
+}
+
+.mapColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .layerCard {
@@ -192,13 +201,20 @@
 .panelControls {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   align-items: flex-end;
 }
 
-/* The map is the page's centrepiece but was running ~940px tall and pushing
-   everything else off-screen. Capping the height keeps the whole page legible;
-   the SVG scales inside its viewBox. */
+.controlRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* Texas in Albers is nearly square, so a wide column would otherwise force a
+   very tall map. The height cap wins and the map centres in the column — some
+   slack either side is the cost of keeping the whole page on one screen. */
 .mapHolder {
   display: flex;
   justify-content: center;
@@ -208,7 +224,7 @@
 .mapHolder > svg {
   width: auto;
   max-width: 100%;
-  max-height: 460px;
+  max-height: 500px;
 }
 
 .panelFooter {
@@ -392,23 +408,6 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
-}
-
-/* Below ~1400px the three-column map row is too tight; the layer strip moves
-   above the map and stays a compact grid. */
-@media (max-width: 1400px) {
-  .mapRow {
-    grid-template-columns: minmax(0, 1fr) 300px;
-  }
-  .layerStrip {
-    grid-column: 1 / -1;
-    max-width: none;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-  /* Six cards across means the rank list needs its own full-width row. */
-  .rankCard {
-    max-width: 420px;
-  }
 }
 
 /* §1: responsive down to 1024px. Below that the map goes full width and the

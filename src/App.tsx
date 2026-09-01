@@ -1,7 +1,7 @@
 /** §2: react-router, three routes — /map, /insights/:tab, /districts. */
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { AppHeader, MeasureBar } from './components/AppHeader';
-import { AppProvider, useApp } from './state/AppContext';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { AppHeader } from './components/AppHeader';
+import { AppProvider } from './state/AppContext';
 import { Callout } from './components/Callout';
 import { MissingDataError } from './data/load';
 import MapPage from './pages/MapPage';
@@ -10,20 +10,9 @@ import DistrictsPage from './pages/DistrictsPage';
 import styles from './App.module.css';
 
 function Shell() {
-  const { state, dispatch } = useApp();
-  const location = useLocation();
-  // §8: the Rate/Count control stays visible but is inert on Insights.
-  const onInsights = location.pathname.startsWith('/insights');
-
   return (
     <div className={styles.app}>
       <AppHeader />
-      <MeasureBar
-        measure={state.measure}
-        onChange={(measure) => dispatch({ type: 'setMeasure', measure })}
-        inert={onInsights}
-        note={onInsights ? 'Not applicable to statewide charts on this page.' : undefined}
-      />
       <main className={styles.main}>
         <Routes>
           <Route path="/map" element={<MapPage />} />

@@ -37,17 +37,6 @@
   stroke-width: 1.2;
 }
 
-.area {
-  fill: #8fa6c4;
-  fill-opacity: 0.16;
-  stroke: none;
-}
-
-.areaIn {
-  fill: var(--ja-burgundy);
-  fill-opacity: 0.16;
-  stroke: none;
-}
 
 .lineIn {
   fill: none;
