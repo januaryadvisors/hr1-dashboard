@@ -1,0 +1,79 @@
+.root {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.county {
+  stroke: #ffffff;
+  transition: fill 120ms linear;
+}
+
+.interactive .county {
+  cursor: pointer;
+}
+
+/* Hover highlight. Drawn as a stroke on the shape itself so it reads at
+   thumbnail size, where a glow would disappear. */
+.hovered {
+  stroke: var(--ja-ink);
+  stroke-width: 1.5;
+}
+
+/* §6.5: pinned county gets a persistent 1.5px ink outline. */
+.pinned {
+  stroke: var(--ja-ink);
+  stroke-width: 1.5;
+  stroke-dasharray: none;
+}
+
+.stateOutline {
+  fill: none;
+  stroke: var(--ja-navy);
+  pointer-events: none;
+}
+
+/* §6.5: small denominators dim in rate measure, with a footnote naming the guard. */
+.smallDenominator {
+  opacity: 0.4;
+}
+
+.overlayQ5 {
+  fill: none;
+  stroke: var(--ja-ink);
+  stroke-width: 1.25;
+  pointer-events: none;
+}
+
+.overlayGap {
+  fill: none;
+  stroke: var(--ja-burgundy);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.neutralBase {
+  fill: #f7f6f6;
+  stroke: #ffffff;
+  stroke-width: 0.4;
+}
+
+.bubble {
+  stroke: rgba(38, 38, 38, 0.45);
+  stroke-width: 0.5;
+}
+
+.mark {
+  pointer-events: none;
+}
+
+.group:focus-visible {
+  outline: none;
+}
+
+.group:focus-visible .focusRing {
+  stroke: var(--ja-teal);
+  stroke-width: 2.5;
+  fill: none;
+}

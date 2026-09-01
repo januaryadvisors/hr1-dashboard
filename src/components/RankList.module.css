@@ -1,0 +1,55 @@
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1.1rem 1fr 3.5rem 2.2rem;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 0.3rem 0;
+  font-size: var(--step--1);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row:hover,
+.active {
+  background: var(--surface-warm);
+}
+
+.rank {
+  font-size: 0.625rem;
+  color: var(--text-faint);
+  text-align: right;
+}
+
+.name {
+  font-weight: 500;
+}
+
+.bar {
+  height: 3px;
+  background: var(--ja-navy);
+  border-radius: 2px;
+}
+
+.barTrack {
+  height: 3px;
+  background: var(--hairline);
+  border-radius: 2px;
+}
+
+.value {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-align: right;
+}

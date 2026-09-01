@@ -1,0 +1,48 @@
+.root {
+  min-width: 150px;
+}
+
+.label {
+  margin-bottom: 3px;
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.bar {
+  display: flex;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 2px;
+}
+
+.swatch {
+  flex: 1;
+}
+
+.ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}
+
+.circles {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.circleItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}

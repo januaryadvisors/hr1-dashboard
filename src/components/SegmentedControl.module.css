@@ -1,0 +1,44 @@
+.root {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+}
+
+.option {
+  padding: 0.3rem 0.85rem;
+  font-family: var(--font-display);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.option:hover:not(.active):not(:disabled) {
+  color: var(--text);
+}
+
+.active {
+  color: var(--text-inverse);
+  background: var(--ja-navy);
+}
+
+.option:disabled {
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.sm .option {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+}
+
+/* §8: the control stays visible but goes inert where it does not apply. */
+.inert {
+  opacity: 0.55;
+}

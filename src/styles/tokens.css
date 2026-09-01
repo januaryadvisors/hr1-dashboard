@@ -1,0 +1,77 @@
+/*
+ * January Advisors "Seriously Practical" tokens (spec design-system row).
+ *
+ * Authored as custom properties because §1 defers dark mode to a later version
+ * but requires it to be addable without a refactor. §12 records the lightened
+ * domain ramps dark mode will need — they are declared here, unused, so the
+ * theme is a stylesheet change rather than a code change.
+ */
+:root {
+  /* Brand */
+  --ja-navy: #004e7b;
+  --ja-teal: #00b9c3;
+  --ja-orange: #faa634;
+  --ja-ink: #262626;
+  --ja-warm-grey: #f0eded;
+  /* §6.1 — the hero number and the policy window on every chart. */
+  --ja-burgundy: #b44a3f;
+
+  /* Surfaces */
+  --surface: #ffffff;
+  --surface-warm: var(--ja-warm-grey);
+  --surface-sunken: #faf9f9;
+  --hairline: #dcd8d8;
+  --hairline-strong: #bdb8b8;
+
+  /* Text */
+  --text: var(--ja-ink);
+  --text-muted: #5f5a5a;
+  --text-faint: #8b8585;
+  --text-inverse: #ffffff;
+
+  /* Semantic */
+  --caution-bg: #fdf6e8;
+  --caution-border: var(--ja-orange);
+  --blocked-bg: #fbeeec;
+  --blocked-border: var(--ja-burgundy);
+  --info-bg: #eef6f7;
+  --info-border: var(--ja-teal);
+  --no-data: var(--ja-warm-grey);
+
+  /* Typography. Borna is licensed and may be absent locally; the stack degrades
+     to a close geometric sans rather than to a serif. */
+  --font-display: 'Borna', 'Urbanist', system-ui, -apple-system, sans-serif;
+  --font-figure: 'Mulish', system-ui, -apple-system, sans-serif;
+  --font-body: 'Onest', system-ui, -apple-system, sans-serif;
+
+  /* Scale */
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.375rem;
+  --step-2: 1.75rem;
+  --step-3: 2.5rem;
+  --step-hero: 4.75rem; /* §6.1: 76px */
+
+  /* Space */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius: 6px;
+  --radius-pill: 999px;
+  --header-height: 64px;
+
+  --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.08);
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--ja-teal);
+
+  /* §12 dark-mode domain ramps. Declared now, applied when the theme ships:
+     D1 #5B85C4, D2 #5FB4BD, D4 #4FAE6E; D3's amber survives unchanged. */
+  --dark-ramp-d1: #5b85c4;
+  --dark-ramp-d2: #5fb4bd;
+  --dark-ramp-d3: #f2a02f;
+  --dark-ramp-d4: #4fae6e;
+}

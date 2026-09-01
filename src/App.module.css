@@ -1,0 +1,23 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.main {
+  flex: 1;
+}
+
+.boot,
+.bootError {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: var(--space-6);
+  color: var(--text-muted);
+}
+
+.bootError > * {
+  max-width: 60ch;
+}

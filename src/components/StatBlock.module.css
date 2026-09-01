@@ -1,0 +1,26 @@
+.root {
+  display: block;
+}
+
+.value {
+  font-family: var(--font-figure);
+  font-size: var(--step-3);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.negative {
+  color: var(--ja-burgundy);
+}
+
+.neutral {
+  color: var(--text);
+}
+
+.body {
+  margin-top: var(--space-2);
+  font-size: var(--step-0);
+  color: var(--text-muted);
+  max-width: 34ch;
+}

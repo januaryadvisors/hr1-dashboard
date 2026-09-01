@@ -1,0 +1,35 @@
+.root {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--step--1);
+  border-left: 4px solid;
+  border-radius: var(--radius);
+}
+
+.info {
+  background: var(--info-bg);
+  border-color: var(--info-border);
+}
+
+.caution {
+  background: var(--caution-bg);
+  border-color: var(--caution-border);
+}
+
+.blocked {
+  background: var(--blocked-bg);
+  border-color: var(--blocked-border);
+}
+
+.title {
+  margin-bottom: var(--space-1);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.body {
+  color: var(--text-muted);
+}
+
+.body > :global(p) {
+  margin: 0 0 var(--space-2);
+}

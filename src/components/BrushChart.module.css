@@ -1,0 +1,77 @@
+.card {
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.instruction {
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+
+.presets {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+}
+
+.line {
+  fill: none;
+  stroke: #8fa6c4;
+  stroke-width: 1.4;
+}
+
+.lineIn {
+  fill: none;
+  stroke: var(--ja-burgundy);
+  stroke-width: 1.8;
+}
+
+.band {
+  fill: var(--ja-burgundy);
+  fill-opacity: 0.07;
+}
+
+.handle {
+  stroke: var(--ja-burgundy);
+  stroke-width: 1.5;
+  cursor: ew-resize;
+}
+
+.handleHit {
+  fill: transparent;
+  cursor: ew-resize;
+}
+
+.axis {
+  font-size: 9px;
+  fill: var(--text-faint);
+}
+
+.gridline {
+  stroke: var(--hairline);
+  stroke-width: 0.5;
+}
+
+.endpointLabel {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 600;
+  fill: var(--ja-burgundy);
+}

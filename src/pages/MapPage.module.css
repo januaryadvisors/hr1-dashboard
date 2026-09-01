@@ -1,0 +1,385 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--surface-warm);
+  min-height: 100%;
+}
+
+/* M-01 + M-03: roughly 68/32 with a vertical hairline between. */
+.heroBand {
+  display: grid;
+  grid-template-columns: 68fr 32fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.heroLeft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.heroNumberRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.heroNumber {
+  font-family: var(--font-figure);
+  font-size: var(--step-hero);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--ja-burgundy);
+}
+
+.heroPhrase {
+  max-width: 20ch;
+  font-size: 1.375rem;
+  line-height: 1.25;
+}
+
+.heroBody {
+  max-width: 62ch;
+  color: var(--text-muted);
+}
+
+.downloadRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.download {
+  padding: 0.45rem 1rem;
+  font-family: var(--font-display);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ja-navy);
+  background: var(--surface);
+  border: 1px solid var(--ja-navy);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.download:hover {
+  background: var(--ja-navy);
+  color: var(--text-inverse);
+}
+
+.statementRail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--hairline-strong);
+}
+
+/* M-04: six selectable cards in a row with live thumbnails. */
+.layerStrip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--space-3);
+}
+
+.mapRow {
+  display: grid;
+  grid-template-columns: 1fr 330px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.layerCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-left: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.layerCardActive {
+  background: #fdf8f2;
+  border-left-color: var(--ja-navy);
+}
+
+/* Composite is visually demoted: lighter border, last position (§6.4). */
+.layerCardDemoted {
+  border-color: #ebe7e7;
+}
+
+.layerCardTitle {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.layerCardDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Placeholder where a thumbnail cannot honestly be drawn. Sized to the
+   thumbnail's own aspect so the strip does not reflow between measures. */
+.layerCardNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1000 / 940;
+  font-size: 0.625rem;
+  color: var(--text-faint);
+  text-align: center;
+  background: var(--surface-sunken);
+  border: 1px dashed var(--hairline);
+  border-radius: 3px;
+}
+
+.panel {
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.panelHead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-5);
+  align-items: start;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.panelTitle {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.panelCopy {
+  max-width: 76ch;
+  margin-top: var(--space-2);
+  font-size: var(--step--1);
+  color: var(--text-muted);
+}
+
+.panelControls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.mapHolder {
+  padding: var(--space-3) 0;
+}
+
+.panelFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.markKey {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* §6.6: this line is not optional and does not shrink. */
+.presenceNote {
+  width: 100%;
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+  text-align: right;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.railCard {
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.railTitle {
+  margin-bottom: var(--space-3);
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius);
+  min-height: 34px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.1rem 0.4rem;
+  font-size: 0.6875rem;
+  background: var(--surface-warm);
+  border-radius: 3px;
+}
+
+.chipRemove {
+  background: none;
+  border: 0;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.checkRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 0.25rem 0;
+  font-size: var(--step--1);
+}
+
+.countyCount {
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+}
+
+.railHeadRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
+}
+
+.selectAll {
+  font-size: 0.6875rem;
+  color: var(--ja-navy);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.switchRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-3);
+  align-items: start;
+  padding: var(--space-2) 0;
+}
+
+.switchRow + .switchRow {
+  border-top: 1px solid var(--hairline);
+}
+
+.switchLabel {
+  font-size: var(--step--1);
+  font-weight: 500;
+}
+
+/* §6.8 M-08: the definition is the control's label, not a tooltip. */
+.switchDef {
+  grid-column: 1 / -1;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.switch {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  padding: 0;
+  background: var(--hairline-strong);
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.switchOn {
+  background: var(--ja-navy);
+}
+
+.switchKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 120ms ease;
+}
+
+.switchOn .switchKnob {
+  transform: translateX(16px);
+}
+
+.railFootnote {
+  margin-top: var(--space-2);
+  font-size: 0.625rem;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+.railSubhead {
+  margin-bottom: var(--space-2);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+@media (max-width: 1023px) {
+  .heroBand,
+  .mapRow,
+  .summaryRow {
+    grid-template-columns: 1fr;
+  }
+  .statementRail {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--hairline-strong);
+    padding-top: var(--space-5);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .layerStrip {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
