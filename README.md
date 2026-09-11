@@ -22,7 +22,11 @@ lists client framing rules that constrain what may appear on a map at all.
 
 Per spec §2, which deliberately departs from the JA house default:
 
-- **React 18 + Vite + TypeScript**, react-router, three routes
+- **React 18 + Vite, plain JavaScript**, react-router, three routes. Converted
+  from TypeScript on 2026-09-11 so the whole team can edit it; the types survive
+  as JSDoc `@typedef` blocks, so editors still autocomplete props and the
+  per-field documentation that lived on the interfaces is still there. There is
+  no compile step and no `tsc` — `jsconfig.json` is editor configuration only
 - **`useReducer` + one context, mirrored to URL query params** — no Redux, no Zustand
 - **Inline SVG maps** hand-rendered from TopoJSON with `d3-geo` `geoAlbers`
   tuned to EPSG:3083. No Leaflet, no MapLibre — §11 rules them out because
@@ -44,7 +48,7 @@ Payload is ~160KB gzipped including geometry, against the §3 target of 900KB.
 ## Data
 
 The front end reads four static files from `public/data/`. Their shapes are the
-§3 contract that `export_tool_data.R` must satisfy — see `src/types.ts`.
+§3 contract that `export_tool_data.R` must satisfy — see `src/types.js`.
 
 | File | Status |
 |---|---|
@@ -95,7 +99,7 @@ Generated data **is** committed so CI builds standalone.
 
 ### Swapping in the real export
 
-One file: `src/data/load.ts`. Point `getJson` at the real payloads. Then read
+One file: `src/data/load.js`. Point `getJson` at the real payloads. Then read
 `docs/SPEC-DEVIATIONS.md` §A first — the export needs MOE columns, integer
 tiers, and a county-by-month `snap_children` series, none of which
 `build_scores.R` currently produces.
@@ -103,27 +107,40 @@ tiers, and a county-by-month `snap_children` series, none of which
 ## Where things are
 
 ```
-src/config/layers.ts     THE ONE FILE TO EDIT for the four views, layers, copy
-src/lib/layerValues.ts   (layer, window) -> the numbers every map readout draws
-src/lib/insights.ts      scope resolution + metrics for the Insights page
-src/config/metrics.ts    the scatter's metric registry (accessor + direction)
-src/lib/scales.ts        bins + ramps, every value traceable to build_scores.R
-src/lib/colorRamp.ts     port of R's colorRampPalette, verified against real R
-src/lib/projection.ts    ONE projection, fitted once, shared by every panel (§2)
-src/state/appState.ts    the ten-field reducer + URL mirroring (§4)
-src/components/Section.tsx     numbered section header (comps §R1)
-src/components/CountyMap.tsx   geo / grid / density (§6.5) — "the whole risk"
-src/pages/MapPage.tsx    composition only (§6)
+src/config/layers.js     THE ONE FILE TO EDIT for the four views, layers, copy
+src/lib/layerValues.js   (layer, window) -> the numbers every map readout draws
+src/lib/insights.js      scope resolution + metrics for the Insights page
+src/config/metrics.js    the scatter's metric registry (accessor + direction)
+src/lib/scales.js        bins + ramps, every value traceable to build_scores.R
+src/lib/colorRamp.js     port of R's colorRampPalette, verified against real R
+src/lib/projection.js    ONE projection, fitted once, shared by every panel (§2)
+src/state/appState.js    the reducer + URL mirroring (§4)
+src/pages/MapPage.jsx    composition only (§6)
 ```
 
-Colour lives in `src/lib/scales.ts` and nowhere else. Ramps must stay
+Components are grouped by where they appear on the page, not by what they are
+made of — so "change the thing above the fold" is one folder, not a hunt through
+a flat list of thirty files:
+
+```
+src/components/shell/    chrome that is on every page: header, Section, Callout,
+                         SegmentedControl, ScopeBar
+src/components/hero/     above the fold: the headline stats and the brush chart
+src/components/map/      CountyMap ("the whole risk"), its tooltip, search,
+                         ramp + bivariate legends, glyphs, the rank list
+src/components/charts/   every plot that is not the map, plus their shared
+                         charts.module.css
+src/components/rail/     the sticky right rail: observed SNAP trend, policy feed
+```
+
+Colour lives in `src/lib/scales.js` and nowhere else. Ramps must stay
 bit-identical to `build_scores.R` (§13) — `npm test` enforces that against real
 R when `Rscript` is available.
 
 ### The four views
 
 The map strip is four views, not six layer cards (`VIEWS` in
-`src/config/layers.ts`; rationale in `docs/SPEC-DEVIATIONS.md` §M):
+`src/config/layers.js`; rationale in `docs/SPEC-DEVIATIONS.md` §M):
 
 | View | Metric(s) | Value |
 |---|---|---|
@@ -137,7 +154,7 @@ Three things to know before editing them:
 - The view is **derived** from `state.layer` (`viewForLayer`), never stored, so
   old `?layer=` links keep working and the two cannot drift apart.
 - The two loss layers have **no score column**. Their value is computed per
-  window in `src/lib/layerValues.ts`, and their colour bands are anchored to the
+  window in `src/lib/layerValues.js`, and their colour bands are anchored to the
   statewide loss over that same window — so `binsFor(layer)` alone is not enough
   to colour them. Use the `bins` that come back with the values.
 - `work_both` is **bivariate**: two values per county, a 3x3 red-blue scheme,
@@ -149,7 +166,7 @@ Three things to know before editing them:
 
 ### The scatter's metric registry
 
-`src/config/metrics.ts` drives the axis dropdowns on "Where need meets
+`src/config/metrics.js` drives the axis dropdowns on "Where need meets
 capacity". Two rules when adding one:
 
 - **Set `direction` honestly.** It gates the tinted gap quadrant, which only
@@ -179,15 +196,16 @@ which indents the hero number and shortens the brush card. See §S3.
 past the viewport's left edge, and `clip` contains that without creating a
 scroll container, so the sticky rail keeps working. See §T1.
 
-Data ramps are unchanged and must stay that way here: `scales.ts` is pinned
+Data ramps are unchanged and must stay that way here: `scales.js` is pinned
 bit-identical to `build_scores.R` and verified against real R in CI, so
 recolouring marks in the browser would desynchronise the dashboard from the
 review maps. That change starts on the R side. See §R7.
 
 ### Page shell
 
-One grid, two columns: a main column, and a **sticky rail** holding the three
-statewide facts and the Texas Works policy feed. Two things to leave alone:
+One grid, two columns: a main column, and a **sticky rail** holding the observed
+SNAP trend chart and the Texas Works policy feed. (The three statewide facts moved
+into the green hero band on 2026-09-11.) Two things to leave alone:
 
 - `.page` uses `align-items: start`. A stretched grid item cannot be sticky, so
   switching that back to `stretch` silently kills the sticky rail.
@@ -195,8 +213,15 @@ statewide facts and the Texas Works policy feed. Two things to leave alone:
   That is what keeps it to **one** scroll region — cap both and you get nested
   scrollbars.
 
-The map's own controls ("Highest on this view", "Show advanced") live in an
-aside *inside* the map panel, not in the rail.
+The map's own controls live in an aside *inside* the map panel, not in the rail.
+Measure (Rate/Count) and the render style sit together **above** the map, because
+both change how it draws rather than what it is about. The "Show advanced"
+disclosure that used to hide Measure was removed on 2026-09-11 — it held two
+things, and one of them (the infrastructure picker) only ever applied to the
+Vulnerability index view, where it is now shown inline.
+
+The rail is ONE colour (`--ft-tan-alt`, full-bleed to the right edge) against the
+main column's alternating tans. Nothing inside it paints its own surface.
 
 The hero number is `clamp(2.5rem, 18vw, …)`. The `vw` term is not cosmetic: at a
 fixed 6.75rem, `−547,051` overflows a phone viewport and the overflow widens the
@@ -206,7 +231,7 @@ it.
 ### County stat pages (Insights)
 
 The Insights page is **scopeable**: `state.scope` holds a geoid, mirrors to
-`?county=`, and every chart reads from a `Scope` (`src/lib/insights.ts`). So
+`?county=`, and every chart reads from a `Scope` (`src/lib/insights.js`). So
 `/insights/decline?county=48201` is a county report, and the link is just the
 address bar after picking a county — there is no separate export step to drift
 out of sync.
@@ -229,7 +254,7 @@ band). See §Q2 of the deviations doc before turning it on.
 
 ### The policy feed filter
 
-`classify()` in `src/data/timeline.ts` tags bulletins `snap` / `hr1` at load
+`classify()` in `src/data/timeline.js` tags bulletins `snap` / `hr1` at load
 time — a **text match**, not an authority on scope. Cross-programme bulletins
 that change SNAP without naming it are not matched, and the UI says so whenever
 a filter is on. Don't remove that footnote without replacing the classifier with
@@ -251,21 +276,21 @@ See §A4.
 
 ## Deploy
 
-Push to `main`; `.github/workflows/deploy.yml` runs tests, typechecks, builds and
-publishes. The deploy gates on `npm test`.
+Push to `main`; `.github/workflows/deploy.yml` runs tests, builds and publishes.
+The deploy gates on `npm test`.
 
 One-time setup:
 1. Settings → Pages → Source: **GitHub Actions** — do this *before* the first
    push, or the deploy job fails with "Get Pages site failed".
 2. Settings → Actions → General → Workflow permissions → **Read and write**,
    which the bulletins refresh job needs in order to commit.
-3. `vite.config.ts` `base` must match the repo path (`/hr1-dashboard/`). It is
+3. `vite.config.js` `base` must match the repo path (`/hr1-dashboard/`). It is
    commented as the one place to change; a custom domain means `base: '/'`.
 
 ### Deep links
 
 Pages serves static files only, so `/hr1-dashboard/map` has no file to serve and
-would 404. The `githubPagesSpaFallback` plugin in `vite.config.ts` copies
+would 404. The `githubPagesSpaFallback` plugin in `vite.config.js` copies
 `index.html` to `dist/404.html` after each build; Pages serves that for any
 unmatched path *without changing the URL*, so the app boots and renders the right
 route. The deploy workflow fails if the file is missing.

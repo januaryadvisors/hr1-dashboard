@@ -1,0 +1,164 @@
+/*
+ * <SnapTrend> — the observed-enrollment panel at the top of the sticky rail.
+ *
+ * It sits on the rail's single tan ground rather than in a white card: the rail
+ * is one column of one colour on client direction 2026-09-11, and a card here
+ * would put a second surface inside it.
+ */
+.root {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* The chart's title — set like the other chart titles on the page, not like a
+   rail eyebrow, because this is a chart. */
+.title {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.empty {
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+}
+
+/* Three pills, matched to the feed's filter pills below so the two controls in
+   the rail read as the same kind of thing. They sit ABOVE the title, because the
+   title names the series and a control that changes the title has to come
+   first. One at a time, so no colour key is needed. */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.tab {
+  flex: 0 1 auto;
+  padding-inline: 0.5rem;
+  padding-block: 0.15rem;
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  border-color: var(--hairline-strong);
+  color: var(--text);
+}
+
+.tabOn {
+  color: var(--text-inverse);
+  background: var(--ja-navy);
+  border-color: var(--ja-navy);
+}
+
+/*
+ * The readout doubles as the chart's label, so it reserves its own height —
+ * without a floor the chart shifts when a long figure wraps under the pointer.
+ */
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  /* One line's worth now that the delta is gone — still reserved, so the chart
+     does not shift when a hovered month's figure wraps. */
+  min-height: 1.7rem;
+  align-content: start;
+}
+
+.value {
+  font-family: var(--font-figure);
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.valueNote {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The whole plot is the hit target, so the pointer never has to find a point. */
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+/* Recessive: the grid states the scale, it does not compete with the line. */
+.grid {
+  stroke: var(--hairline-strong);
+  stroke-width: 0.5;
+}
+
+.gridLabel,
+.yearLabel {
+  font-family: var(--font-display);
+  font-size: 8px;
+  font-weight: 600;
+  fill: var(--text-faint);
+}
+
+.line {
+  fill: none;
+  stroke: var(--ja-burgundy);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.policy {
+  stroke: var(--ja-navy);
+  stroke-width: 0.75;
+  stroke-dasharray: 2 2;
+}
+
+.policyLabel {
+  font-family: var(--font-display);
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  fill: var(--ja-navy);
+}
+
+.crosshair {
+  stroke: var(--text-faint);
+  stroke-width: 0.75;
+}
+
+.dot {
+  fill: var(--ja-burgundy);
+  /* A ring in the panel's own ground, so the dot reads on top of the line. */
+  stroke: var(--ft-tan-alt);
+  stroke-width: 1.5;
+}
+
+.foot {
+  font-size: 0.5625rem;
+  line-height: 1.35;
+  color: var(--text-faint);
+}
+
+.foot a {
+  color: inherit;
+}
+
+.foot a:hover {
+  color: var(--ja-navy);
+}

@@ -64,7 +64,17 @@
 
 /*
  * Two columns for the page below the band: everything the reader acts on, and
- * a sticky rail holding the Texas Works policy feed.
+ * a sticky rail holding the SNAP chart and the policy feed.
+ *
+ * NO COLUMN GAP — 2026-09-11 direction. A gap here let the page's own ground
+ * show as a 32px stripe between the main column's band and the rail's, so the
+ * eye read THREE colours across and the rail looked detached rather than
+ * adjacent. With the gap closed the two grounds meet edge to edge and the colour
+ * change itself is the divider. The breathing room the gap provided moves inside
+ * the rail as padding (see .rail) and inside each Section as its right padding.
+ *
+ * The row gap stays: below 1200px the rail stacks underneath, where it is a gap
+ * between rows and not between colours.
  */
 .page {
   --col-side: 320px;
@@ -72,13 +82,21 @@
 
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--col-side);
-  gap: var(--col-gap);
+  column-gap: 0;
+  row-gap: var(--col-gap);
   /* start, not stretch: a stretched grid item cannot be sticky. */
   align-items: start;
 
   max-width: 1680px;
   margin-inline: auto;
-  padding-block: var(--space-5);
+  /*
+     No top padding: both columns paint their own ground and both are meant to
+     start flush against the green band above. The main column's sections carry
+     their own top padding, and the rail carries its own — so the grounds meet
+     the band with no stripe of page colour between them.
+  */
+  padding-top: 0;
+  padding-bottom: var(--space-5);
   padding-inline: clamp(var(--space-5), 5vw, 5rem);
   min-width: 0;
 }
@@ -398,16 +416,54 @@
  * takes the leftover height and scrolls there. That is deliberate — capping the
  * rail AND letting the feed scroll gives two nested scrollbars on a short
  * viewport, and the reader has to guess which one they are in. One scroll
- * region, and the three statewide facts stay put above it.
+ * region, and the SNAP panel stays put above it.
+ *
+ * ONE COLOUR, FULL-BLEED RIGHT — 2026-09-11 direction.
+ *
+ * The main column's sections alternate two tans and bleed off the LEFT edge;
+ * the rail answers that with a single unbroken --ft-tan-alt running off the
+ * RIGHT edge, so the page reads as a column of content against a column of
+ * context rather than as a grid of tinted boxes. Nothing inside the rail paints
+ * its own surface — a white card in here would undo it.
+ *
+ * The bleed is a negative margin plus matching padding rather than an absolute
+ * pseudo-element, because `overflow: hidden` above would clip a pseudo-element.
+ * `.root` carries `overflow-x: clip`, so the overhang cannot scroll the page.
  */
 .rail {
   position: sticky;
-  top: calc(var(--header-height) + var(--space-4));
-  max-height: calc(100vh - var(--header-height) - var(--space-6));
+  /*
+     Flush to the header and flush to the bottom of the viewport.
+     There used to be a --space-4 offset here and a --space-6 deduction from the
+     height, which put a stripe of page ground above and below the rail's own
+     ground the moment the page scrolled — the column looked like it was floating
+     in the gutter rather than running the height of the page. The rail's inner
+     padding does the spacing instead.
+  */
+  top: var(--header-height);
+  max-height: calc(100vh - var(--header-height));
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+
+  background: var(--ft-tan-alt);
+  /*
+     A hairline as well as the colour change, because the colour change is not
+     always there: sections alternate between the two tans, and the alt one IS
+     --ft-tan-alt, so beside those sections the rail's ground matches its
+     neighbour exactly and the boundary disappears. The rule is the floor —
+     against a base-tone section the colour does the work and the hairline is
+     barely visible. Drop it and the columns merge on every other section.
+  */
+  border-left: 1px solid var(--hairline);
+  padding: var(--space-5) var(--space-4) var(--space-4);
+  /* Replaces the grid gap this column used to sit behind, so the rail's ground
+     starts at the main column's edge but its content does not. */
+  padding-left: var(--space-6);
+  /* Mirrors .page's own inline padding, so the ground reaches the viewport. */
+  margin-right: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
+  padding-right: clamp(var(--space-5), 5vw, 5rem);
 }
 
 /*
@@ -415,7 +471,7 @@
  *
  * Texas in Albers is nearly square, so a full-width column left slack either
  * side of the map. The aside spends that slack on the two things that are about
- * the map — the shortlist and the advanced controls — instead of leaving it
+ * the map — the shortlist and the view's own controls — instead of leaving it
  * empty or pushing them into a rail on the far side of the page.
  */
 .mapBody {
@@ -631,46 +687,6 @@
   color: var(--text-muted);
 }
 
-/* ------------------------------------------------------- advanced disclosure */
-
-.advanced {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* A text control in the block's own head row, not a dashed button. The block
-   title already says what it opens, so the button only has to say which way. */
-.advancedToggle {
-  padding: 0;
-  font-family: var(--font-display);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--ja-navy);
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-
-.advancedToggle:hover {
-  text-decoration: underline;
-}
-
-.advancedBody {
-  margin-top: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* Measure, infrastructure and overlays, in one card. A hairline between them
-   does the separating the three borders used to. */
-.advancedGroup + .advancedGroup {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--hairline);
-}
-
 /* A disabled overlay switch still has to read as a switch, not as a hairline. */
 .switch:disabled {
   opacity: 0.4;
@@ -680,8 +696,26 @@
 /*
  * Section 03: the scatter, with its controls and readout in the column beside
  * it. The panel replaced a floating tooltip — see <ScatterPanel>.
+ *
+ * FIXED HEIGHT, 2026-09-11 direction. The readout below the axis pickers is
+ * empty until a county is hovered, so the card used to grow by ~200px the moment
+ * the pointer touched a point — which moved the chart under the pointer and
+ * shoved the next section down the page. The row now stands at its tallest state
+ * always and hovering only fills the space that was already reserved; see
+ * .readout in ScatterPanel.module.css for the reservation itself.
+ *
+ * The height is the chart's: --capacity-h caps the plot, the panel reserves the
+ * same, so neither side can drive the card taller than the other.
  */
 .capacityRow {
+  /*
+     Sized to the TALLEST readout, not to a round number: county name, FIPS
+     line, both axis rows, the enrollment sparkline and both flags. Measured at
+     313px of readout plus the axis form above it. Reserve less and the readout
+     scrolls, which is the same problem as the card growing, just quieter.
+  */
+  --capacity-h: 540px;
+
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--side-panel);
   gap: var(--space-4);
@@ -692,14 +726,40 @@
   border-radius: var(--radius);
 }
 
+/*
+ * The scatter's slot: full width of its grid track, full height of the card.
+ *
+ * An explicit height rather than the grid's stretch, because <ScatterChart> is
+ * authored at this element's measured pixel size — if the SVG inside could
+ * influence the height, the ResizeObserver and the layout would chase each
+ * other. This height is definite and set from the same token the panel uses.
+ */
 .capacityChart {
-  display: flex;
-  align-items: center;
   min-width: 0;
+  height: var(--capacity-h);
 }
 
+/* Fills the slot exactly: the viewBox is authored at these pixels, so there is
+   no aspect ratio to preserve and nothing to letterbox. */
+.capacityChart > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * A FIXED height, not a minimum.
+ *
+ * `min-height` was the first attempt and it does not work: the readout's content
+ * still pushes the panel past it, so hovering a point grew the card by ~127px
+ * and shoved the next section down the page. A definite height is what lets
+ * .readout inside resolve `flex: 1` against something and clamp.
+ */
 .capacityPanel {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  height: var(--capacity-h);
   padding-left: var(--space-4);
   border-left: 1px solid var(--hairline);
 }
@@ -711,27 +771,39 @@
   gap: var(--space-4);
 }
 
-/* §1: responsive down to 1024px. Below that the map goes full width and both
-   rails stack underneath. */
-/* The rail needs ~320px plus a gap before the map is worth keeping beside it,
-   so it stacks earlier than the rest of the page reflows. */
+/*
+ * RESPONSIVE.
+ *
+ * The page-level rail keeps its column much further down than the panels inside
+ * the main column do — 2026-09-11 direction. A tablet has room for two columns;
+ * a map beside its own control panel does not. So the inner two-ups (map +
+ * controls, scatter + readout) collapse first, and the rail column narrows
+ * rather than stacking, until there is genuinely no room for it at all.
+ */
+
+/* The inner splits give up first: below this the map and the scatter take the
+   full main column and their panels go underneath. */
 @media (max-width: 1199px) {
-  .page,
-  .heroInner {
-    grid-template-columns: minmax(0, 1fr);
+  /* The rail narrows instead of stacking, so the main column keeps the width
+     the two collapsing panels just handed back to it. */
+  .page {
+    --col-side: 280px;
   }
 
   .capacityRow {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* A stacked rail is no longer beside anything, so it stops sticking and gets a
-     rule above it instead of a border down its side. */
-  .rail {
-    position: static;
-    max-height: none;
-    overflow: visible;
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--hairline-strong);
+  /* Stacked, the panel is under the chart rather than beside it, so the slot can
+     be shorter and the panel can take the height it needs. */
+  .capacityChart {
+    height: 320px;
+  }
+  .capacityPanel {
+    height: auto;
+    padding-left: 0;
+    padding-top: var(--space-3);
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
   }
   .mapBody {
     grid-template-columns: minmax(0, 1fr);
@@ -743,6 +815,40 @@
     padding-top: var(--space-3);
     border-left: 0;
     border-top: 1px solid var(--hairline);
+  }
+}
+
+/* Narrower still, and the rail gives up another 40px rather than the column. */
+@media (max-width: 900px) {
+  .page {
+    --col-side: 240px;
+  }
+  .rail {
+    padding-left: var(--space-4);
+  }
+}
+
+/*
+ * Small tablets and phones: one column at last.
+ *
+ * 640px is where a 240px rail leaves the main column under ~340px, which is
+ * narrower than the map can be read at. Above it the two-column reading holds.
+ */
+@media (max-width: 640px) {
+  .page,
+  .heroInner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* No longer beside anything: it stops sticking, and the rightward bleed
+     becomes a bleed to both edges with the divider on top. */
+  .rail {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+    margin-inline: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
+    padding-inline: clamp(var(--space-5), 5vw, 5rem);
   }
 }
 

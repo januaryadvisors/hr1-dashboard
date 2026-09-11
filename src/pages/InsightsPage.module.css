@@ -57,7 +57,27 @@
   line-height: 1.25;
 }
 
+/*
+ * TWO CHARTS PER ROW — 2026-09-11 direction.
+ *
+ * `align-items: start` so a short card does not stretch to match a tall one
+ * beside it; the cards are separate readings, not a table.
+ */
+.chartGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+  min-width: 0;
+}
+
+/* For a chart that genuinely cannot read at half width. */
+.wide {
+  grid-column: 1 / -1;
+}
+
 .chartBlock {
+  min-width: 0;
   padding: var(--space-4);
   background: var(--surface);
   border: 1px solid var(--hairline);
@@ -180,20 +200,24 @@
   font-weight: 600;
 }
 
-.pending {
-  margin: var(--space-1) 0 var(--space-2);
-  padding-left: 1.1rem;
+/* A chart that is not built yet, holding its place in the grid. Dashed and
+   sunken so it cannot be mistaken for a chart with no data in it. */
+.placeholder {
+  border-style: dashed;
+  background: var(--surface-sunken);
 }
 
-.doesNotSupport {
-  max-width: 74ch;
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--step--1);
-  line-height: 1.5;
-  color: var(--text-muted);
-  background: var(--surface);
-  border-left: 3px solid var(--hairline-strong);
-  border-radius: var(--radius);
+.placeholderBody {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 .fixtureNote {
@@ -235,8 +259,7 @@
   .tabs {
     display: none;
   }
-  .chartBlock,
-  .doesNotSupport {
+  .chartBlock {
     break-inside: avoid;
     page-break-inside: avoid;
     border-color: #ccc;
@@ -247,5 +270,12 @@
   /* Amber on a mono printer has to survive as something; a heavy rule does. */
   .badge {
     border-width: 2px;
+  }
+}
+
+/* Two charts side by side stop being readable below about 360px each. */
+@media (max-width: 900px) {
+  .chartGrid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
