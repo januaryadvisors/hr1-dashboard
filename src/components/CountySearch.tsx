@@ -9,20 +9,25 @@
  * selection that survives is what the reworked click-to-select will add.
  */
 import { useMemo, useRef, useState } from 'react';
-import type { County, LayerKey } from '../types';
-import { scoreField } from '../config/layers';
-import { fmtPercentile } from '../lib/format';
+import type { County } from '../types';
 import styles from './CountySearch.module.css';
 
 const MAX_RESULTS = 8;
 
 export interface CountySearchProps {
   counties: County[];
-  layer: LayerKey;
+  /**
+   * The active layer's value for a county, already formatted.
+   *
+   * Passed in rather than read off the county here: the loss layers have no
+   * score column and three of the layers use three different units, so the page
+   * that owns the values owns the formatting too.
+   */
+  renderValue: (county: County) => string;
   onSelect: (geoid: string | null) => void;
 }
 
-export function CountySearch({ counties, layer, onSelect }: CountySearchProps) {
+export function CountySearch({ counties, renderValue, onSelect }: CountySearchProps) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -123,8 +128,6 @@ export function CountySearch({ counties, layer, onSelect }: CountySearchProps) {
         <ul className={styles.list} id="county-search-list" role="listbox">
           {results.length === 0 && <li className={styles.empty}>No county matches that.</li>}
           {results.map((r, i) => {
-            const value = r.county[scoreField(layer)];
-            const num = typeof value === 'number' ? value : null;
             const q = query.trim();
             const before = r.county.name.slice(0, r.at);
             const hit = r.county.name.slice(r.at, r.at + q.length);
@@ -145,9 +148,7 @@ export function CountySearch({ counties, layer, onSelect }: CountySearchProps) {
                   {after}
                 </span>
                 <span className={`${styles.optionValue} tabular`}>
-                  {layer === 'composite'
-                    ? num?.toFixed(2) ?? '—'
-                    : fmtPercentile(num)}
+                  {renderValue(r.county)}
                 </span>
               </li>
             );

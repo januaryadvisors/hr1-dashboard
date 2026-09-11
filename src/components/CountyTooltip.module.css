@@ -301,3 +301,63 @@
   font-size: 0.625rem;
   color: var(--text-faint);
 }
+
+/* ------------------------------------------------ bivariate axis readout
+   Which cell of the 3x3 the hovered county sits in. Only rendered on the
+   bivariate work layer. */
+.bivariate {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.bivariateHead {
+  margin-bottom: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.bivariateRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 34px;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 2px 0;
+}
+
+.bivariateLabel {
+  font-size: 0.625rem;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+.bivariateValue {
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* Three bands per axis, matching the legend's classes. Only the county's own
+   band is coloured, so the row reads as "which third" at a glance. */
+.bivariateBands {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.bivariateBand {
+  height: 8px;
+  border-radius: 1.5px;
+}
+
+/*
+ * Fill alone cannot mark the active band. The lowest class of each axis IS the
+ * scheme's near-neutral corner (#EAE7E5), which is indistinguishable from the
+ * inactive grey — so a county in the bottom third on both axes, which is most
+ * of them, showed no highlight at all. The ring is what actually says "here".
+ */
+.bivariateBandActive {
+  box-shadow: 0 0 0 1.2px var(--ja-ink);
+}

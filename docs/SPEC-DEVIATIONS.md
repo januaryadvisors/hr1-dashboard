@@ -51,6 +51,43 @@ Flipping `available: true` in `src/config/layers.ts` is the whole change once
 `d5_*` exists. Nothing is synthesised from the statewide age bands (§3 forbids
 it).
 
+**Update 2026-09-10.** The four-view rework (§M) adds a **Children view**, and
+it does *not* resolve this. The Children view maps a windowed enrollment loss on
+a child caseload — a count series — not a `d5_score`. There is still no `d5_*`
+column, `LAYERS.d5.available` is still `false`, and the D5 card is simply no
+longer in the strip because the strip is no longer a layer list. See A4 for the
+column the new view does need.
+
+### A4. `snap_children` is a new required column — NOT in the §3 contract
+
+The Children view needs enrolled under-18s **per county per month**, parallel to
+`meta.months`. Spec §3.1 does not list it and `build_scores.R` does not produce
+it.
+
+This is the one place in the build where a view was added ahead of its data, so
+be clear about what was and was not done:
+
+- **Not done:** synthesising a `d5_score`. §3 forbids deriving a Children
+  *domain percentile* from the statewide age bands, and nothing here does.
+- **Done:** a fixture for the *count series* the real export owes.
+  `scripts/build-fixtures.mjs::buildChildEnrollment` takes the statewide
+  under-18 trajectory straight from the two published age bands (`Under 5` and
+  `5–17`), splits it across counties by caseload with a socioeconomic-need tilt,
+  and apportions by largest remainder so **every month sums to the statewide
+  child total exactly**. The build asserts the reconciliation and that no county
+  reports more children than enrolled individuals.
+
+Verified by the fixture run: child change since the policy start is **−16.7%**,
+matching the age-band arithmetic, against **−15.5%** for the caseload as a
+whole; the child share of the caseload drifts 42.5% → 41.9%.
+
+The county-level *split* is therefore synthetic in exactly the way §G already
+describes for every other county figure. **The export owes a genuine
+county-by-month child series.** Until it lands, the Children map's geography is
+fixture geography — it is calibrated, not observed. If HHS cannot produce a
+county child series, the honest move is to drop the view, not to keep the
+fixture.
+
 ---
 
 ## B. Ramp parity with `build_scores.R` — resolved, with one discrepancy to settle
@@ -148,6 +185,13 @@ grey cards — every county at radius zero, which reads as "no exposure here"
 rather than "no denominator exists". Those cards now show a
 "No count basis" placeholder, following C-03's logic that the reason gets named
 rather than implied.
+
+**Update 2026-09-10.** The two loss layers *do* have a count basis — people who
+left SNAP over the window — which the old `countField` mechanism could not
+express, since the number is not a column. `hasCountBasis()` now covers both
+cases and `countLabelFor()` names the legend. Of the four views, only
+Vulnerability index has no count, and it is the one that cannot: a count of a
+percentile sum is not a quantity of anything.
 
 ---
 
@@ -547,6 +591,843 @@ All four types always appear. Present ones show their count in colour; absent
 ones show a dash with the glyph greyed. An omitted row would read as "not
 measured" rather than "none listed" — which is the same distinction §6.6's
 removed footer was protecting (§J1).
+
+---
+
+## M. Client-directed changes, round 5 (2026-09-10) — four views
+
+Three asks: collapse the two big rail cards behind a disclosure, move Rate/Count
+in with them, and cut the six layer cards to four views.
+
+### M1. Six layers became four views
+
+§6.4's strip was a *layer* list — the four domains, the un-sourced D5, and the
+composite. It asked the reader to pick a percentile before they had been told
+anything. The strip is now four **views**, each answering one question:
+
+| View | Metric(s) | Basis |
+|---|---|---|
+| **Benefits lost** (default) | `loss` | observed enrollment loss over the window |
+| **Work requirements** | `d1`, `d3` | percentiles, with a metric toggle |
+| **Vulnerability index** | `composite` | percentile sum, 0–4 |
+| **Children** | `child_loss` | observed child enrollment loss over the window |
+
+D2 (Citizenship) and D4 (Socioeconomic need) **lost their strip cards**. They
+are not deleted: both still score, both still appear in every county tooltip's
+domain grid, and `SCORE_LAYERS` still ranks them. What they no longer have is a
+map — `?layer=d2` now degrades to the default view rather than drawing a
+citizenship map under a Benefits-lost card, which is a page contradicting
+itself. This is the one part of the rework worth pushing back on — §11 is
+explicit that *"publishing the sub-scores is the point of the framework"*, and
+two of the four sub-scores now have no map of their own. The tooltip is doing
+the whole job of showing that the domains disagree. If that reads as burying
+them, the fix is a fifth view or a second metric on an existing one, not a
+return to six cards.
+
+There is deliberately **no `view` field in the state**. `viewForLayer()` derives
+the view from `layer`, so the two cannot drift apart, and `?layer=` links naming
+any of the five layers a view can show (`loss`, `child_loss`, `d1`, `d3`,
+`composite`) still open exactly where they did.
+
+### M2. Two new layers with no column behind them
+
+`loss` and `child_loss` are the first layers whose value is not a stored score —
+it is `(start − end) / start` across the brush window. That forced a real
+change: `<CountyMap>` no longer reads `county[scoreField(layer)]` itself.
+`src/lib/layerValues.ts` computes fills and counts once per (layer, window) and
+the page hands them to the hero map, all four thumbnails, the rank list and the
+search results, so those five readouts cannot disagree.
+
+Two judgment calls inside it:
+
+- **A county that grew reads as zero, not as a negative.** The view answers
+  "where are people losing benefits"; a diverging scale would spend half its ink
+  on the handful of counties going the other way. The panel copy says so and the
+  tooltip still shows the true signed change.
+- **The bands are anchored to the statewide loss over the same window**, at
+  multiples 0.6 / 0.8 / 0.95 / 1.1 / 1.3. A fixed absolute scale cannot work
+  when the brush is a first-class control: bands tuned to the full policy window
+  leave a six-month window uniformly pale, and bands tuned to six months leave
+  the full window uniformly black. Anchoring makes the middle of the ramp
+  "losing at the Texas rate" at every window length. The legend prints the
+  resulting percentages and the map footer names the anchor, so the reader is
+  never shown a multiplier without the number behind it.
+
+### M3. The loss layers are plum, not burgundy
+
+They were drawn in the hero number's burgundy first. That failed: the composite
+already owns burgundy — traceable to `build_scores.R`'s cumulative-impact ramp
+and not ours to reassign — and at thumbnail size a burgundy loss map and a
+burgundy composite map are the same picture, so three of the four view cards
+were indistinguishable.
+
+Grey or ink was the other obvious way to say "observed, not modelled", and it
+was rejected because it collides with `NO_DATA` (`#F0EDED`): a pale county and
+an absent county have to stay tellable apart. Plum is the sixth hue in the
+system and is not in `build_scores.R`.
+
+Both loss layers share the ramp *and* the anchor is computed per layer, so the
+all-persons and children maps are read on one scale — a darker child map means
+children are leaving faster. On the fixture data they are: **−16.7%** against
+**−15.5%**.
+
+### M4. Capacity draws on one view only
+
+`ViewDef.showCapacity` is true for **Vulnerability index** and nothing else. The
+four glyph types, the mark key in the map footer, and the gap overlay all follow
+it. Before this, four glyph types drew over every choropleth on the page by
+default.
+
+The infrastructure picker stays in the advanced panel on every view rather than
+appearing and vanishing — a control that moves is worse than a control with a
+note. On the other three views it carries a line saying the marks draw on the
+Vulnerability index view and that the selection is kept. The gap-counties switch
+is genuinely disabled off that view, since its definition is a vulnerability
+quintile.
+
+### M5. Advanced is collapsed, and Rate/Count moved into it
+
+Measure, Assistance infrastructure and Overlays now sit behind **Show advanced**
+in the right rail. The rail leads with "Highest on this view" instead, so the
+reader meets a readout rather than three panels of filters.
+
+Rate/Count had already moved once (§J2, off the global second bar into the panel
+head). It is now one level further away. It still drives the hero map and all
+four thumbnails; nothing about it changed but its location. The disclosure
+mirrors to `?adv=1` so a shared link reproduces what the sender was looking at,
+and the body is **unmounted** rather than hidden — the infrastructure counts are
+254 counties of counting per type and none of it is worth doing for a panel
+nobody has opened.
+
+The toggle names its contents ("Measure, capacity, overlays") rather than saying
+only "Show advanced". A disclosure the reader cannot predict the contents of
+does not get opened.
+
+---
+
+## N. Client-directed changes, round 6 (2026-09-10) — tooltips per view, and a bivariate work map
+
+### N1. The tooltip is no longer the same panel on every view
+
+It used to render everything regardless of what the reader was looking at: the
+focused domain band, four more domain bands, the three-column stat row, four
+assistance registries and an enrollment sparkline. `ViewDef.tooltip` now decides
+per view.
+
+| Section | Benefits lost | Work requirements | Vulnerability index | Children |
+|---|---|---|---|---|
+| Focused band | — *(no percentile)* | yes | yes | — |
+| Other domain bands | no | no | **yes** | no |
+| Three-column stats | yes | yes | yes | yes |
+| Listed assistance sites | no | no | **yes** | no |
+| Foot chart | caseload line | **exposure bars** | caseload line | child caseload line |
+
+The domain spread stays on the Vulnerability index and only there. That view's
+argument is that the four domains disagree (§8 tab 3), so the spread is its
+content; on the other three it was four percentiles nobody asked for. This is
+the second place the rework leans on that one view to carry the framework — see
+the caveat in §M1.
+
+`tooltip.capacity` is asserted equal to `showCapacity` in the tests, so the
+panel and the map can never disagree about whether capacity is part of a view.
+
+### N2. Exposure bars replace the caseload line on the Work view
+
+A line of total enrollment does not answer "how many people does the
+requirement reach". `<ExposureBars>` puts three counts on one shared axis:
+
+```
+Caseload, JUL 2025   ████████████████████  625
+Newly subject †      ████                  109  17%
+Left SNAP since      ██                     56   9%
+```
+
+The third bar is the point. "Newly subject" alone is a projection; setting it
+beside the observed departure over the same window shows whether the exposure
+and the loss are the same size — and they are not. §10's flag rides on the
+number as a dagger with a footnote, rather than as a tag on the label, so all
+three rows stay one line tall and the bars keep a shared baseline.
+
+### N3. A bivariate work map — "Both at once"
+
+A third metric on the Work view, `work_both`, drawing two measures at once.
+
+**The two measures.** Red is `newly_subject_persons` **as a share of the
+county's own caseload at the window start** — not the raw count, which would put
+Harris in the top class by itself, and not a share of population, which is close
+to a restatement of D1 given how the estimate is built. Blue is D3, whose seven
+labour-market components (jobs per worker, in-county employment, vehicle and
+internet access, unemployment, the low-wage mix, average weekly wage) are the
+best available answer to "is work reachable here".
+
+**Both axes point the same way, and that is a deviation from the ask.** The
+request was "red for people newly subject, blue for how reachable work is". Read
+literally — blue rising with reachability — the darkest corner of the scheme
+would mean *"many people exposed, and work is easy to reach"*, which is not a
+corner anyone needs to find. D3 is published as a vulnerability percentile (high
+= worse) and it is kept in that direction, so dark means trouble on both counts.
+The legend and the tooltip both label it **"Work is harder to reach (D3)"**
+rather than leaving the reader to infer a sign. **Overrule this if the intent
+really was reachability-positive** — it is one line in `LAYERS.work_both.axes`
+plus flipping the value in `workBivariate`.
+
+**Nine classes from equal-count thirds**, not a fixed grid: the two axes are a
+modelled share and a percentile, with no shared natural cut points, and fixed
+breaks would leave most of the nine cells empty. On the current data the red
+cuts land at 19.1% and 26.8%; D3's fall at p33 and p67 as a percentile must.
+
+**The corners are luminance-matched, and the first draft got this wrong.** It
+paired red `#B92D33` (relative luminance 75) with blue `#215E9E` (86). Because
+the blue was nearly as dark as the joint corner (39), a high-blue/low-red county
+read as almost as urgent as a both-high one, which defeats the entire scheme.
+Red is now `#C13840` at luminance 86, exactly matching the blue, so lightness
+encodes one thing only: how much of both. A test pins the invariant. 3x3 rather
+than 4x4 for the same reason — at 3x3 the closest adjacent pair is ~58 units
+apart in RGB.
+
+This scheme has **no counterpart in `build_scores.R`** — it is the one ramp in
+`scales.ts` with no upstream to stay bit-identical to. If the layer is kept, the
+R review maps need the same corners.
+
+**What it cannot do.** Count measure is refused with a named reason (a
+proportional symbol has one size, and there are two measures here). The rank
+list can only order one axis, and says so in its own subhead rather than letting
+the reader assume otherwise.
+
+### N4. The tooltip says which cell of the matrix a county is in
+
+Two rows above the stats, one per axis, each with the value and three bands
+marking the county's class in the legend's own colours.
+
+The active band needed a **ring**, not just a fill: the lowest class of each
+axis *is* the scheme's near-neutral corner (`#EAE7E5`), indistinguishable from
+the inactive grey — so a county in the bottom third on both axes, which is most
+of them, showed no highlight at all.
+
+`<CountyTooltip>` takes the live `LayerValues` for this, so the panel quotes the
+same numbers and classes as the shapes under the cursor rather than re-deriving
+them.
+
+---
+
+## O. Client-directed changes, round 7 (2026-09-11) — page shell and the policy feed
+
+Eight small asks, most of them layout. Two had a real cause worth recording.
+
+### O1. One page grid, one sticky rail
+
+The page had **two** right-hand columns: a statement rail beside the hero, and a
+control rail beside the map. Two consequences, both bad — the policy feed
+scrolled away after the first screen, and the map's own controls sat in a column
+that had nothing to do with the map.
+
+Now `.page` is a single two-column grid for the whole page: a main column, and
+one rail holding the three statewide facts and the Texas Works feed **and
+nothing else**. The rail is `position: sticky` under the sticky header, verified
+pinned at `header-height + space-4` = 80px at every scroll depth.
+
+`align-items: start` on the grid is load-bearing: a stretched grid item cannot
+be sticky, and the previous `stretch` (there to make a divider span both
+columns) would have silently disabled the whole thing.
+
+### O2. The rail has one scroll region, not two
+
+Capping the rail's height **and** letting the feed scroll inside it gives two
+nested scrollbars on a short viewport, and the reader has to guess which one
+they are in. So the rail hides its overflow and the feed takes the leftover
+height via `flex: 1; min-height: 0`. The three facts stay put above it; the
+forty bulletins scroll. The feed keeps a `60vh` cap as the fallback for the
+stacked case on a narrow screen, where nothing bounds its height.
+
+### O3. "Highest on this view" and the advanced controls moved into the map panel
+
+Both are about the map, so they now sit in an aside **inside** `.panel`, beside
+the map itself, in a 244px column.
+
+This costs nothing. Texas in Albers is nearly square, so a full-width map column
+already left slack either side of the shape — the aside spends slack that was
+previously empty. See `.mapBody`.
+
+### O4. The mobile hero was causing horizontal overflow
+
+The reported symptom was "a gap on the right, the page isn't full width". The
+cause was the hero number: `−547,051` is eight glyphs with no break
+opportunity, so at the full `--step-hero` (6.75rem) it is ~480px wide. On a
+390px phone it overflowed the viewport, and **the overflow widened the whole
+document**, which is why every other section then rendered narrower than the
+screen with a gap beside it.
+
+`font-size: clamp(2.5rem, 18vw, var(--step-hero))` fixes it at the source.
+Verified at 390px: `document.scrollWidth === window.innerWidth`.
+
+Knock-on: `.heroPhrase` drops its 13ch cap below 560px (it was a column beside a
+number that now takes the full width), and Download goes full-width. The view
+strip deliberately **stays two-up** on a phone — one card per row means
+scrolling past four full-width thumbnails to reach the map they are thumbnails
+of.
+
+### O5. Smaller things
+
+- **The window eyebrow is gone.** `JUL 2025 → MAY 2026` above the hero number
+  was the third copy of the same fact: the hero phrase names the start month and
+  the brush labels both handles.
+- **Download moved up**, next to the hero body copy. It is the one thing a
+  reader might come for and leave with, and it was previously the last element
+  before the fold.
+- **Page gutter** is `clamp(var(--space-4), 3.5vw, var(--space-7))` with a
+  1720px max-width, so the page has air on a desktop without sprawling on an
+  ultra-wide display.
+- **Tooltip offset 12px → 6px**, so the panel reads as attached to the pointer.
+  Kept clear of the arrow cursor's own hotspot rather than going to zero.
+
+### O6. The policy feed can be filtered — and the filter is honest about itself
+
+The feed carries every Texas Works programme: CHIP, Medicaid and TANF as well as
+SNAP. Three pills now narrow it — **All 40 / SNAP 15 / H.R. 1 6** — with the
+counts on the buttons so the reader can see what a filter costs before pressing
+it.
+
+**Classified at load time, not in the scraper.** `classify()` in
+`src/data/timeline.ts` tags each item. That is deliberate: the taxonomy is a
+display decision and should not need a re-scrape to change, the scraper runs on
+a schedule against a live government host so the fewer reasons to re-run it the
+better, and bulletins published after this shipped get tagged with no backfill.
+
+ABAWD and "work rules" count as **both** tags: they are SNAP terms, and they are
+the specific provisions H.R. 1 changed.
+
+**The limitation, which the UI states rather than hides.** This is a text match
+on the title and body, not a judgment about which programmes a bulletin really
+affects. Several bulletins apply across every Texas Works programme without
+naming one — `Revised - Mandatory Shelter Costs Verification` changes the SNAP
+shelter deduction and never says SNAP, so the SNAP filter does not list it. A
+footnote appears whenever a filter is on and says exactly that. A filter that
+silently under-reports its own scope would be worse than no filter, and this one
+is pinned by a test that asserts the shelter-costs case returns no tags.
+
+If an authoritative programme mapping is wanted, it has to come from HHS or from
+an editorial pass — it cannot be recovered from the bulletin titles.
+
+---
+
+## P. Client-directed changes, round 8 (2026-09-11) — trimming the chrome
+
+### P1. Panel copy removed from the four primary views
+
+§6.5 asks for "two to three sentences" of layer copy on every panel. Dropped for
+**Benefits lost, Children, D1 and the composite**: the panel header was carrying
+a paragraph the reader scrolled past to reach the map, every time they switched
+view. `LayerDef.copy` is now optional and the `<p>` only renders when present.
+
+**Two views still have copy, and they were not on the client's list:**
+
+- **D3 — Access to work.** The copy names the seven components (in-county
+  employment, jobs per worker, vehicle and internet access, unemployment, the
+  low-wage mix, average weekly wage). Nothing else on the page says what the
+  layer is made of.
+- **Both at once** (the bivariate map). The copy is the reading instructions —
+  which measure is red, which is blue, and that the dark corner is both. The map
+  is not interpretable without it.
+
+Both are reached through the Work view's metric toggle rather than the strip,
+which is probably why they were not mentioned. Removing them is a one-line
+change each if that was the intent; the D3 component list would be worth
+relocating rather than deleting.
+
+D2, D4 and D5 keep their copy too, but it never renders — no view maps them.
+
+### P2. The advanced disclosure is one card, not three
+
+Measure (C-02), the infrastructure picker (M-07) and the overlays (M-08) were
+three separate bordered cards — three boxes inside a disclosure inside an aside,
+two levels of nesting more than the content needs. Now one card with hairline
+rules between the groups (`.advancedGroup`).
+
+Removed with them:
+
+- The **MEASURE** and **OVERLAYS** eyebrows. Both groups are named by their own
+  controls, so the label was repeating the button text. The **ASSISTANCE
+  INFRASTRUCTURE** eyebrow stays — it was not on the list, and it is the one
+  group whose four checkboxes do not say on their own that they control map
+  marks.
+- *"Rate colours each county by its own share, so a small county can read as
+  dark as Harris."* and its Count counterpart.
+- *"Counts are counties with at least one listed site. Registry pull, not a
+  capacity measure."* — note that this was the line qualifying the registry as
+  presence rather than capacity. The same qualification still appears in the
+  "Where need meets capacity" footnote and in §D, so the claim is not now
+  unqualified anywhere on the page; it is just no longer restated next to the
+  checkboxes.
+
+### P3. Thumbnails are capped by height
+
+Texas in Albers is nearly square, so a quarter-width card produced a ~235px-tall
+thumbnail and a strip taller than the hero — the reader scrolled past four
+previews to reach the map they preview. `.layerCard > svg` is now
+`height: 104px`, which takes the strip from ~290px to ~175px.
+
+`preserveAspectRatio` is left at its default, so the map centres in the box and
+gets shorter rather than distorted. The cost is horizontal whitespace either
+side on a wide card: a square map cannot be short and wide at once. The
+alternative — text left, map right, inside each card — uses that width and is
+shorter again, but gives the blurb about 120px to wrap in. Not taken; worth
+revisiting if the whitespace reads as a gap rather than as framing.
+
+### P4. The vulnerability tooltip drops its chart
+
+`tooltip.chart: 'none'`. That panel already carries five domain bands and four
+capacity rows, and the caseload line was the one element on it saying nothing
+about the index. It is the shortest change in this round and the biggest
+reduction in panel height.
+
+### P5. Page gutter widened
+
+`padding-inline: clamp(var(--space-5), 5vw, 5rem)` against a 1680px max-width —
+so 24px on a small screen up to 80px on a desktop, previously 16–48px.
+
+### P6. The bulletin feed was re-fetched
+
+`npm run fetch:bulletins`, against the live HHS pages. 57 policy bulletins and 8
+quarterly revisions parsed, 40 kept. **One new entry:** bulletin 26-15
+(8 Sep 2026) — *Remove Continuous Eligibility from Transitional Medicaid · H.R.
+1 Changes to Alien Medicaid Eligibility · … SSI Population · Texas Health Steps
+and Health Care Orientation Medicaid Eligibility Update*. The 2024-12-27
+Medicaid continuous-eligibility revision rolled off the 40-entry cap.
+
+Worth noting how it classifies: it tags **hr1** but **not snap**, taking the
+H.R. 1 filter from 6 to 7 while SNAP stays at 15. That is correct — H.R. 1
+changed Medicaid alien eligibility as well as SNAP, and the filter reports what
+the bulletin says rather than assuming H.R. 1 implies SNAP.
+
+---
+
+## Q. Insights page, first real implementation (2026-09-11)
+
+§8 scaffolding replaced with working charts, and the page made **scopeable** —
+Texas, or one county — so it doubles as a county stat page for people who will
+never touch the map.
+
+### Q1. Scope is one state field and one query param
+
+`state.scope` holds a geoid or null; it mirrors to `?county=48201`. Nothing else
+was needed: `/insights/decline?county=48201` **is** the shareable link, because
+it is just the address bar after picking a county. There is no separate "generate
+report" path that could drift out of sync with what is on screen.
+
+`fromSearchParams` takes the dataset's geoid set and degrades an unknown county
+to statewide, and `buildScope` does the same again — a scope resolving to nothing
+would render empty charts with no explanation.
+
+Every chart reads from a `Scope` (`src/lib/insights.ts`), so switching scope is a
+data swap, not a different code path per chart.
+
+### Q2. BLOCKING for tab 5: the funnel control limits are not calibrated
+
+The funnel plot is the most useful chart on the page for an outside reader — it
+is what stops a 300-person county being over-read. It also surfaced a real
+problem with the published data.
+
+**110 of 254 counties fall outside the published 2sd limits — 43%, where a
+calibrated band catches about 5%.**
+
+| | |
+|---|---|
+| Published limits | `sd = 0.9 / sqrt(caseload)` → 2sd = **1.8pp** at a 10,000 caseload |
+| Observed dispersion across counties | sigma = **4.2pp** |
+| Consequence | the band is ~7x too tight at metro caseloads |
+
+The published limits describe **sampling noise only**. The county-to-county
+variation in this data is structural — in the fixture it is driven by the
+D1-linked decline intensity, by design — and sampling limits cannot absorb it.
+
+**What the dashboard does about it.** `FunnelPlot.markOutliers` defaults to
+`false`: the band is drawn, the spread is drawn, and no point is coloured as an
+outlier. An amber callout above the chart states the numbers and says in terms
+that *"110 counties are outliers" is not a finding this page supports*. Colouring
+43% of Texas as statistical outliers in a document built for legislators would be
+a wrong claim, and this page's whole purpose is that someone will repeat what is
+on it.
+
+**What the analysis owes.** Either an over-dispersion term on the limits
+(quasi-binomial / random-effects), or a statement that the variation is real
+structure and the funnel is the wrong frame for it. One flag flips the colouring
+back on once that is settled. §8 tab 5's pending "shrinkage toggle" is probably
+the intended answer.
+
+### Q3. What is and is not scopeable, and why the badge matters
+
+County monthly enrollment and child enrollment exist per county and reconcile to
+the statewide totals exactly, so anything built on them scopes cleanly. The **age
+bands** and the **people-vs-households split** are published statewide only
+(§3.3), and §3 forbids synthesising county versions.
+
+Those charts carry a **"Statewide figure"** badge whenever a county is scoped,
+plus a footnote naming the county and saying these are *not* its figures. That
+badge is the single most important element on the page. The stated purpose is
+handing numbers to lobbyists and legislators; a statewide figure repeated as a
+county figure is the failure mode, and it is a failure the reader cannot detect
+on their own.
+
+`ViewDef`-style capability flags rather than per-chart special cases: see
+`ChartCard`'s `statewideOnly` prop.
+
+### Q4. Two numbers, not one, in every comparison
+
+`lossRank` returns the county's percentage, **the statewide figure, and the
+county median**, and the scope bar quotes all three. They routinely disagree —
+statewide is dominated by the metros (−15.5%), the median describes the typical
+county (−15.0%) — and on the current data a county can be above one and below the
+other. Quoting whichever is more flattering is how a stat page misleads, so the
+sentence is built to carry both.
+
+Small-denominator counties additionally get a warning in that sentence pointing
+at the funnel plot before the rank is quoted.
+
+### Q5. New charts
+
+| Component | Serves | Note |
+|---|---|---|
+| `LineChart` | tab 1 enrollment levels, participation share | policy window shaded; right margin sized to the end label, which was clipping "Harris County" |
+| `IndexedLines` | tab 1 county-vs-Texas, tab 2 children-vs-all, tab 2 age bands | rebased to 100; collision-stacked end labels with leader lines |
+| `FunnelPlot` | tab 5 | see Q2 |
+| `ScopeBar` | page header | county identity, four headline figures, the comparison sentence |
+
+Indexing is not decoration. It is the only way to answer "is my county worse than
+Texas": Harris has sixty times a rural caseload, so on a shared level axis every
+rural line sits flat against the bottom of the chart.
+
+Tab 3's county domain profile composes the existing `DomainScale` five times
+rather than adding a chart — the per-domain caret and median tick were already
+built for the map tooltip, and reusing them keeps one visual grammar for "where
+this county sits on a domain".
+
+### Q6. Print
+
+A modest `@media print` block on the Insights page: chapter nav hidden, cards
+set to `break-inside: avoid`. Not a print design — enough that Cmd-P on a county
+report produces something a legislative aide can read. A real report export
+(cover page, fixed page furniture) is not built.
+
+### Q7. Still not built
+
+Per chapter, listed in-page so the gap stays visible: the domain small multiples
+with synced hover, the correlation matrix, infrastructure coverage bars, the
+gap-county table, paired rate/count maps, and people-vs-households indexed.
+
+**Districts remain blocked.** The client's framing was "county/political district
+level", and `districts.json` still 404s pending the aggregation method (§3.4,
+§12). Everything in this round is county-level. The scope machinery is
+geography-agnostic — `buildScope` would take a district the same way — but there
+is nothing to scope to yet.
+
+---
+
+## R. Design comps, first pass (2026-09-11)
+
+Four asks off the attached comps, plus two map-control changes.
+
+### R1. Numbered section headers
+
+`<Section>` renders the comps' three-part header: a numbered eyebrow
+(`02 — PLACE`), a bold claim, and a one-or-two-sentence lede. Applied to the
+three sections the client named — the map, the scatter, and the paired charts.
+
+It replaces per-card subheads that had accumulated in six different voices. The
+eyebrow uses a new `--section-accent` token (a muted olive, from the comps)
+which is **chrome only** and documented as such in `tokens.css`: every data ramp
+stays traceable to `build_scores.R` (§13), and this is not one.
+
+The hero is left unnumbered, so the sequence visibly starts at 02. The comps
+only showed 02/03/04, which implies a 01 above them; labelling the hero would
+mean putting an eyebrow back on the element that just had one removed (§O5), so
+that call is left to the client.
+
+### R2. M-10 split into two sections
+
+The three summary cards were one equal-width row. The comps split them, and they
+were right to: the scatter is a distribution of 254 points and a third of the
+page width squashed it into the space a sparkline needs, while sitting it beside
+a time series and a ranking put three different kinds of argument in one visual
+sentence.
+
+- **03 — Capacity**: the scatter at full width, with a side note carrying the
+  "what counts as capacity" definition and the 149/254 zero-navigator figure as
+  a callout.
+- **04 — Movement**: the month-over-month columns and the age dumbbell, side by
+  side.
+
+The gap-quadrant count is computed in the page and passed to the chart as
+`quadrantNote`, so the tinted rectangle and the number in the label cannot
+disagree. The comps showed "62 counties" as placeholder; the real figure on this
+data is 70.
+
+### R3. The map's controls are one side panel
+
+Three separately bordered cards stacked beside the map became one panel with
+hairline dividers, inside the map's own card, with a rule down its left edge.
+The comps were specific about this and the reasoning is sound: three boxes read
+as three unrelated widgets parked next to the map, a single panel says "these
+belong to the thing on the left".
+
+**The county search moved into it**, at the top. The comps had it in the section
+header; the client asked for it in the panel instead, which is also where it
+belongs — it is a way into the map, not a property of the section.
+
+Blocks, in order: search · shortlist and its overlays · advanced.
+
+### R4. Per-view headline figures on the strip cards
+
+Each view card now carries one number, per the comps:
+
+| View | Figure | Why that one |
+|---|---|---|
+| Benefits lost | median county loss | the typical county, not the metro-dominated statewide rate |
+| Work requirements | total newly subject | the only view with a real headcount |
+| Vulnerability index | average, plus the top-quintile count | a percentile sum has no count basis |
+| Children | statewide child loss | the child series has no meaningful county median to lead with |
+
+The four are deliberately **not comparable** — different measures for different
+views — so each carries a note naming its own measure. That is the point of
+having four views rather than one index.
+
+### R5. Shortlist is ten rows, and owns the overlays
+
+§7 specified "six rows maximum — a longer list drifts toward the 1-to-254
+ranking requirement F9 rules out". Raised to **ten** on client direction. The F9
+concern still holds: ten of 254 is a shortlist, the card's subhead still says
+so, and `RankList` keeps the ceiling in one place rather than trusting callers.
+
+Both M-08 overlays moved out of the advanced drawer and into the shortlist
+block. They mark a subset of counties on the map, which is the job the list is
+doing in text — they belong together.
+
+### R6. The infrastructure picker is on ONE view now
+
+Previously it rendered in the advanced drawer on every view, carrying a note
+explaining that it did nothing here and the selection was being kept. That was
+the wrong resolution of §M4: a control that does nothing is worse than a control
+that is absent. It now renders only on the Vulnerability index, which is the
+only view that draws the marks.
+
+The gap-counties switch stays visible on every view but disabled, because its
+definition (top-quintile vulnerability, no site, no navigator) is worth reading
+even where it cannot be turned on.
+
+### R7. Not taken from the comps: the palette
+
+The comps are in a warm cream-and-olive scheme with terracotta data marks. Only
+the section-header treatment was adopted.
+
+The data colours were left alone deliberately. Every ramp in `scales.ts` is
+pinned bit-identical to `build_scores.R` and verified against real R in CI
+(§B) — repainting them here would silently desynchronise the dashboard from the
+review maps, and the loss and bivariate ramps added in §M and §N were chosen
+against the existing palette for specific contrast reasons. **If the warm scheme
+is the intended direction, it needs to change on the R side first**, and the
+bivariate corners would need re-checking for luminance match (§N3).
+
+---
+
+## S. Feeding Texas palette and the green hero band (2026-09-11)
+
+### S1. Section eyebrows and ledes removed
+
+`02 — PLACE` and the sentence under each section title are gone, one round after
+being added (§R1). `<Section>` is now a title and its children.
+
+The ledes were restating what the charts below them already said, and on a page
+this long three of them read as filler between the reader and the data. The
+`--section-accent` token went with them, so nothing off-palette remains.
+
+### S2. Two colours, and the contrast is measured
+
+| | |
+|---|---|
+| Page ground | `--ft-tan: #F7F5F1` — now `--surface-warm`, so it flows to every page including Insights |
+| Hero band | `--ft-green: #414A2A` |
+
+Foregrounds on the green are **verified, not eyeballed** — all clear 4.5:1, so
+each is safe at any text size:
+
+| Foreground | Ratio on #414A2A |
+|---|---|
+| cream `#F7F5F1` | 8.62:1 |
+| muted cream (78%) | 6.46:1 |
+| gold `#D9BD6B` | 5.11:1 |
+
+**The comp's gold is lightened.** The gold in the comp samples at roughly
+`#C9A84C`, which is **4.11:1** — it fails on small text. `#D9BD6B` is the
+nearest value that passes. If the exact comp gold matters more than the
+contrast, it can only be used at large sizes, and the two stat figures are the
+only large text in the band.
+
+`body` also takes the tan, so overscroll and any gap below short content show
+tan rather than a white band.
+
+### S3. The band is full-bleed, which forced a restructure
+
+`MapPage` now renders `.root` → a full-width `.heroBand`, then the tan `.page`
+grid. The band is a **sibling** of `.page`, not a child: a child cannot bleed
+past `.page`'s `max-width` and gutters without negative-margin tricks that break
+inside its grid. `.heroInner` repeats the same `max-width` and `padding-inline`
+so the hero number lines up with the section titles below it.
+
+**One bug worth recording, because it is easy to reintroduce.** The old
+`.heroBand { display: flex }` rule survived the edit and fought the new
+background-only rule. With a flex parent, `.heroInner`'s `margin-inline: auto`
+stopped stretching it and shrank it to fit-content, centred — the hero number
+sat 136px in from the gutter and the brush card stopped 75px short of its
+column. **`.heroBand` must stay a plain block**; the flex column moved to
+`.heroMain`.
+
+### S4. The three statewide stats moved into the band
+
+§6.3's statement rail is now `<HeadlineStats>`, split out of `<TimelineFeed>`,
+and sits in the green band's right column. `tone: 'negative'` renders gold,
+which is what separates the two decline figures from the participation rate.
+
+`−22.6%` gained `tone: 'negative'` in `timeline.json` to match the comp. It is a
+decline, so the tone is semantically right; it had simply been missed.
+
+**AMBIGUITY RESOLVED ONE WAY — worth confirming.** The instruction was "we still
+want the stats on the right hand side to be fixed... we just want to also have
+the top section be green", while the comp shows the three stats inside the green
+band. Those cannot both be literally true: a sticky element inside a band that
+scrolls away is not sticky.
+
+Resolution: **the stats moved into the band as drawn, and the sticky rail below
+kept the Texas Works feed.** The rail is still there and still fixed; what it
+holds is now only the feed. If the intent was that the three stats stay pinned
+while the band above them turns green, that is the other reading and it is a
+small change — move `<HeadlineStats>` back into the rail above `<TimelineFeed>`.
+
+### S5. Not taken from the comp
+
+Two elements in the attached crop were left out, because they were not asked for
+and both would reverse or invent something:
+
+- **The hero eyebrow** `SINCE H.R. 1 WAS SIGNED · JUL 2025 → MAY 2026`. An
+  eyebrow was removed from exactly this spot in §O5 on client direction. Putting
+  one back unasked would undo that decision, and the copy is different enough to
+  be a new editorial choice rather than a restoration.
+- **The "Method notes" button.** There is no method-notes page or content to
+  link to. A button that goes nowhere is worse than no button.
+
+The data ramps are also unchanged, for the reasons in §R7: they are pinned
+bit-identical to `build_scores.R` and verified against real R in CI.
+
+---
+
+## T. Section bands, the scatter's control panel, and a metric registry (2026-09-11)
+
+### T1. Sections are bands, alternating and left-bleeding
+
+Each `<Section>` paints its own ground and alternates between the two tans, so
+consecutive sections read as separate territory without a rule between them.
+The ground is a pseudo-element overshooting the viewport's left edge, so a band
+runs off the side of the page while its content stays on the main column's grid.
+
+`.root` on the page carries **`overflow-x: clip`** for that — `clip` rather than
+`hidden` because `clip` does not create a scroll container, so the sticky rail
+still sticks. Verified by asserting `scrollWidth === innerWidth` at 390px and
+1500px.
+
+Section titles went `--step-2` → `--step-3` → `2rem` across two rounds of
+direction; they are at 2rem.
+
+### T2. The three statewide stats: rail, band, rail, band
+
+Four moves in three rounds, so the reasoning is worth pinning down rather than
+repeating:
+
+| Where | Consequence |
+|---|---|
+| Sticky rail (original) | fixed, but tan |
+| Green band (§S4) | green, but scrolls away |
+| Sticky rail as a green card | fixed **and** green, but visually detached from the band |
+| Green band (**final**) | green and aligned with the hero, and scrolls away |
+
+**A sticky element is bounded by its containing block**, so anything inside a
+band that scrolls off screen scrolls off with it. Fixed-and-in-the-band is not a
+thing this layout can do; the client's call is that being in the band matters
+more. If "fixed" comes back, the third row above is the shape it takes.
+
+### T3. The scatter's tooltip became a panel
+
+The floating tooltip is gone from this chart. The column beside it now holds a
+county search, an X and a Y metric dropdown, and — once a point is hovered or a
+county searched — that county's two axis values, its enrollment line, and the
+two flags that stay relevant whatever the axes say (gap county, small
+denominator).
+
+Better than a tooltip here for three reasons: it can hold the axis pickers as
+well as the readout, it does not cover the points it is describing, and a value
+that stays on screen can be written down. A legislative aide copying two figures
+off a hover is a bad experience.
+
+The scatter keeps its **own** focus state rather than the global `hovered`, so
+driving it does not also pop the map's tooltip.
+
+The enrollment line follows the map's active view — the Children view shows the
+child series — so the line beside the scatter describes the same population the
+map above is coloured by.
+
+### T4. A metric registry, and what is NOT in it
+
+`src/config/metrics.ts` is ~20 metrics with an accessor, a formatter, a view
+list and a **direction**. `metricsForView()` feeds the dropdowns;
+`DEFAULT_AXES` gives each view its opening pair.
+
+**The brief asked for metrics this dataset does not have.** "# of school lunch
+programs" and "median teacher income" were named for the Children view. Neither
+is in the §3 contract and neither is faked. What the Children view offers
+instead is the child caseload, the child loss, the child share of the caseload,
+and D4 — the child-specific quantities that do exist. Each missing series is one
+entry in this file plus one column in the export, if it can be sourced.
+
+Two decisions inside it worth keeping:
+
+- **Defaults are shares, not headcounts.** County caseloads span three orders of
+  magnitude, so "people who left SNAP" on a linear axis puts Harris at the right
+  edge and stacks the other 250 counties against the left one — which is what
+  the first build of this actually did. `loss_share` and `child_loss_share`
+  exist for that reason. The headcounts stay in the dropdown, because targeting
+  by count is a legitimate argument (§8 tab 5); they are just not the opening
+  view.
+- **`direction` gates the gap quadrant.** The tinted corner means "much of a bad
+  thing, little of a good one", which only holds when x rises with need and y
+  rises with capacity. On any other pair — two need metrics, or a signed change
+  where a loss is negative — the tint is hidden rather than asserting a reading
+  the axes do not support. A test asserts every view's default pair passes that
+  check, so no view opens with its own premise hidden.
+
+### T5. Smaller changes
+
+- **View cards: four across, text left, thumbnail right.** Two-up was tried for
+  one round because the comp's card is wide; the client's call is one row. At a
+  quarter of the column the text track is ~110px, so the type sizes and the 76px
+  thumbnail are tuned for that width rather than scaled down from the two-up
+  version.
+- **The choropleth key moved under the map title**, width-capped at 260px —
+  RampLegend's bar is a flex row of equal swatches, so unconstrained it stretched
+  the whole map column and read as a decorative band rather than a key.
+- **Both side panels are one width** (`--side-panel: 288px`), so the map
+  section's controls and the scatter's line up down the page.
+- **The gap-counties switch is hidden off the Vulnerability index**, not
+  disabled. Its definition is a vulnerability quintile, so elsewhere it was a
+  control for something not on screen.
+- **Removed, pending a methodology page**: the band-anchoring note and the
+  small-denominator note under the map, the "what counts as capacity"
+  definition, the 149/254 zero-navigator figure, and the tinted-corner sentence.
+  Note that the zero-navigator figure and the presence-not-capacity
+  qualification now appear **nowhere on the map page** — both still appear on
+  the Insights capacity chapter, but if the methodology page does not land, the
+  map has lost its only statement that the registry counts are presence rather
+  than capacity.
+- **The scatter's y-axis label** was anchored top-left and rotated so it ran
+  downward, which pushed a long caller-supplied label off the bottom of the
+  viewBox. It is now centred on the plot height, with the left gutter widened
+  from 46 to 68.
 
 ---
 

@@ -59,6 +59,8 @@ export function ScatterChart({
   onHover,
   xLabel = 'Vulnerability percentile →',
   yLabel = 'Sites per 10k',
+  quadrantNote,
+  showQuadrant = true,
 }: {
   points: ScatterPoint[];
   height?: number;
@@ -68,8 +70,28 @@ export function ScatterChart({
   onHover?: (geoid: string | null) => void;
   xLabel?: string;
   yLabel?: string;
+  /**
+   * Appended to the quadrant label, e.g. "62 counties". Passed in rather than
+   * counted here so the caller's side note and this label read off one number.
+   */
+  quadrantNote?: string;
+  /**
+   * Draw the tinted bottom-right corner.
+   *
+   * Off when the axis pair cannot support the reading. "Gap quadrant" means
+   * much of a bad thing and little of a good one, which only holds when x rises
+   * with need and y rises with capacity — on any other pair the tint would
+   * assert something the axes do not say. See gapQuadrantApplies().
+   */
+  showQuadrant?: boolean;
 }) {
-  const M = { top: 14, right: 14, bottom: 30, left: 46 };
+  /*
+ * Left margin carries the rotated y-axis label. At 46 the label sat half off
+ * the viewBox — the axis names are now caller-supplied and can be long
+ * ("Share of child caseload lost"), so the gutter has to fit a rotated string
+ * rather than the one short label it was sized for.
+ */
+const M = { top: 14, right: 18, bottom: 30, left: 68 };
 
   const { scales, mx, my } = useMemo(() => {
     if (!points.length) {
@@ -116,21 +138,25 @@ export function ScatterChart({
       onMouseLeave={() => onHover?.(null)}
     >
       {/* Bottom-right quadrant: high need, nothing listed to meet it. */}
-      <rect
-        x={scales.x(mx)}
-        y={scales.y(my)}
-        width={W - M.right - scales.x(mx)}
-        height={height - M.bottom - scales.y(my)}
-        className={styles.quadrant}
-      />
-      <text
-        x={W - M.right - 6}
-        y={scales.y(my) + 12}
-        textAnchor="end"
-        className={styles.quadrantLabel}
-      >
-        Gap quadrant
-      </text>
+      {showQuadrant && (
+        <>
+          <rect
+            x={scales.x(mx)}
+            y={scales.y(my)}
+            width={W - M.right - scales.x(mx)}
+            height={height - M.bottom - scales.y(my)}
+            className={styles.quadrant}
+          />
+          <text
+            x={W - M.right - 6}
+            y={scales.y(my) + 12}
+            textAnchor="end"
+            className={styles.quadrantLabel}
+          >
+            Gap quadrant{quadrantNote ? ` · ${quadrantNote}` : ''}
+          </text>
+        </>
+      )}
 
       <line
         x1={scales.x(mx)}
@@ -210,12 +236,16 @@ export function ScatterChart({
       <text x={W - M.right} y={height - 6} textAnchor="end" className={styles.axisLabel}>
         {xLabel}
       </text>
+      {/*
+        Centred on the plot's height and rotated about its own origin. It used
+        to anchor at the top-left and run downward, which pushed a long label
+        ("Share of child caseload lost") off the bottom of the viewBox — the
+        axis names are caller-supplied now, so the label cannot be sized for.
+      */}
       <text
-        x={4}
-        y={M.top + 4}
         className={styles.axisLabel}
-        transform={`rotate(-90 4 ${M.top + 4})`}
-        textAnchor="end"
+        transform={`translate(16 ${(M.top + height - M.bottom) / 2}) rotate(-90)`}
+        textAnchor="middle"
       >
         {yLabel}
       </text>

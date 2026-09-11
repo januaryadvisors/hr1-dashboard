@@ -5,7 +5,29 @@
 
 /** Four scored domains plus the un-sourced Children layer and the composite. */
 export type DomainKey = 'd1' | 'd2' | 'd3' | 'd4' | 'd5';
-export type LayerKey = DomainKey | 'composite';
+
+/**
+ * Layers whose value is a windowed enrollment loss rather than a stored score.
+ * They recompute from the brush window every time it moves, which is why they
+ * have no `*_score` column and go through src/lib/layerValues.ts instead.
+ */
+export type LossKey = 'loss' | 'child_loss';
+
+/**
+ * The bivariate work layer: two metrics on one map, red against blue. Not a
+ * percentile and not a count — it has two values per county, so it goes through
+ * LayerValues.secondary rather than any single ramp.
+ */
+export type BivariateKey = 'work_both';
+
+export type LayerKey = DomainKey | 'composite' | LossKey | BivariateKey;
+
+/**
+ * The four views of the map (spec §6.4 reworked 2026-09-10 on client direction —
+ * six layer cards became four views). A view is one or two layers plus a
+ * decision about whether assistance capacity is drawn; see config/layers.ts.
+ */
+export type ViewKey = 'loss' | 'work' | 'vulnerability' | 'children';
 
 export type Measure = 'rate' | 'count';
 export type MapStyle = 'geo' | 'grid' | 'density';
@@ -60,6 +82,15 @@ export interface County {
 
   /** Monthly enrolled individuals, parallel to statewide meta.months. */
   snap_enrolled: number[];
+  /**
+   * Monthly enrolled children (under 18), parallel to statewide meta.months.
+   *
+   * Added 2026-09-10 for the Children view. NOT in the spec's §3.1 contract and
+   * NOT produced by build_scores.R — see docs/SPEC-DEVIATIONS.md §A4. Fixture
+   * values apply the statewide under-18 caseload share with a county tilt; the
+   * real export owes a genuine county-by-month child series.
+   */
+  snap_children: number[];
 
   infra: CountyInfra;
   /** Top-quintile vulnerability, zero food banks, zero navigators. Precomputed. */

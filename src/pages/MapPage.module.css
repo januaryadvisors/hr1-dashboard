@@ -1,34 +1,104 @@
-.page {
-  /* One column definition shared by the hero band and the map row, so the big
-     map lines up with the hero number and the brush above it. */
-  --col-main: minmax(0, 72fr);
-  --col-side: minmax(280px, 28fr);
+.root {
+  --col-side: 320px;
   --col-gap: var(--space-6);
+  /* One width for the map's controls and the scatter's, so the two sections'
+     side panels line up down the page. */
+  --side-panel: 288px;
 
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-warm);
+  min-height: 100%;
+  /*
+     `clip`, not `hidden`: clip does not create a scroll container, so the
+     sticky rail below still sticks. It guarantees the sections' leftward
+     full-bleed cannot produce a horizontal scrollbar.
+  */
+  overflow-x: clip;
+}
+
+/*
+ * The green band — full-bleed, per the 2026-09-11 comps.
+ *
+ * Sibling of .page, not a child: a child could not bleed past .page's
+ * max-width and gutters without negative-margin tricks that break inside its
+ * grid. Contrast of every foreground on this green is verified in tokens.css.
+ */
+.heroBand {
+  background: var(--ft-green);
+  color: var(--on-green);
+}
+
+/*
+ * Inner container repeats .page's max-width, gutters AND column split, so the
+ * hero number starts on exactly the same vertical as the section titles below
+ * it and the brush card ends where the main column ends. The second track is
+ * empty — the three statewide facts live in the sticky rail, which cannot be
+ * inside a band that scrolls away.
+ */
+.heroInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-side);
+  gap: var(--col-gap);
+  align-items: start;
+  max-width: 1680px;
+  margin-inline: auto;
+  padding-block: var(--space-6);
+  padding-inline: clamp(var(--space-5), 5vw, 5rem);
+}
+
+.heroMain {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  background: var(--surface-warm);
-  min-height: 100%;
-}
-
-/* M-01 + M-03: roughly 68/32 with a vertical hairline between. */
-.heroBand {
-  display: grid;
-  grid-template-columns: var(--col-main) var(--col-side);
-  gap: var(--col-gap);
-  /* stretch, not start, so the divider spans the taller of the two columns. */
-  align-items: stretch;
-}
-
-.heroLeft {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
   min-width: 0;
 }
 
+/* The three statewide facts, in the green band's right column. */
+.heroStats {
+  min-width: 0;
+  /* Optical: the stats' first baseline sits near the hero number's cap height
+     rather than at the very top of the column. */
+  padding-top: var(--space-2);
+}
+
+/*
+ * Two columns for the page below the band: everything the reader acts on, and
+ * a sticky rail holding the Texas Works policy feed.
+ */
+.page {
+  --col-side: 320px;
+  --col-gap: var(--space-6);
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-side);
+  gap: var(--col-gap);
+  /* start, not stretch: a stretched grid item cannot be sticky. */
+  align-items: start;
+
+  max-width: 1680px;
+  margin-inline: auto;
+  padding-block: var(--space-5);
+  padding-inline: clamp(var(--space-5), 5vw, 5rem);
+  min-width: 0;
+}
+
+.mainCol {
+  display: flex;
+  flex-direction: column;
+  /* Tight, because each section now paints its own band and provides its own
+     padding — a large gap here would put a tan stripe between two tan bands. */
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/*
+ * M-01's flex column moved to .heroMain when the band became the full-bleed
+ * green wrapper. .heroBand must stay a plain block: as a flex container it
+ * cancelled .heroInner's stretch (auto inline margins on a flex item shrink it
+ * to fit-content and centre it), which left the hero number indented 136px and
+ * the brush card short of the column.
+ */
 .heroNumberRow {
   display: flex;
   flex-wrap: wrap;
@@ -40,11 +110,19 @@
 
 .heroNumber {
   font-family: var(--font-figure);
-  font-size: var(--step-hero);
+  /*
+     "−547,051" is eight glyphs with no break opportunity, so at the full
+     6.75rem it is about 480px wide. On a phone that overflowed the page, and
+     because the overflow widened the whole document every other section then
+     rendered narrower than the viewport with a gap down the side. The vw term is
+     what keeps it inside the gutter; the rem floor keeps it a hero number.
+  */
+  font-size: clamp(2.5rem, 18vw, var(--step-hero));
   font-weight: 800;
   line-height: 0.86;
   letter-spacing: -0.035em;
-  color: var(--ja-burgundy);
+  /* Cream on the green, not burgundy — 8.62:1. */
+  color: var(--on-green);
 }
 
 .heroPhrase {
@@ -56,58 +134,57 @@
   text-wrap: balance;
 }
 
-/* Minimal by design — the audience already knows the situation. */
+/* Minimal by design — the audience already knows the situation. Download sits
+   at the end of the copy rather than under the brush. */
+.heroBodyRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  align-items: center;
+  justify-content: space-between;
+}
+
 .heroBody {
+  flex: 1 1 34ch;
   max-width: 66ch;
   font-size: 0.8125rem;
   line-height: 1.45;
-  color: var(--text-muted);
+  color: var(--on-green-muted);
 }
 
-.downloadRow {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-}
-
+/* Cream pill on the green, per the comp. Green-on-cream is 8.62:1. */
 .download {
-  padding: 0.45rem 1rem;
+  flex: 0 0 auto;
+  padding: 0.5rem 1.1rem;
   font-family: var(--font-display);
   font-size: var(--step--1);
   font-weight: 600;
-  color: var(--ja-navy);
-  background: var(--surface);
-  border: 1px solid var(--ja-navy);
+  color: var(--ft-green);
+  background: var(--on-green);
+  border: 1px solid var(--on-green);
   border-radius: var(--radius-pill);
   cursor: pointer;
 }
 
 .download:hover {
-  background: var(--ja-navy);
-  color: var(--text-inverse);
+  background: transparent;
+  color: var(--on-green);
 }
 
-.statementRail {
-  padding-left: var(--space-5);
-  border-left: 1px solid var(--hairline-strong);
-  min-width: 0;
-}
-
-/* M-04: six compact cards in one row, sitting above the hero map inside the
-   left column. */
+/*
+ * M-04: the four view cards.
+ *
+ * FOUR ACROSS, each card a ROW — text left, thumbnail right.
+ *
+ * Two-up was tried for one round because the comp's card is wide; the client's
+ * call is one row. At a quarter of the column the text track is ~110px, so the
+ * title and blurb both wrap — the type sizes and the 76px thumbnail below are
+ * tuned for that width, not scaled down from the two-up version.
+ */
 .layerStrip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
-}
-
-/* Left column: layer strip stacked above the hero map. Right column: the
-   controls. Same column widths as the hero band. */
-.mapRow {
-  display: grid;
-  grid-template-columns: var(--col-main) var(--col-side);
-  gap: var(--col-gap);
-  align-items: start;
 }
 
 .mapColumn {
@@ -118,10 +195,12 @@
 }
 
 .layerCard {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2);
+  display: grid;
+  /* Text takes the slack; the thumbnail is a fixed square. */
+  grid-template-columns: minmax(0, 1fr) 76px;
+  gap: var(--space-2);
+  align-items: start;
+  padding: var(--space-3);
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--hairline);
@@ -131,36 +210,87 @@
   min-width: 0;
 }
 
+.layerCard:hover {
+  border-color: var(--hairline-strong);
+}
+
 .layerCardActive {
   background: #fdf8f2;
   border-left-color: var(--ja-navy);
 }
 
-/* Composite is visually demoted: lighter border, last position (§6.4). */
-.layerCardDemoted {
-  border-color: #ebe7e7;
-}
-
 .layerCardTitle {
   font-family: var(--font-display);
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.15;
 }
 
-.layerCardDisabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/*
+ * The thumbnail sits in its own 76px track, so it no longer drives the card's
+ * height — the text block does. Texas in Albers is nearly square, so a
+ * full-width thumbnail on a quarter-column card was ~235px tall and made the
+ * strip taller than the hero.
+ */
+.layerCard > svg {
+  width: 100%;
+  height: 76px;
 }
 
-/* Placeholder where a thumbnail cannot honestly be drawn. Sized to the
-   thumbnail's own aspect so the strip does not reflow between measures. */
+/* Title, blurb and headline figure, in the card's left track. */
+.layerCardText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* One line saying what the view answers. Reserves two lines' height so the
+   cards keep their figures on one baseline whatever the blurb wraps to. */
+.layerCardBlurb {
+  min-height: 2.6em;
+  font-size: 0.625rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+/*
+ * The card's headline figure, per the comps.
+ *
+ * Each view reports its own measure — an index average, a median county rate, a
+ * headcount — so the values are deliberately not comparable across cards. The
+ * note under each says which measure it is.
+ */
+.layerCardStat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.layerCardStatValue {
+  font-family: var(--font-figure);
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.layerCardStatNote {
+  font-size: 0.5625rem;
+  line-height: 1.2;
+  color: var(--text-faint);
+}
+
+/* Placeholder where a thumbnail cannot honestly be drawn. Matches the
+   thumbnail height so the strip does not reflow between measures. */
 .layerCardNote {
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1000 / 940;
-  font-size: 0.625rem;
+  height: 76px;
+  font-size: 0.5625rem;
   color: var(--text-faint);
   text-align: center;
   background: var(--surface-sunken);
@@ -256,11 +386,104 @@
   text-align: right;
 }
 
+/*
+ * Page-level rail: the three statewide facts and the Texas Works feed.
+ *
+ * Sticky under the sticky header, so the policy bulletins stay beside whichever
+ * view the reader has scrolled to. The height cap is what makes that safe —
+ * without it a rail taller than the viewport simply scrolls off and "sticky"
+ * buys nothing.
+ *
+ * The rail itself does NOT scroll: it hides its overflow and the feed inside it
+ * takes the leftover height and scrolls there. That is deliberate — capping the
+ * rail AND letting the feed scroll gives two nested scrollbars on a short
+ * viewport, and the reader has to guess which one they are in. One scroll
+ * region, and the three statewide facts stay put above it.
+ */
 .rail {
+  position: sticky;
+  top: calc(var(--header-height) + var(--space-4));
+  max-height: calc(100vh - var(--header-height) - var(--space-6));
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  overflow: hidden;
   min-width: 0;
+}
+
+/*
+ * The map and the controls that belong to it, side by side inside the panel.
+ *
+ * Texas in Albers is nearly square, so a full-width column left slack either
+ * side of the map. The aside spends that slack on the two things that are about
+ * the map — the shortlist and the advanced controls — instead of leaving it
+ * empty or pushing them into a rail on the far side of the page.
+ */
+.mapBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--side-panel);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/*
+ * The map's controls as ONE side panel, divided by hairlines, inside the map's
+ * own card — 2026-09-11 comps.
+ *
+ * It replaced three separately bordered cards stacked in a column, which read
+ * as three unrelated widgets parked next to the map rather than as the map's
+ * controls. A single panel with a rule down its left edge says "these belong to
+ * the thing on the left".
+ */
+.sidePanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--hairline);
+}
+
+.panelBlock {
+  padding: var(--space-3) 0;
+}
+
+/* The search keeps its top padding — flush to the panel's top edge it read as
+   part of the map's header rather than as the first control. */
+.panelBlock:first-child {
+  padding-top: var(--space-2);
+}
+
+.panelBlock + .panelBlock {
+  border-top: 1px solid var(--hairline);
+}
+
+.blockHeadRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.blockTitle {
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.blockNote {
+  margin-top: var(--space-2);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* The two overlay switches, sitting under the shortlist they belong with. */
+.overlayRows {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--hairline);
 }
 
 .railCard {
@@ -408,27 +631,171 @@
   color: var(--text-muted);
 }
 
-.summaryRow {
+/* ------------------------------------------------------- advanced disclosure */
+
+.advanced {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* A text control in the block's own head row, not a dashed button. The block
+   title already says what it opens, so the button only has to say which way. */
+.advancedToggle {
+  padding: 0;
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ja-navy);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.advancedToggle:hover {
+  text-decoration: underline;
+}
+
+.advancedBody {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Measure, infrastructure and overlays, in one card. A hairline between them
+   does the separating the three borders used to. */
+.advancedGroup + .advancedGroup {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
+}
+
+/* A disabled overlay switch still has to read as a switch, not as a hairline. */
+.switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/*
+ * Section 03: the scatter, with its controls and readout in the column beside
+ * it. The panel replaced a floating tooltip — see <ScatterPanel>.
+ */
+.capacityRow {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) var(--side-panel);
+  gap: var(--space-4);
+  align-items: stretch;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.capacityChart {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.capacityPanel {
+  min-width: 0;
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--hairline);
+}
+
+/* Section 04: the two time-series charts, side by side. */
+.movementRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
 }
 
-/* §1: responsive down to 1024px. Below that the map goes full width and the
-   right rail stacks underneath. */
-@media (max-width: 1023px) {
-  .heroBand,
-  .mapRow,
-  .summaryRow {
+/* §1: responsive down to 1024px. Below that the map goes full width and both
+   rails stack underneath. */
+/* The rail needs ~320px plus a gap before the map is worth keeping beside it,
+   so it stacks earlier than the rest of the page reflows. */
+@media (max-width: 1199px) {
+  .page,
+  .heroInner {
     grid-template-columns: minmax(0, 1fr);
   }
-  .statementRail {
-    padding-left: 0;
+
+  .capacityRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* A stacked rail is no longer beside anything, so it stops sticking and gets a
+     rule above it instead of a border down its side. */
+  .rail {
+    position: static;
+    max-height: none;
+    overflow: visible;
     padding-top: var(--space-4);
-    border-left: 0;
     border-top: 1px solid var(--hairline-strong);
   }
-  .layerStrip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .mapBody {
+    grid-template-columns: minmax(0, 1fr);
   }
+  /* Stacked under the map, the panel is no longer beside anything, so the rule
+     moves from its left edge to its top. */
+  .sidePanel {
+    padding-left: 0;
+    padding-top: var(--space-3);
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+  }
+}
+
+@media (max-width: 1023px) {
+  .layerStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Two charts side by side stop being readable below about 340px each. */
+  .movementRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Phones. The hero number is already clamped against the viewport; these are the
+   knock-on adjustments so nothing else reserves desktop-sized space. */
+@media (max-width: 560px) {
+  .page,
+  .heroInner {
+    padding-inline: var(--space-4);
+  }
+  .page {
+    gap: var(--space-5);
+  }
+  .heroInner {
+    padding-block: var(--space-5);
+  }
+  /* Let the phrase have the full line rather than sitting in a 13ch column
+     beside a number that now takes the whole width. */
+  .heroPhrase {
+    max-width: none;
+    font-size: 1.125rem;
+  }
+  .heroBodyRow > .download {
+    width: 100%;
+    text-align: center;
+  }
+  /* Stays two-up. One card per row means scrolling past four full-width
+     thumbnails to reach the map they are thumbnails of. */
+  .movementRow,
+  .capacityRow {
+    gap: var(--space-3);
+  }
+}
+
+/*
+ * The choropleth key, under the map title rather than off in the controls
+ * cluster — it is the first thing needed to read the map.
+ *
+ * Width-capped: RampLegend's bar is a flex row of equal swatches, so left to
+ * itself it stretched the whole map column and read as a decorative band rather
+ * than a key.
+ */
+.panelLegend {
+  max-width: 260px;
+  margin-top: var(--space-3);
 }

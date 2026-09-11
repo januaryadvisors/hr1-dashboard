@@ -19,9 +19,31 @@
      alert rather than as part of the ramp. */
   --overlay-q5: #d92b1f;
 
+  /*
+   * Feeding Texas palette, 2026-09-11. The page ground is the tan; the hero
+   * band is the green.
+   *
+   * Contrast on the green is verified, not eyeballed — every foreground below
+   * clears 4.5:1 against #414A2A, so it is safe at any text size:
+   *   cream #F7F5F1        8.62:1
+   *   muted cream (78%)    6.46:1
+   *   gold #D9BD6B         5.11:1
+   * The gold the comp appears to use (~#C9A84C) is 4.11:1 and would fail on the
+   * small caps, so it is lightened to #D9BD6B.
+   */
+  --ft-tan: #f7f5f1;
+  /* A half-step darker, for alternating section bands. Near-white either way,
+     so body text contrast is unaffected. */
+  --ft-tan-alt: #efeae1;
+  --ft-green: #414a2a;
+  --on-green: #f7f5f1;
+  --on-green-muted: rgba(247, 245, 241, 0.78);
+  --on-green-accent: #d9bd6b;
+  --on-green-rule: rgba(247, 245, 241, 0.18);
+
   /* Surfaces */
   --surface: #ffffff;
-  --surface-warm: var(--ja-warm-grey);
+  --surface-warm: var(--ft-tan);
   --surface-sunken: #faf9f9;
   --hairline: #dcd8d8;
   --hairline-strong: #bdb8b8;

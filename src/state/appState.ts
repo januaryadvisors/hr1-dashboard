@@ -1,9 +1,14 @@
 /**
- * The whole app state — spec §4. One reducer, nine fields, every one except
+ * The whole app state — spec §4. One reducer, ten fields, every one except
  * `hovered` mirrored to a query param so any view is a shareable link.
+ *
+ * NOTE: there is deliberately no `view` field. The four views are a function of
+ * `layer` (config/layers.ts viewForLayer), so the view cannot drift out of sync
+ * with the layer being drawn and old `?layer=` links keep working.
  *
  * Spec §2 is explicit: no Redux, no Zustand.
  */
+import { VIEWS } from '../config/layers';
 import type { InfraKey, LayerKey, MapStyle, Measure } from '../types';
 
 export interface AppState {
@@ -15,6 +20,24 @@ export interface AppState {
   infra: InfraKey[];
   overlayQ5: boolean;
   overlayGap: boolean;
+  /**
+   * The county every Insights chart reads from, or null for statewide.
+   *
+   * Separate from `hovered` on purpose: `hovered` is transient and pointer-
+   * driven, this is a deliberate, shareable selection. It is what makes
+   * `/insights/decline?county=48201` a county stat page someone can send to a
+   * legislator.
+   */
+  scope: string | null;
+  /**
+   * Whether the advanced controls are revealed.
+   *
+   * Measure, the infrastructure picker and the overlays used to occupy most of
+   * the right rail before anyone had read the map. Collapsed by default on
+   * client direction 2026-09-10; mirrored to the URL so a link shares the state
+   * the sender was actually looking at.
+   */
+  advanced: boolean;
   /** Transient. Never in the URL. */
   hovered: string | null;
   /**
@@ -35,6 +58,9 @@ export type Action =
   | { type: 'setInfra'; keys: InfraKey[] }
   | { type: 'toggleOverlayQ5' }
   | { type: 'toggleOverlayGap' }
+  | { type: 'toggleAdvanced' }
+  | { type: 'setAdvanced'; advanced: boolean }
+  | { type: 'setScope'; geoid: string | null }
   | { type: 'hover'; geoid: string | null; origin?: 'pointer' | 'external' };
 
 export const ALL_INFRA: InfraKey[] = ['food_bank', 'cms_navigator', 'chw', 'counselor'];
@@ -42,8 +68,13 @@ export const ALL_INFRA: InfraKey[] = ['food_bank', 'cms_navigator', 'chw', 'coun
 export function initialState(policyStart: string, latest: string): AppState {
   return {
     measure: 'rate',
-    // §6.4: D1 is the default layer.
-    layer: 'd1',
+    /**
+     * §6.4 made D1 the default. Superseded 2026-09-10: the map opens on the
+     * Benefits-lost view, which is observed enrollment change rather than a
+     * modelled exposure percentile — the first thing a reader sees is now a
+     * fact, not an index.
+     */
+    layer: 'loss',
     // §6.5: Geo is the default style.
     style: 'geo',
     // §6.2: "Since H.R. 1" is the default preset.
@@ -51,6 +82,9 @@ export function initialState(policyStart: string, latest: string): AppState {
     infra: [...ALL_INFRA],
     overlayQ5: false,
     overlayGap: false,
+    // Insights opens on the statewide story; a county is opt-in.
+    scope: null,
+    advanced: false,
     hovered: null,
     hoverOrigin: 'pointer',
   };
@@ -80,6 +114,12 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, overlayQ5: !state.overlayQ5 };
     case 'toggleOverlayGap':
       return { ...state, overlayGap: !state.overlayGap };
+    case 'setScope':
+      return state.scope === action.geoid ? state : { ...state, scope: action.geoid };
+    case 'toggleAdvanced':
+      return { ...state, advanced: !state.advanced };
+    case 'setAdvanced':
+      return state.advanced === action.advanced ? state : { ...state, advanced: action.advanced };
     case 'hover': {
       const origin = action.origin ?? 'pointer';
       if (state.hovered === action.geoid && state.hoverOrigin === origin) return state;
@@ -104,7 +144,17 @@ export const activeGeoid = (state: AppState): string | null => state.hovered;
 
 const MEASURES: Measure[] = ['rate', 'count'];
 const STYLES: MapStyle[] = ['geo', 'grid', 'density'];
-const LAYER_KEYS: LayerKey[] = ['d1', 'd2', 'd3', 'd4', 'd5', 'composite'];
+/**
+ * The layers a view can actually put on screen.
+ *
+ * Deliberately NOT every key in `LayerKey`. d2 and d4 still score and still
+ * appear in every tooltip, but the four-view rework left them without a view of
+ * their own — and accepting `?layer=d2` would highlight the Benefits-lost card
+ * while drawing a citizenship map, which is a page contradicting itself. Such a
+ * link degrades to the default view instead, the same way any other
+ * unrecognised param does.
+ */
+const LAYER_KEYS: LayerKey[] = VIEWS.flatMap((v) => v.metrics);
 const MONTH_RE = /^\d{4}-\d{2}$/;
 
 /** Serialise to query params, omitting anything still at its default. */
@@ -127,6 +177,8 @@ export function toSearchParams(state: AppState, defaults: AppState): URLSearchPa
   }
   if (state.overlayQ5) p.set('q5', '1');
   if (state.overlayGap) p.set('gap', '1');
+  if (state.scope) p.set('county', state.scope);
+  if (state.advanced !== defaults.advanced) p.set('adv', state.advanced ? '1' : '0');
   return p;
 }
 
@@ -138,6 +190,12 @@ export function fromSearchParams(
   params: URLSearchParams,
   defaults: AppState,
   validMonths: string[],
+  /**
+   * Every geoid in the dataset. A `?county=` naming a county that does not
+   * exist degrades to statewide rather than leaving the page scoped to nothing
+   * — the same treatment every other unrecognised param gets.
+   */
+  validGeoids?: Set<string>,
 ): AppState {
   const state: AppState = { ...defaults, infra: [...defaults.infra] };
 
@@ -169,6 +227,12 @@ export function fromSearchParams(
 
   state.overlayQ5 = params.get('q5') === '1';
   state.overlayGap = params.get('gap') === '1';
+
+  const adv = params.get('adv');
+  if (adv === '1' || adv === '0') state.advanced = adv === '1';
+
+  const county = params.get('county');
+  if (county && (!validGeoids || validGeoids.has(county))) state.scope = county;
 
   return state;
 }

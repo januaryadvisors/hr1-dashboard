@@ -1,6 +1,6 @@
 /**
  * <CountyMap> — spec §7: "One component, four sizes." Used by the hero map, the
- * six layer thumbnails, the Insights small multiples, and the district maps.
+ * four view thumbnails, the Insights small multiples, and the district maps.
  *
  * §13 step 2: "This is the whole risk of the project; get it right before any
  * chrome." The three render styles all read the same data (§6.5):
@@ -25,9 +25,9 @@
 import { memo, useMemo, useRef } from 'react';
 import type { County, InfraKey, LayerKey, MapStyle, Measure } from '../types';
 import type { MapGeometry } from '../lib/mapGeometry';
-import { colorFor } from '../lib/scales';
+import { formatLayerValue, type LayerValues } from '../lib/layerValues';
+import { bivariateColor, colorFor } from '../lib/scales';
 import { radiusScale, relax, type Bubble } from '../lib/density';
-import { layerByKey, scoreField } from '../config/layers';
 import { INFRA_GLYPH_ORDER, InfraGlyph } from './InfraGlyph';
 import styles from './CountyMap.module.css';
 
@@ -53,7 +53,15 @@ export interface CountyMapProps {
   /** Radius basis for the density style, in projected units. */
   viewBox: string;
 
+  /** Which ramp and bins to colour with. */
   layer: LayerKey;
+  /**
+   * The numbers to draw, precomputed by the page (src/lib/layerValues.ts).
+   *
+   * Passed in rather than derived here because the loss layers recompute from
+   * the brush window — the map would otherwise need to know about months.
+   */
+  values: LayerValues;
   style: MapStyle;
   measure: Measure;
   size: MapSize;
@@ -70,20 +78,6 @@ export interface CountyMapProps {
   title: string;
 }
 
-/** The value a county contributes to the fill, for the active layer. */
-function fillValue(county: County, layer: LayerKey): number | null {
-  const v = county[scoreField(layer)];
-  return typeof v === 'number' ? v : null;
-}
-
-/** The value a county contributes in count measure, or null if the layer has none. */
-function countValue(county: County, layer: LayerKey): number | null {
-  const field = layerByKey(layer).countField;
-  if (!field) return null;
-  const v = county[field];
-  return typeof v === 'number' ? v : null;
-}
-
 function CountyMapInner(props: CountyMapProps) {
   const {
     counties,
@@ -92,6 +86,7 @@ function CountyMapInner(props: CountyMapProps) {
     grid,
     viewBox,
     layer,
+    values,
     style,
     measure,
     size,
@@ -108,6 +103,24 @@ function CountyMapInner(props: CountyMapProps) {
 
   const proportional = measure === 'count' && style === 'geo';
 
+  const fillValue = (county: County | undefined): number | null =>
+    county ? values.fill.get(county.geoid) ?? null : null;
+
+  /**
+   * Two axes in, one fill out. The map does not know which layers are bivariate
+   * — being handed a second axis is the whole signal.
+   */
+  const colorOf = (county: County | undefined, value: number | null): string => {
+    const second = values.secondary;
+    if (!second) return colorFor(value, layer, values.bins);
+    return bivariateColor(
+      value,
+      values.bins,
+      county ? second.fill.get(county.geoid) ?? null : null,
+      second.bins,
+    );
+  };
+
   // ------------------------------------------------------------- county paths
   const paths = useMemo(
     () => [...geometry.paths].map(([geoid, d]) => ({ geoid, d })),
@@ -120,7 +133,7 @@ function CountyMapInner(props: CountyMapProps) {
 
     // §6.5: radius is the count metric in count measure, population in rate.
     const valueOf = (c: County) =>
-      measure === 'count' ? (countValue(c, layer) ?? 0) : c.pop;
+      measure === 'count' ? values.count?.get(c.geoid) ?? 0 : c.pop;
 
     const max = counties.reduce((m, c) => Math.max(m, valueOf(c)), 0);
     const scale = radiusScale(max, spec.maxBubble);
@@ -134,7 +147,7 @@ function CountyMapInner(props: CountyMapProps) {
       placed.push({ geoid: c.geoid, x: xy[0], y: xy[1], r });
     }
     return relax(placed);
-  }, [counties, layer, measure, geometry.centroids, proportional, spec.maxBubble, style]);
+  }, [counties, values, measure, geometry.centroids, proportional, spec.maxBubble, style]);
 
   // ------------------------------------------------------------- interaction
   const handleEnter = (geoid: string) => {
@@ -219,23 +232,22 @@ function CountyMapInner(props: CountyMapProps) {
 
   const label = (county: County | undefined) => {
     if (!county) return undefined;
-    const v = fillValue(county, layer);
-    return `${county.name}: ${v == null ? 'no data' : `p${Math.round(v * 100)}`}`;
+    return `${county.name}: ${formatLayerValue(layer, fillValue(county))}`;
   };
 
   const q5Set = useMemo(() => {
     if (!overlays.q5) return new Set<string>();
     // §6.8 / M-08: outline every county in Q5 on the layer showing.
-    const values = counties
-      .map((c) => fillValue(c, layer))
+    const sorted = counties
+      .map((c) => fillValue(c))
       .filter((v): v is number => v != null)
       .sort((a, b) => a - b);
-    if (!values.length) return new Set<string>();
-    const cut = values[Math.floor(values.length * 0.8)];
+    if (!sorted.length) return new Set<string>();
+    const cut = sorted[Math.floor(sorted.length * 0.8)];
     return new Set(
-      counties.filter((c) => (fillValue(c, layer) ?? -Infinity) >= cut).map((c) => c.geoid),
+      counties.filter((c) => (fillValue(c) ?? -Infinity) >= cut).map((c) => c.geoid),
     );
-  }, [counties, layer, overlays.q5]);
+  }, [counties, values, overlays.q5]);
 
   return (
     <svg
@@ -259,7 +271,7 @@ function CountyMapInner(props: CountyMapProps) {
         <g>
           {paths.map(({ geoid, d }) => {
             const county = byGeoid.get(geoid);
-            const value = county ? fillValue(county, layer) : null;
+            const value = fillValue(county);
             return (
               <path
                 key={geoid}
@@ -268,7 +280,7 @@ function CountyMapInner(props: CountyMapProps) {
                 className={classFor(county)}
                 // In count measure the base goes neutral and magnitude moves to
                 // the bubbles drawn on top.
-                fill={proportional ? '#f7f6f6' : colorFor(value, layer)}
+                fill={proportional ? '#f7f6f6' : colorOf(county, value)}
                 strokeWidth={spec.county}
                 onMouseEnter={() => handleEnter(geoid)}
                 aria-label={label(county)}
@@ -301,7 +313,7 @@ function CountyMapInner(props: CountyMapProps) {
         <g>
           {bubbles.map((b) => {
             const county = byGeoid.get(b.geoid);
-            const value = county ? fillValue(county, layer) : null;
+            const value = fillValue(county);
             return (
               <circle
                 key={b.geoid}
@@ -310,7 +322,7 @@ function CountyMapInner(props: CountyMapProps) {
                 cy={b.y}
                 r={b.r}
                 className={`${styles.bubble} ${classFor(county)}`}
-                fill={colorFor(value, layer)}
+                fill={colorOf(county, value)}
                 fillOpacity={0.85}
                 strokeWidth={spec.county}
                 onMouseEnter={() => handleEnter(b.geoid)}

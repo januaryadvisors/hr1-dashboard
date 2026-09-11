@@ -1,15 +1,24 @@
 /**
- * Right column of the hero band: topline stats over a dated policy feed.
+ * The dated Texas Works policy feed, in the page's sticky rail.
  *
- * The three stats are §6.3's statement rail — statewide narrative points that
- * "never become county metrics".
+ * §6.3's three topline stats used to sit above it; they moved into the green
+ * hero band on 2026-09-11 (see <HeadlineStats>). This component is now only the
+ * feed.
  *
  * The feed is Texas HHS "Texas Works" policy bulletins and quarterly revisions,
  * refreshed on a schedule (see src/data/timeline.ts). Each entry links to the
  * source PDF or page, because a policy claim on a dashboard should be one click
  * from the document it came from.
+ *
+ * The feed covers every Texas Works programme — CHIP, Medicaid and TANF as well
+ * as SNAP — so it carries a filter. The filter is a TEXT MATCH (see classify()
+ * in src/data/timeline.ts) and the footnote says so: a bulletin that changes
+ * SNAP without naming it will not appear under the SNAP filter, and pretending
+ * otherwise would be the dishonest version of this control.
  */
-import type { TimelineContent } from '../data/timeline';
+
+import { useMemo, useState } from 'react';
+import type { BulletinTag, TimelineContent } from '../data/timeline';
 import { fmtMonth } from '../lib/format';
 import styles from './TimelineFeed.module.css';
 
@@ -21,6 +30,12 @@ export interface TimelineFeedProps {
 
 const SOURCE_URL = 'https://fhb.hhs.texas.gov/handbooks/texas-works-handbook/twh-policy-bulletins';
 
+const FILTERS: { key: 'all' | BulletinTag; label: string; title: string }[] = [
+  { key: 'all', label: 'All', title: 'Every Texas Works bulletin and revision' },
+  { key: 'snap', label: 'SNAP', title: 'Bulletins naming SNAP, ABAWD, allotments or work rules' },
+  { key: 'hr1', label: 'H.R. 1', title: 'Bulletins naming H.R. 1 or the provisions it changed' },
+];
+
 /** "2026-08-14" → "14 AUG 2026"; falls back to the month when no day is known. */
 function stamp(item: { date?: string; month: string }): string {
   if (!item.date) return fmtMonth(item.month);
@@ -29,21 +44,32 @@ function stamp(item: { date?: string; month: string }): string {
 }
 
 export function TimelineFeed({ content, window: win }: TimelineFeedProps) {
+  /**
+   * Local, and not in the URL. Every other control on this page is mirrored to a
+   * query param because it changes what the map claims; this one only changes
+   * which press releases are listed beside it.
+   */
+  const [filter, setFilter] = useState<'all' | BulletinTag>('all');
+
+  const counts = useMemo(() => {
+    const out = { all: content.feed.length, snap: 0, hr1: 0 };
+    for (const item of content.feed) {
+      if (item.tags?.includes('snap')) out.snap += 1;
+      if (item.tags?.includes('hr1')) out.hr1 += 1;
+    }
+    return out;
+  }, [content.feed]);
+
+  const shown = useMemo(
+    () =>
+      filter === 'all'
+        ? content.feed
+        : content.feed.filter((item) => item.tags?.includes(filter)),
+    [content.feed, filter],
+  );
+
   return (
     <div className={styles.root}>
-      <div className={styles.stats}>
-        {content.stats.map((s) => (
-          <div key={s.value} className={styles.stat}>
-            <span
-              className={`${styles.statValue} ${s.tone === 'negative' ? styles.negative : ''} tabular`}
-            >
-              {s.value}
-            </span>
-            <span className={styles.statBody}>{s.body}</span>
-          </div>
-        ))}
-      </div>
-
       <div className={styles.feedWrap}>
         <div className={styles.feedHead}>
           <span className="eyebrow">Texas Works policy updates</span>
@@ -57,13 +83,33 @@ export function TimelineFeed({ content, window: win }: TimelineFeedProps) {
           </a>
         </div>
 
+        {content.feed.length > 0 && (
+          <div className={styles.filters} role="group" aria-label="Filter policy updates">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={`${styles.filter} ${filter === f.key ? styles.filterOn : ''}`}
+                aria-pressed={filter === f.key}
+                title={f.title}
+                onClick={() => setFilter(f.key)}
+              >
+                {f.label}
+                <span className={styles.filterCount}>{counts[f.key]}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {content.feed.length === 0 ? (
           <p className={styles.empty}>
             No bulletins loaded. Run <code>npm run fetch:bulletins</code>.
           </p>
+        ) : shown.length === 0 ? (
+          <p className={styles.empty}>No bulletins match that filter.</p>
         ) : (
           <ol className={styles.feed}>
-            {content.feed.map((item) => {
+            {shown.map((item) => {
               const inWindow = item.month >= win[0] && item.month <= win[1];
               const isRevision = item.source?.includes('quarterly');
               return (
@@ -102,6 +148,13 @@ export function TimelineFeed({ content, window: win }: TimelineFeedProps) {
               );
             })}
           </ol>
+        )}
+
+        {filter !== 'all' && (
+          <p className={styles.filterNote}>
+            Matched on the bulletin title. Cross-programme bulletins that change{' '}
+            {filter === 'snap' ? 'SNAP' : 'H.R. 1 rules'} without naming it are not listed.
+          </p>
         )}
       </div>
     </div>

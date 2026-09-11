@@ -1,0 +1,84 @@
+/*
+ * A section is a band: its own ground, its own padding, so consecutive sections
+ * read as separate territory without needing a rule between them.
+ *
+ * FULL BLEED TO THE LEFT. The ground is painted by a pseudo-element that
+ * overshoots the viewport's left edge, so the band runs off the side of the page
+ * while its content stays on the main column's grid. Leftward overflow is not
+ * scrollable in LTR and `.root` on the page carries `overflow-x: clip` as well,
+ * so this cannot produce a horizontal scrollbar — verified by asserting
+ * scrollWidth === innerWidth.
+ */
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5) var(--space-5) var(--space-6);
+  margin-inline: calc(-1 * var(--space-5));
+  background: transparent;
+}
+
+.root::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: -100vw;
+  background: var(--ft-tan);
+}
+
+/* Content above the painted ground. */
+.root > * {
+  position: relative;
+  z-index: 1;
+}
+
+.alt::before {
+  background: var(--ft-tan-alt);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.headAside {
+  flex: 0 0 auto;
+}
+
+.title {
+  font-family: var(--font-figure);
+  /* Between --step-2 and --step-3: bumped up, then back down a notch, both on
+     client direction 2026-09-11. */
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+
+@media (max-width: 900px) {
+  .title {
+    font-size: var(--step-2);
+  }
+}
+
+@media (max-width: 560px) {
+  .root {
+    padding: var(--space-4) var(--space-4) var(--space-5);
+    margin-inline: calc(-1 * var(--space-4));
+  }
+  .root::before {
+    right: -100vw;
+  }
+  .title {
+    font-size: var(--step-1);
+  }
+}

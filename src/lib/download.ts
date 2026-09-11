@@ -8,7 +8,8 @@
  */
 import type { Dataset } from '../data/load';
 import type { AppState } from '../state/appState';
-import { layerByKey, scoreField } from '../config/layers';
+import { countLabelFor, layerBasis, layerByKey } from '../config/layers';
+import { buildLayerValues } from './layerValues';
 
 export type CsvValue = string | number | boolean | null;
 
@@ -45,26 +46,54 @@ export function downloadSelection(data: Dataset, state: AppState) {
   const i0 = months.indexOf(state.window[0]);
   const i1 = months.indexOf(state.window[1]);
   const def = layerByKey(state.layer);
-  const field = scoreField(state.layer);
+  /**
+   * The layer's values come from the same builder the map uses, so a download
+   * cannot disagree with what was on screen — which matters most for the loss
+   * layers, whose value only exists relative to the selected window.
+   */
+  const values = buildLayerValues(counties, state.layer, i0, i1);
+  const isWindowLayer = layerBasis(state.layer) === 'window';
+
+  /** MOE exists per domain only; the composite and the loss layers have none. */
+  const moeOf = (c: typeof counties[number]): number | null => {
+    if (isWindowLayer || state.layer === 'composite') return null;
+    const key = `${state.layer}_moe` as
+      | 'd1_moe'
+      | 'd2_moe'
+      | 'd3_moe'
+      | 'd4_moe'
+      | 'd5_moe';
+    return c[key] ?? null;
+  };
 
   const rows = counties.map((c) => {
     const start = c.snap_enrolled[i0];
     const end = c.snap_enrolled[i1];
+    const childStart = c.snap_children?.[i0] ?? null;
+    const childEnd = c.snap_children?.[i1] ?? null;
     return {
       geoid: c.geoid,
       name: c.name,
       pop: c.pop,
       layer: state.layer,
       layer_name: def.formalName,
-      layer_value: (c[field] as number) ?? null,
-      layer_moe: state.layer === 'composite' ? null : ((c[`${state.layer}_moe`] as number) ?? null),
+      layer_value: values.fill.get(c.geoid) ?? null,
+      layer_unit: isWindowLayer
+        ? 'share of window-start caseload lost'
+        : state.layer === 'composite'
+          ? 'sum of four percentiles, 0–4'
+          : 'percentile within Texas, 0–1',
+      layer_moe: moeOf(c),
       cumulative_impact: c.cumulative_impact,
       vulnerability_score: c.vulnerability_score,
-      count_metric: def.countField ?? '',
-      count_value: def.countField ? ((c[def.countField] as number) ?? null) : null,
+      count_metric: isWindowLayer ? countLabelFor(state.layer) : def.countField ?? '',
+      count_value: values.count?.get(c.geoid) ?? null,
       snap_enrolled_start: start,
       snap_enrolled_end: end,
       snap_change: end - start,
+      snap_children_start: childStart,
+      snap_children_end: childEnd,
+      snap_children_change: childStart != null && childEnd != null ? childEnd - childStart : null,
       food_bank_sites: c.infra.food_bank,
       cms_navigators: c.infra.cms_navigator,
       chw_networks: c.infra.chw,
@@ -95,6 +124,10 @@ export function downloadSelection(data: Dataset, state: AppState) {
             def.countField === 'newly_subject_persons'
               ? 'newly_subject_persons is a PUMS-modelled estimate, not a lookup.'
               : null,
+            isWindowLayer
+              ? 'layer_value is observed enrollment loss over `window`, floored at zero — a county whose caseload grew reads 0. snap_change carries the true signed change.'
+              : null,
+            'snap_children_* is not in the build spec §3 contract — see docs/SPEC-DEVIATIONS.md §A4.',
             data.isFixture
               ? 'FIXTURE DATA — synthetic values generated against the build spec §3 contract.'
               : null,

@@ -266,6 +266,81 @@ const gridDims = assignGrid();
 const enrollment = buildCountyEnrollment(records);
 for (const r of records) r.snap_enrolled = enrollment.get(r.geoid);
 
+// ------------------------------------------------------------ child enrollment
+// snap_children — enrolled under-18s per county per month, for the Children view
+// added 2026-09-10.
+//
+// NOT in the spec's §3.1 contract and NOT produced by build_scores.R; see
+// docs/SPEC-DEVIATIONS.md §A4. The spec's §3 warning forbids synthesising a D5
+// SCORE from the statewide age bands, and this does not do that — there is no
+// d5_score here and there still isn't one. What this builds is a fixture for a
+// COUNT series the real export owes, calibrated so the statewide child total
+// reconciles to the published age-band arithmetic exactly.
+//
+// The statewide child trajectory comes from the two under-18 bands; the county
+// split is population-driven with a socioeconomic-need tilt, then apportioned by
+// largest remainder so every month sums to the statewide child total.
+function buildChildEnrollment(records, enrolled) {
+  const childBands = SW.AGE_BANDS.filter((b) => b.band === 'Under 5' || b.band === '5–17');
+  const julyAll = SW.AGE_BANDS.reduce((s, b) => s + b.julyEnrolled, 0);
+  const julyChild = childBands.reduce((s, b) => s + b.julyEnrolled, 0);
+
+  // Share of the caseload that is children at the policy start, and at the
+  // latest month — children fall slightly faster than the caseload as a whole
+  // (−16.7% against −15.5%), so the share drifts down rather than holding.
+  const shareStart = julyChild / julyAll;
+  const childPct =
+    childBands.reduce((s, b) => s + b.julyEnrolled * b.pctChange, 0) / julyChild;
+  const allPct = (SW.LATEST.value - SW.POLICY_START.value) / SW.POLICY_START.value;
+  const shareLatest = shareStart * ((1 + childPct) / (1 + allPct));
+
+  const policyStartIdx = SW.MONTHS.indexOf(SW.POLICY_START.month);
+  const lastIdx = SW.MONTHS.length - 1;
+
+  // Statewide child series: the share moves linearly from shareStart to
+  // shareLatest across the policy window, and is flat before it.
+  const childTotals = SW.MONTHS.map((_, mi) => {
+    const t = mi <= policyStartIdx ? 0 : (mi - policyStartIdx) / (lastIdx - policyStartIdx);
+    return Math.round(STATEWIDE[mi] * (shareStart + (shareLatest - shareStart) * t));
+  });
+
+  // Per-county child share of its own caseload: higher socioeconomic need means
+  // a younger caseload. Kept inside a plausible band rather than left to the
+  // draw — a county with 15% or 70% children would be a finding, not a fixture.
+  const tilt = new Map(
+    records.map((r) => [
+      r.geoid,
+      Math.min(1.28, Math.max(0.74, 0.86 + 0.28 * r.d4_score + (next() - 0.5) * 0.12)),
+    ]),
+  );
+
+  const series = new Map(records.map((r) => [r.geoid, []]));
+
+  SW.MONTHS.forEach((_, mi) => {
+    const total = childTotals[mi];
+    const raw = records.map((r) => enrolled.get(r.geoid)[mi] * tilt.get(r.geoid));
+    const rawSum = raw.reduce((s, v) => s + v, 0);
+
+    const exact = raw.map((v) => (v / rawSum) * total);
+    const floors = exact.map(Math.floor);
+    const deficit = total - floors.reduce((s, v) => s + v, 0);
+    const order = exact
+      .map((v, i) => [v - Math.floor(v), i])
+      .sort((a, b) => b[0] - a[0]);
+    for (let k = 0; k < deficit; k++) floors[order[k % order.length][1]] += 1;
+
+    records.forEach((r, i) => {
+      // Children cannot outnumber the caseload they are part of.
+      series.get(r.geoid).push(Math.min(floors[i], enrolled.get(r.geoid)[mi]));
+    });
+  });
+
+  return { series, childTotals };
+}
+
+const { series: childSeries, childTotals } = buildChildEnrollment(records, enrollment);
+for (const r of records) r.snap_children = childSeries.get(r.geoid);
+
 // ------------------------------------------------------------------- statewide
 const monthlyChange = STATEWIDE.map((v, i) => (i === 0 ? null : v - STATEWIDE[i - 1]));
 const policyIdx = SW.MONTHS.indexOf(SW.POLICY_START.month);
@@ -321,6 +396,18 @@ if (mismatch !== -1) {
   );
 }
 
+const policyChildIdx = SW.MONTHS.indexOf(SW.POLICY_START.month);
+const childWindowPct =
+  (childTotals[childTotals.length - 1] - childTotals[policyChildIdx]) /
+  childTotals[policyChildIdx];
+const childShareLatest = childTotals[childTotals.length - 1] / STATEWIDE[STATEWIDE.length - 1];
+const childOverCaseload = records.filter((r) =>
+  r.snap_children.some((v, i) => v > r.snap_enrolled[i]),
+).length;
+if (childOverCaseload > 0) {
+  throw new Error(`${childOverCaseload} counties report more children than enrolled individuals`);
+}
+
 const countyWindowChange = records.reduce(
   (s, r) => s + (r.snap_enrolled[r.snap_enrolled.length - 1] - r.snap_enrolled[policyIdx]),
   0,
@@ -353,4 +440,6 @@ console.log(`  corr d1/d2                   ${corrOf('d1_score', 'd2_score').toF
 console.log(`  corr d1/d3                   ${corrOf('d1_score', 'd3_score').toFixed(3)} (target  0.430)`);
 console.log(`  county sums reconcile         all ${SW.MONTHS.length} months exact`);
 console.log(`  county window change         ${countyWindowChange.toLocaleString()} (statewide -547,051)`);
+console.log(`  child change since policy    ${(childWindowPct * 100).toFixed(1)}% (age bands say -16.7%)`);
+console.log(`  child share of latest        ${(childShareLatest * 100).toFixed(1)}% (July share 42.5%)`);
 console.log(`  population total             ${records.reduce((s, r) => s + r.pop, 0).toLocaleString()}`);

@@ -1,47 +1,17 @@
+/* Fills the sticky rail when it has a bounded height, so the feed below can
+   take the leftover space; inert when the rail is stacked on a narrow screen. */
 .root {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: var(--space-4);
   min-height: 0;
-}
-
-.stats {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--hairline-strong);
-}
-
-.stat {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-3);
-  align-items: baseline;
-}
-
-.statValue {
-  font-family: var(--font-figure);
-  font-size: 1.5rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
-.negative {
-  color: var(--ja-burgundy);
-}
-
-.statBody {
-  font-size: 0.75rem;
-  line-height: 1.35;
-  color: var(--text-muted);
 }
 
 .feedWrap {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -74,13 +44,23 @@
   color: var(--text-faint);
 }
 
-/* Scrolls inside its own box so the feed can be long without growing the page. */
+/*
+ * The one scroll region in the rail.
+ *
+ * `flex: 1` + `min-height: 0` makes it take exactly the height the rail has
+ * left over, so the three facts above it stay visible. The vh cap is the
+ * fallback for when nothing bounds it — a stacked rail on a narrow screen —
+ * where otherwise all forty bulletins would render at full height.
+ */
 .feed {
   display: flex;
   flex-direction: column;
-  max-height: 320px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 60vh;
   overflow-y: auto;
   margin: 0;
+  /* Room for the scrollbar so it never sits on top of the text. */
   padding: 0 var(--space-2) 0 0;
   list-style: none;
 }
@@ -180,4 +160,56 @@
 
 .inWindow .marker::before {
   background: var(--ja-burgundy);
+}
+
+/* ------------------------------------------------------------- feed filter
+   The feed covers every Texas Works programme; these narrow it. Counts are on
+   the buttons so the reader can see what a filter costs before pressing it. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+}
+
+.filter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0.15rem 0.5rem;
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.filter:hover {
+  border-color: var(--hairline-strong);
+  color: var(--text);
+}
+
+.filterOn {
+  color: var(--text-inverse);
+  background: var(--ja-navy);
+  border-color: var(--ja-navy);
+}
+
+.filterCount {
+  font-size: 0.5625rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* The honesty line. Only shown while a filter is on, because that is the only
+   time the reader is looking at a subset and could mistake it for the whole. */
+.filterNote {
+  padding-top: var(--space-2);
+  font-size: 0.5625rem;
+  line-height: 1.35;
+  color: var(--text-faint);
 }

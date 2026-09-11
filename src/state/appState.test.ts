@@ -16,12 +16,17 @@ const roundTrip = (state: AppState): AppState =>
   fromSearchParams(toSearchParams(state, defaults), defaults, MONTHS);
 
 describe('initial state matches the spec defaults', () => {
-  it('starts on D1, geo, rate, since-H.R.-1', () => {
-    expect(defaults.layer).toBe('d1'); // §6.4
+  it('starts on Benefits lost, geo, rate, since-H.R.-1', () => {
+    // §6.4 said D1; superseded 2026-09-10 by the four-view rework.
+    expect(defaults.layer).toBe('loss');
     expect(defaults.style).toBe('geo'); // §6.5
     expect(defaults.measure).toBe('rate');
     expect(defaults.window).toEqual(['2025-07', '2026-05']); // §6.2
     expect(defaults.infra).toEqual(ALL_INFRA);
+  });
+
+  it('opens with the advanced controls collapsed', () => {
+    expect(defaults.advanced).toBe(false);
   });
 });
 
@@ -31,6 +36,27 @@ describe('reducer', () => {
     expect(s.infra).toEqual(['cms_navigator', 'chw', 'counselor']);
     s = reducer(s, { type: 'toggleInfra', key: 'food_bank' });
     expect(s.infra).toEqual(ALL_INFRA);
+  });
+
+  it('sets and clears the county scope', () => {
+    const scoped = reducer(defaults, { type: 'setScope', geoid: '48201' });
+    expect(scoped.scope).toBe('48201');
+    expect(reducer(scoped, { type: 'setScope', geoid: null }).scope).toBeNull();
+  });
+
+  it('does not re-render when the scope is already that county', () => {
+    const scoped = reducer(defaults, { type: 'setScope', geoid: '48201' });
+    expect(reducer(scoped, { type: 'setScope', geoid: '48201' })).toBe(scoped);
+  });
+
+  it('toggles the advanced disclosure', () => {
+    const open = reducer(defaults, { type: 'toggleAdvanced' });
+    expect(open.advanced).toBe(true);
+    expect(reducer(open, { type: 'toggleAdvanced' }).advanced).toBe(false);
+  });
+
+  it('does not re-render when setAdvanced matches the current value', () => {
+    expect(reducer(defaults, { type: 'setAdvanced', advanced: false })).toBe(defaults);
   });
 
   it('returns the same object when hover does not change', () => {
@@ -61,6 +87,8 @@ describe('URL mirroring', () => {
       infra: ['chw'],
       overlayQ5: true,
       overlayGap: true,
+      advanced: true,
+      scope: '48201',
     };
     const back = roundTrip(state);
     expect(back).toEqual({ ...state, hovered: null });
@@ -80,7 +108,7 @@ describe('URL mirroring', () => {
 
   it('ignores junk rather than throwing, so a mangled link still opens', () => {
     const s = fromSearchParams(
-      new URLSearchParams('measure=sideways&layer=d9&style=hologram&from=nope&to=nope'),
+      new URLSearchParams('measure=sideways&layer=d9&style=hologram&from=nope&to=nope&adv=maybe'),
       defaults,
       MONTHS,
     );
@@ -88,6 +116,55 @@ describe('URL mirroring', () => {
     expect(s.layer).toBe(defaults.layer);
     expect(s.style).toBe(defaults.style);
     expect(s.window).toEqual(defaults.window);
+    expect(s.advanced).toBe(defaults.advanced);
+  });
+
+  /**
+   * The county stat page is the whole reason scope is in the URL: the address bar
+   * after picking a county has to BE the shareable link.
+   */
+  describe('county scope', () => {
+    const geoids = new Set(['48201', '48113']);
+
+    it('round-trips a county through the URL', () => {
+      const p = toSearchParams({ ...defaults, scope: '48201' }, defaults);
+      expect(p.get('county')).toBe('48201');
+      expect(fromSearchParams(p, defaults, MONTHS, geoids).scope).toBe('48201');
+    });
+
+    it('omits the param when scoped to the state', () => {
+      expect(toSearchParams(defaults, defaults).toString()).toBe('');
+    });
+
+    it('degrades a county that is not in the dataset to statewide', () => {
+      expect(
+        fromSearchParams(new URLSearchParams('county=48999'), defaults, MONTHS, geoids).scope,
+      ).toBeNull();
+    });
+
+    it('accepts any geoid when no validation set is supplied', () => {
+      expect(
+        fromSearchParams(new URLSearchParams('county=48999'), defaults, MONTHS).scope,
+      ).toBe('48999');
+    });
+  });
+
+  it('accepts every layer a view can show, including pre-rework links', () => {
+    for (const layer of ['loss', 'child_loss', 'd1', 'd3', 'work_both', 'composite'] as const) {
+      expect(fromSearchParams(new URLSearchParams(`layer=${layer}`), defaults, MONTHS).layer).toBe(
+        layer,
+      );
+    }
+  });
+
+  it('sends a layer no view can show back to the default', () => {
+    // d2 and d4 lost their strip cards in the four-view rework. Accepting them
+    // would highlight one view's card while drawing another view's map.
+    for (const layer of ['d2', 'd4', 'd5'] as const) {
+      expect(fromSearchParams(new URLSearchParams(`layer=${layer}`), defaults, MONTHS).layer).toBe(
+        defaults.layer,
+      );
+    }
   });
 
   it('rejects a window whose months are absent or out of order', () => {

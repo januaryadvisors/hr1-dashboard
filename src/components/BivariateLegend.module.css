@@ -1,0 +1,42 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.matrixWrap {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  line-height: 0;
+}
+
+.axis {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.9;
+}
+
+.keys {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.625rem;
+  line-height: 1.25;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.key {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.swatch {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(38, 38, 38, 0.18);
+  border-radius: 2px;
+}

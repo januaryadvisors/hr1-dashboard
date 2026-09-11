@@ -1,8 +1,13 @@
 /**
  * <RankList> — §7 / M-09.
  *
- * "Six rows maximum — a longer list drifts toward the 1-to-254 ranking
- * requirement F9 rules out." The cap is enforced here, not left to callers.
+ * §7 said "six rows maximum — a longer list drifts toward the 1-to-254 ranking
+ * requirement F9 rules out." Raised to TEN on client direction 2026-09-11.
+ *
+ * The F9 concern still holds and the cap still exists: ten of 254 is a
+ * shortlist, not a ranking, and the card's own subhead says so. But the cap is
+ * enforced here rather than left to callers, so if this creeps toward 25 the
+ * change has to be made deliberately in one place.
  */
 import styles from './RankList.module.css';
 
@@ -22,10 +27,13 @@ export interface RankListProps {
   onHover?: (geoid: string | null) => void;
 }
 
-export function RankList({ rows, max = 6, activeGeoid, onHover }: RankListProps) {
+/** The hard ceiling. See the note above before raising it. */
+const MAX_ROWS = 10;
+
+export function RankList({ rows, max = MAX_ROWS, activeGeoid, onHover }: RankListProps) {
   return (
     <div className={styles.root} onMouseLeave={() => onHover?.(null)}>
-      {rows.slice(0, Math.min(max, 6)).map((row, i) => (
+      {rows.slice(0, Math.min(max, MAX_ROWS)).map((row, i) => (
         <button
           key={row.geoid}
           type="button"

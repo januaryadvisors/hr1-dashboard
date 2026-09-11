@@ -85,10 +85,13 @@ function Ready({ data, children }: { data: Dataset; children: ReactNode }) {
   );
 
   // Seed from the URL so a shared link opens in the state it encodes (§4).
-  const [state, dispatch] = useReducer(
-    reducer,
-    undefined,
-    () => fromSearchParams(new URLSearchParams(location.search), defaults, months),
+  const [state, dispatch] = useReducer(reducer, undefined, () =>
+    fromSearchParams(
+      new URLSearchParams(location.search),
+      defaults,
+      months,
+      new Set(data.byGeoid.keys()),
+    ),
   );
 
   const projection = useMemo(() => createProjection(data.geometry.state), [data.geometry.state]);
