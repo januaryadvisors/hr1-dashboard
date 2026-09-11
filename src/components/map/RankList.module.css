@@ -5,7 +5,14 @@
 
 .row {
   display: grid;
-  grid-template-columns: 1.1rem 1fr 3.5rem 2.2rem;
+  /*
+     The value track is `auto`, not a fixed 2.2rem. It was sized for "p100" and
+     "−23.2%"; in count measure it carries "131,542", which overflowed the
+     column and clipped against the panel edge. `auto` takes what the widest
+     value in the list needs and the county name gives it up — a truncated name
+     is recoverable from the map, a truncated number is not.
+  */
+  grid-template-columns: 1.1rem minmax(0, 1fr) 3.5rem auto;
   gap: var(--space-2);
   align-items: center;
   padding: 0.3rem 0;
@@ -32,8 +39,12 @@
   text-align: right;
 }
 
+/* Gives way to the value column when a count is long. */
 .name {
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bar {
@@ -90,4 +101,5 @@
   font-size: 0.6875rem;
   color: var(--text-muted);
   text-align: right;
+  white-space: nowrap;
 }

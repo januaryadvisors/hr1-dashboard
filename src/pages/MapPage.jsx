@@ -272,26 +272,55 @@ export default function MapPage() {
    * six was protecting (no 1-to-254 ranking) still holds, and <RankList> keeps
    * the ceiling.
    */
-  const rankRows = useMemo(
-    () =>
-      counties
-        .map((c) => ({ c, v: layerValues.fill.get(c.geoid) ?? null }))
-        .filter((r) => r.v != null)
-        .sort((a, b) => b.v - a.v)
-        .slice(0, 10)
-        .map(({ c, v }) => ({
-          geoid: c.geoid,
-          name: c.name,
-          fraction: fractionOf(state.layer, v, layerValues),
-          value: formatLayerValue(state.layer, v),
-          // For the 'line' glyph: this county's series for the group being
-          // mapped, over the active window only.
-          series: (c[layerDef.seriesField ?? 'snap_enrolled'] ?? []).slice(i0, i1 + 1),
-          // For the 'bucket' glyph: which class interval the county lands in.
-          bin: binIndex(v, layerValues.bins ?? binsFor(state.layer)),
-        })),
-    [counties, layerValues, state.layer, layerDef.seriesField, i0, i1],
-  );
+  /**
+   * The shortlist RANKS AND READS IN THE MEASURE THE READER PICKED.
+   *
+   * It ranked on the rate whatever the toggle said, which made the panel
+   * disagree with the map beside it: a count map coloured Harris darkest and the
+   * list beside it named ten counties of a few thousand people. Those small
+   * counties are the honest answer to "largest share lost" and a terrible answer
+   * to "most people lost".
+   *
+   * So in count measure this sorts on the headcount and prints it, which does
+   * put the big metros at the top — that is the point of the measure, not a
+   * defect in the list. The subhead's "within-metric shortlist" caveat holds
+   * either way.
+   */
+  const rankCounting = state.measure === 'count' && !!layerValues.count;
+
+  const rankRows = useMemo(() => {
+    const read = (c) =>
+      rankCounting
+        ? layerValues.count.get(c.geoid) ?? null
+        : layerValues.fill.get(c.geoid) ?? null;
+
+    const bins = rankCounting
+      ? countBinsFor(layerValues, state.layer)
+      : layerValues.bins ?? binsFor(state.layer);
+
+    return counties
+      .map((c) => ({ c, v: read(c) }))
+      .filter((r) => r.v != null)
+      .sort((a, b) => b.v - a.v)
+      .slice(0, 10)
+      .map(({ c, v }) => ({
+        geoid: c.geoid,
+        name: c.name,
+        fraction: rankCounting
+          ? layerValues.maxCount > 0
+            ? v / layerValues.maxCount
+            : 0
+          : fractionOf(state.layer, v, layerValues),
+        value: rankCounting ? fmtInt(v) : formatLayerValue(state.layer, v),
+        // For the 'line' glyph: this county's series for the group being
+        // mapped, over the active window only. Unchanged by the measure — the
+        // shape of a caseload is the same fact either way.
+        series: (c[layerDef.seriesField ?? 'snap_enrolled'] ?? []).slice(i0, i1 + 1),
+        // For the 'bucket' glyph: the class the county lands in, on the SAME
+        // bins the map is using, so the caret and the fill agree.
+        bin: bins ? binIndex(v, bins) : 0,
+      }));
+  }, [counties, layerValues, state.layer, layerDef.seriesField, i0, i1, rankCounting]);
 
   /**
    * What the shortlist draws beside each county.
@@ -302,7 +331,9 @@ export default function MapPage() {
    * are in the top class and a proportional bar would draw ten full bars.
    */
   const rankGlyph = layerBasis(state.layer) === 'score' ? 'bucket' : 'line';
-  const rankBins = (layerValues.bins ?? binsFor(state.layer)).length - 1;
+  const rankBins =
+    ((rankCounting ? countBinsFor(layerValues, state.layer) : layerValues.bins) ??
+      binsFor(state.layer)).length - 1;
 
   /**
    * One geometry for all six panels — the hero map plus the view thumbnails.
