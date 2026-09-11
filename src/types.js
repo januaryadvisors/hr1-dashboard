@@ -14,7 +14,7 @@
  * They recompute from the brush window every time it moves, which is why they
  * have no `*_score` column and go through src/lib/layerValues.ts instead.
  *
- * @typedef {'loss' | 'child_loss'} LossKey
+ * @typedef {'loss' | 'child_loss' | 'medicaid_loss'} LossKey
  */
 
 /**
@@ -34,7 +34,7 @@
  * six layer cards became four views). A view is one or two layers plus a
  * decision about whether assistance capacity is drawn; see config/layers.ts.
  *
- * @typedef {'loss' | 'work' | 'vulnerability' | 'children'} ViewKey
+ * @typedef {'loss' | 'work' | 'vulnerability' | 'medicaid' | 'children'} ViewKey
  */
 
 /**
@@ -90,6 +90,10 @@
  * @property {number} newly_subject_persons - D1 count basis. PUMS-modelled — flag wherever shown (§10).
  * @property {number} noncit_snap_persons - D2 count basis.
  * @property {number[]} snap_enrolled - Monthly enrolled individuals, parallel to statewide meta.months.
+ * @property {(number|null)[]} [medicaid_enrolled] - Monthly Medicaid enrollment, aligned onto statewide meta.months.
+ *   OBSERVED, unlike everything else on this record, and attached at load time
+ *   from medicaid-observed.json rather than shipped in counties.json. null in
+ *   any month HHSC did not publish, and absent entirely if the file 404s.
  * @property {number[]} snap_children - Monthly enrolled children (under 18), parallel to statewide meta.months.
  *   Added 2026-09-10 for the Children view. NOT in the spec's §3.1 contract and
  *   NOT produced by build_scores.R — see docs/SPEC-DEVIATIONS.md §A4. Fixture

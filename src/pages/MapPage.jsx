@@ -2,7 +2,7 @@
  * Map page — spec §6. Composition only: every piece is a component from §7 and
  * every number recomputes from the brush window (§6.2).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { activeGeoid, ALL_INFRA } from '../state/appState';
 import {
@@ -54,6 +54,7 @@ import { loadSnapObserved } from '../data/snap';
 import { buildGeometry } from '../lib/mapGeometry';
 import { useElementSize } from '../lib/useElementSize';
 import { buildLayerValues, countBinsFor, formatLayerValue, fractionOf } from '../lib/layerValues';
+import { binIndex, binsFor } from '../lib/scales';
 import { fmtDelta, fmtInt, fmtMonthBody, fmtPct, fmtPctDelta } from '../lib/format';
 /**
  * @typedef {import('../types').InfraKey} InfraKey
@@ -178,6 +179,37 @@ export default function MapPage() {
   const [capacityRef, capacityBox] = useElementSize();
 
   /**
+   * The view strip scrolls, so it needs to know where it is.
+   *
+   * Buttons hide at each end rather than greying out — a control that cannot do
+   * anything is noise beside a card. The 2px tolerance is for sub-pixel widths:
+   * a strip scrolled fully right routinely lands a fraction short of its own
+   * scrollWidth and would otherwise keep offering a "next" that does nothing.
+   */
+  const stripRef = useRef(null);
+  const [stripNav, setStripNav] = useState({ canPrev: false, canNext: false });
+
+  const updateStripNav = () => {
+    const el = stripRef.current;
+    if (!el) return;
+    setStripNav({
+      canPrev: el.scrollLeft > 2,
+      canNext: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
+    });
+  };
+
+  useEffect(updateStripNav, [data.hasMedicaid]);
+
+  /** One card plus its gap, in the direction given. */
+  const scrollStrip = (dir) => {
+    const el = stripRef.current;
+    if (!el) return;
+    const card = el.querySelector('button');
+    const step = card ? card.getBoundingClientRect().width + 8 : el.clientWidth * 0.25;
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  };
+
+  /**
    * Which curated pairing the scatter is showing.
    *
    * Follows the map's view by default — switching the map to Children moves the
@@ -252,9 +284,25 @@ export default function MapPage() {
           name: c.name,
           fraction: fractionOf(state.layer, v, layerValues),
           value: formatLayerValue(state.layer, v),
+          // For the 'line' glyph: this county's series for the group being
+          // mapped, over the active window only.
+          series: (c[layerDef.seriesField ?? 'snap_enrolled'] ?? []).slice(i0, i1 + 1),
+          // For the 'bucket' glyph: which class interval the county lands in.
+          bin: binIndex(v, layerValues.bins ?? binsFor(state.layer)),
         })),
-    [counties, layerValues, state.layer],
+    [counties, layerValues, state.layer, layerDef.seriesField, i0, i1],
   );
+
+  /**
+   * What the shortlist draws beside each county.
+   *
+   * Enrollment views get a line, because the shortlist is ten counties that all
+   * lost heavily and the shape is the thing the value column cannot say. The
+   * index and work views get the class steps, because on a percentile all ten
+   * are in the top class and a proportional bar would draw ten full bars.
+   */
+  const rankGlyph = layerBasis(state.layer) === 'score' ? 'bucket' : 'line';
+  const rankBins = (layerValues.bins ?? binsFor(state.layer)).length - 1;
 
   /**
    * One geometry for all six panels — the hero map plus the view thumbnails.
@@ -297,53 +345,112 @@ export default function MapPage() {
    * not inconsistent — they are different measures, which is the point of
    * having four views.
    */
+  /**
+   * One headline figure per view card, in the MEASURE THE READER PICKED.
+   *
+   * The cards used to be fixed: a median percentage on Benefits lost, a headcount
+   * on Work, whatever each view's most quotable number happened to be. That made
+   * the Rate/Count toggle look like it only changed the map, when it changes the
+   * question — so the strip now answers in the same unit as the map beneath it.
+   *
+   * Count is a statewide headcount; rate is the MEDIAN COUNTY, not the statewide
+   * share. The typical county is the honest rate summary: a statewide percentage
+   * is Harris plus Dallas plus Bexar with 250 counties rounding to nothing.
+   */
   const viewStats = useMemo(() => {
     const out = new Map();
+    const counting = state.measure === 'count';
 
     const composites = counties.map((c) => c.vulnerability_score).filter(Number.isFinite);
     const avg = composites.reduce((a, b) => a + b, 0) / (composites.length || 1);
     const q5Cut = [...composites].sort((a, b) => a - b)[Math.floor(composites.length * 0.8)] ?? 0;
+    const inQ5 = composites.filter((v) => v >= q5Cut).length;
+    // The index has no count basis, so it reports the same thing either way —
+    // and says which of the two numbers is the countable one.
     out.set('vulnerability', {
-      value: avg.toFixed(1),
-      note: `avg · ${composites.filter((v) => v >= q5Cut).length} in top quintile`,
+      value: counting ? fmtInt(inQ5) : avg.toFixed(1),
+      note: counting ? 'counties in the top quintile' : `avg score · ${inQ5} in top quintile`,
     });
+
+    /*
+       The window's published endpoints, not its exact ones.
+
+       Mirrors windowLoss() in lib/layerValues.js, and for the same reason: the
+       SNAP series is dense so this finds i0 and i1 and stops, but the observed
+       Medicaid series ends before the brush does. Reading the exact months would
+       make every Medicaid figure an em dash at the default window.
+    */
+    const endpoints = (m) => {
+      if (!m) return null;
+      let a = -1;
+      let b = -1;
+      for (let i = i0; i <= i1; i++) if (typeof m[i] === 'number') { a = i; break; }
+      for (let i = i1; i >= i0; i--) if (typeof m[i] === 'number') { b = i; break; }
+      return a < 0 || b <= a ? null : [m[a], m[b]];
+    };
 
     /** Median COUNTY loss, not the statewide rate — the typical county. */
     const medianLoss = (series) => {
       const pcts = counties
         .map((c) => {
-          const m = series(c);
-          const start = m?.[i0];
-          const end = m?.[i1];
-          return typeof start === 'number' && typeof end === 'number' && start > 0
-            ? (end - start) / start
-            : null;
+          const e = endpoints(series(c));
+          return e && e[0] > 0 ? (e[1] - e[0]) / e[0] : null;
         })
         .filter((v) => v != null)
         .sort((a, b) => a - b);
       return pcts.length ? pcts[Math.floor(pcts.length / 2)] : null;
     };
 
+    /** People who left across the whole state, on a series. */
+    const totalLost = (series) =>
+      counties.reduce((sum, c) => {
+        const e = endpoints(series(c));
+        return sum + (e ? Math.max(0, e[0] - e[1]) : 0);
+      }, 0);
+
     out.set('loss', {
-      value: fmtPctDelta(medianLoss((c) => c.snap_enrolled), 1),
-      note: 'median county',
+      value: counting
+        ? fmtInt(totalLost((c) => c.snap_enrolled))
+        : fmtPctDelta(medianLoss((c) => c.snap_enrolled), 1),
+      note: counting ? 'people left since Jul 2025' : 'median county',
     });
 
-    const childStart = counties.reduce((sum, c) => sum + (c.snap_children?.[i0] ?? 0), 0);
-    const childEnd = counties.reduce((sum, c) => sum + (c.snap_children?.[i1] ?? 0), 0);
+    /*
+       Observed, and on its own window: the Medicaid series ends before the brush
+       does, so the figure is the change over the published months the brush
+       contains. buildLayerValues resolves the same endpoints for the map.
+    */
+    out.set('medicaid', {
+      value: counting
+        ? fmtInt(totalLost((c) => c.medicaid_enrolled))
+        : fmtPctDelta(medianLoss((c) => c.medicaid_enrolled), 1),
+      note: counting ? 'left Medicaid, published months' : 'median county',
+    });
+
     out.set('children', {
-      value: childStart > 0 ? fmtPctDelta((childEnd - childStart) / childStart, 1) : '—',
-      note: 'statewide',
+      value: counting
+        ? fmtInt(totalLost((c) => c.snap_children))
+        : fmtPctDelta(medianLoss((c) => c.snap_children), 1),
+      note: counting ? 'children left since Jul 2025' : 'median county',
     });
 
     const subject = counties.reduce((sum, c) => sum + (c.newly_subject_persons ?? 0), 0);
+    const subjectShare = counties
+      .map((c) => {
+        const start = c.snap_enrolled?.[i0];
+        return start > 0 ? (c.newly_subject_persons ?? 0) / start : null;
+      })
+      .filter((v) => v != null)
+      .sort((a, b) => a - b);
     out.set('work', {
-      value: subject >= 1000 ? `${Math.round(subject / 1000)}k` : fmtInt(subject),
-      note: 'newly subject',
+      value: counting
+        ? fmtInt(subject)
+        : fmtPct(subjectShare[Math.floor(subjectShare.length / 2)] ?? 0, 1),
+      note: counting ? 'newly subject' : 'of caseload, median county',
     });
 
     return out;
-  }, [counties, i0, i1]);
+  }, [counties, i0, i1, state.measure]);
 
   /**
    * Three layers, three units, so the ramp legend cannot keep saying p0→p100.
@@ -461,9 +568,26 @@ export default function MapPage() {
       {/* ------------------------------------------------- M-04 + M-05 */}
       <Section title="Where the need is">
       <div className={styles.mapColumn}>
-        {/* M-04, reworked 2026-09-10: four views, not six layer cards. */}
-        <section className={styles.layerStrip} aria-label="Map views">
-        {VIEWS.map((v) => {
+        {/* M-04: the view cards, as a scrolling strip with the fifth peeking —
+            see .layerStrip. The buttons are for mice without a horizontal wheel;
+            each hides itself at the end of its travel. */}
+        <div className={styles.layerStripWrap}>
+        <button
+          type="button"
+          className={`${styles.stripNav} ${styles.stripNavPrev}`}
+          aria-label="Scroll views left"
+          hidden={!stripNav.canPrev}
+          onClick={() => scrollStrip(-1)}
+        >
+          ‹
+        </button>
+        <section
+          className={styles.layerStrip}
+          aria-label="Map views"
+          ref={stripRef}
+          onScroll={updateStripNav}
+        >
+        {VIEWS.filter((v) => v.key !== 'medicaid' || data.hasMedicaid).map((v) => {
           const previewLayer = v.metrics[0];
           const active = v.key === view.key;
           const values = thumbValues.get(previewLayer);
@@ -515,6 +639,16 @@ export default function MapPage() {
           );
         })}
         </section>
+        <button
+          type="button"
+          className={`${styles.stripNav} ${styles.stripNavNext}`}
+          aria-label="Scroll views right"
+          hidden={!stripNav.canNext}
+          onClick={() => scrollStrip(1)}
+        >
+          ›
+        </button>
+        </div>
 
         <section className={styles.panel}>
           <div className={styles.panelHead}>
@@ -661,6 +795,8 @@ export default function MapPage() {
                 </p>
                 <RankList
                   rows={rankRows}
+                  glyph={rankGlyph}
+                  bins={rankBins}
                   activeGeoid={activeId}
                   onHover={(geoid) => dispatch({ type: 'hover', geoid, origin: 'external' })}
                 />
@@ -913,6 +1049,8 @@ export default function MapPage() {
         values={layerValues}
         months={months}
         window={state.window}
+        measure={state.measure}
+        tooltipStats={view.tooltip.stats}
         origin={state.hoverOrigin}
       />
     </div>

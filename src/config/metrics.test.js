@@ -198,6 +198,27 @@ describe('scatter presets', () => {
     const months = statewide.meta.months;
     const ctx = { i0: months.indexOf(statewide.meta.policy_start), i1: months.length - 1 };
 
+    /*
+       Attach observed Medicaid exactly as src/data/load.js does.
+
+       counties.json does not carry it — it is a separate published file aligned
+       onto the statewide month axis at load time — so without this every
+       Medicaid metric reads null here and the preset looks degenerate when it is
+       not. Which is how this guard first fired.
+    */
+    const medicaid = JSON.parse(
+      await readFile(new URL('../../public/data/medicaid-observed.json', import.meta.url), 'utf8'),
+    );
+    const at = new Map(medicaid.months.map((m, i) => [m, i]));
+    for (const c of counties) {
+      const series = medicaid.counties[c.geoid];
+      if (!series) continue;
+      c.medicaid_enrolled = months.map((m) => {
+        const i = at.get(m);
+        return i == null ? null : series.caseload[i];
+      });
+    }
+
     const median = (vals) => [...vals].sort((a, b) => a - b)[Math.floor(vals.length / 2)];
 
     for (const preset of SCATTER_PRESETS) {

@@ -103,6 +103,8 @@ export function buildLayerStats(counties) {
  *   bivariate readout below is meaningless if it re-derives them.
  * @property {string[]} months
  * @property {[string, string]} window
+ * @property {Measure} [measure] - Rate or count. Decides the unit of the three facts at the top.
+ * @property {'enrollment' | 'work'} [tooltipStats] - Which three facts to show. From the view's TooltipSpec.
  * @property {'pointer' | 'external'} origin - 'pointer' anchors the panel to the cursor. 'external' (search, rank list)
  *   anchors it beside the county's own shape on the hero map.
  */
@@ -114,6 +116,8 @@ export function CountyTooltip({
   values,
   months,
   window: win,
+  measure = 'count',
+  tooltipStats = 'enrollment',
   origin,
 }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -152,16 +156,21 @@ export function CountyTooltip({
   const i1 = months.indexOf(win[1]);
 
   /**
-   * The sparkline follows the layer's own series, so the Children view reads
-   * child enrollment rather than showing a total caseload the map is not about.
+   * Everything below reads the LAYER'S OWN series, so each view's tooltip is
+   * about the population its map is coloured by — child enrollment on Children,
+   * Medicaid on Medicaid, the whole caseload elsewhere.
+   *
+   * It was a child-or-not boolean until 2026-09-11, which meant the Medicaid
+   * view's tooltip quoted SNAP figures under a Medicaid heading.
    */
-  const isChildLayer = layerByKey(layer).seriesField === 'snap_children';
+  const seriesField = layerByKey(layer).seriesField ?? 'snap_enrolled';
+  const isChildLayer = seriesField === 'snap_children';
+  const isMedicaid = seriesField === 'medicaid_enrolled';
 
   const enrollment = useMemo(() => {
     if (!county || i0 < 0 || i1 < 0) return [];
-    const series = isChildLayer ? county.snap_children : county.snap_enrolled;
-    return series?.slice(i0, i1 + 1) ?? [];
-  }, [county, i0, i1, isChildLayer]);
+    return county[seriesField]?.slice(i0, i1 + 1) ?? [];
+  }, [county, i0, i1, seriesField]);
 
   if (!county) return null;
 
@@ -178,12 +187,36 @@ export function CountyTooltip({
       : anchor.y + OFFSET,
   );
 
-  const start = enrollment[0] ?? 0;
-  const end = enrollment[enrollment.length - 1] ?? 0;
+  /*
+     The window's PUBLISHED endpoints, as windowLoss() resolves them. The SNAP
+     series is dense so this is just the first and last; the observed Medicaid
+     series has gaps and ends before the brush does, and reading its exact
+     endpoints would show an em dash on every county at the default window.
+  */
+  const published = enrollment.filter((v) => typeof v === 'number' && Number.isFinite(v));
+  const start = published[0] ?? 0;
+  const end = published[published.length - 1] ?? 0;
   const pctChange = start > 0 ? (end - start) / start : null;
   // Share of the county's own caseload that is newly subject to the work
   // requirement. Independent of the active layer.
   const shareOfCaseload = start > 0 ? county.newly_subject_persons / start : null;
+
+  /*
+     Which three facts this view puts at the top, and in which unit.
+     'work' is the newly-subject reading; every other view reports enrollment.
+  */
+  const counting = measure === 'count';
+  const workStats = tooltipStats === 'work';
+  const enrolledLabel = isMedicaid
+    ? 'On Medicaid'
+    : isChildLayer
+      ? 'Children on SNAP'
+      : 'On SNAP';
+  const lostLabel = isMedicaid
+    ? `Left Medicaid since ${fmtMonth(win[0])}`
+    : isChildLayer
+      ? `Children lost since ${fmtMonth(win[0])}`
+      : `Lost since ${fmtMonth(win[0])}`;
 
   return (
     <div
@@ -323,28 +356,81 @@ export function CountyTooltip({
         </div>
       )}
 
+      {/*
+        THE THREE FACTS, IN THE MEASURE THE READER PICKED — 2026-09-11.
+
+        This row used to be fixed at "Newly subject / Of caseload / Since", which
+        put a work-requirement figure at the top of every tooltip including the
+        one for Benefits lost, where the question is how many people left. It now
+        follows the view AND the Rate/Count toggle, so the tooltip answers in the
+        same unit as the map under it.
+
+        `Residents` stays in both measures. It is the denominator rather than the
+        measure, and keeping it holds the three columns steady when the toggle
+        moves — a row that changes width as well as content reads as a different
+        panel rather than the same one restated.
+      */}
       <div className={styles.stats}>
-        <div>
-          {/* Always the D1 count basis. It is a fact about the county, not about
-              the layer being viewed — reading it off `layer` meant every column
-              here showed an em dash on D3, D4 and the composite. */}
-          <div className={styles.statLabel}>Newly subject</div>
-          <div className={`${styles.statValue} tabular`}>{fmtInt(county.newly_subject_persons)}</div>
-        </div>
-        <div>
-          <div className={styles.statLabel}>Of caseload</div>
-          <div className={`${styles.statValue} tabular`}>
-            {shareOfCaseload == null ? '—' : fmtPct(shareOfCaseload, 0)}
-          </div>
-        </div>
-        <div>
-          <div className={styles.statLabel}>
-            {isChildLayer ? 'Children since' : 'Since'} {fmtMonth(win[0])}
-          </div>
-          <div className={`${styles.statValue} ${styles.negative} tabular`}>
-            {pctChange == null ? '—' : fmtPctDelta(pctChange)}
-          </div>
-        </div>
+        {workStats ? (
+          <>
+            <div>
+              {/* The D1 count basis: a fact about the county, not about the layer
+                  being viewed. Reading it off `layer` meant every column here
+                  showed an em dash on D3, D4 and the composite. */}
+              {/* A headcount by nature, so it stays a headcount in both
+                  measures — the share is the column beside it. */}
+              <div className={styles.statLabel}>Newly subject</div>
+              <div className={`${styles.statValue} tabular`}>
+                {fmtInt(county.newly_subject_persons)}
+              </div>
+            </div>
+            <div>
+              <div className={styles.statLabel}>Of caseload</div>
+              <div className={`${styles.statValue} tabular`}>
+                {shareOfCaseload == null ? '—' : fmtPct(shareOfCaseload, 0)}
+              </div>
+            </div>
+            <div>
+              <div className={styles.statLabel}>
+                {isChildLayer ? 'Children since' : 'Since'} {fmtMonth(win[0])}
+              </div>
+              <div className={`${styles.statValue} ${styles.negative} tabular`}>
+                {pctChange == null ? '—' : fmtPctDelta(pctChange)}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <div className={styles.statLabel}>Residents</div>
+              <div className={`${styles.statValue} tabular`}>{fmtInt(county.pop)}</div>
+            </div>
+            <div>
+              <div className={styles.statLabel}>
+                {counting ? enrolledLabel : `${enrolledLabel}, rate`}
+              </div>
+              <div className={`${styles.statValue} tabular`}>
+                {counting
+                  ? fmtInt(end)
+                  : county.pop > 0
+                    ? fmtPct(end / county.pop, 1)
+                    : '—'}
+              </div>
+            </div>
+            <div>
+              <div className={styles.statLabel}>
+                {counting ? lostLabel : `${lostLabel}, rate`}
+              </div>
+              <div className={`${styles.statValue} ${styles.negative} tabular`}>
+                {counting
+                  ? fmtInt(Math.max(0, start - end))
+                  : pctChange == null
+                    ? '—'
+                    : fmtPctDelta(pctChange)}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Capacity is the index view's story — see ViewDef.tooltip.capacity.
@@ -381,7 +467,8 @@ export function CountyTooltip({
       {spec.chart === 'enrollment' && (
         <>
           <div className={styles.sparkHead}>
-            {isChildLayer ? 'Children enrolled' : 'SNAP enrolled'}, {fmtMonth(win[0])} →{' '}
+            {isMedicaid ? 'On Medicaid' : isChildLayer ? 'Children enrolled' : 'SNAP enrolled'},{' '}
+            {fmtMonth(win[0])} →{' '}
             {fmtMonth(win[1])}
           </div>
           <Sparkline values={enrollment} />

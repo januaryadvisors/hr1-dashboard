@@ -9,12 +9,16 @@ import { colorRampPalette } from './colorRamp';
  */
 
 /**
- * The two windowed-loss layers. They read a fraction of the window-start
- * caseload, not a percentile, so they get their own bins — and they share one
- * ramp on purpose: the all-persons and children maps are the same measure on
- * different denominators, and a shared scale is what makes them comparable.
+ * The windowed-loss layers. They read a fraction of the window-start caseload,
+ * not a percentile, so they get their own bins.
+ *
+ * The two SNAP ones share a ramp on purpose: all-persons and children are the
+ * same measure on different denominators, and a shared scale is what makes them
+ * comparable. Medicaid gets a DIFFERENT hue — it is a different programme with a
+ * different denominator, and colouring it the same would invite reading one map
+ * off the other.
  */
-export const LOSS_LAYERS = ['loss', 'child_loss'];
+export const LOSS_LAYERS = ['loss', 'child_loss', 'medicaid_loss'];
 
 const isLoss = (layer) => (LOSS_LAYERS).includes(layer);
 
@@ -48,6 +52,12 @@ export const RAMP_ANCHORS = {
    */
   loss: ['#F5F1F7', '#C2A7CF', '#7B4A96', '#3E1B4D'],
   child_loss: ['#F5F1F7', '#C2A7CF', '#7B4A96', '#3E1B4D'],
+  /*
+   * Teal, the one brand hue not already carrying a meaning on this page: navy
+   * is D1, amber D3, green D4, burgundy the composite, plum the SNAP loss.
+   * Medicaid is a separate programme on separate data, so it reads separately.
+   */
+  medicaid_loss: ['#EAF6F7', '#8FCDD3', '#3F8E96', '#18454A'],
 };
 
 /**

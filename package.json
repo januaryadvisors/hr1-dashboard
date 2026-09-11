@@ -17,7 +17,8 @@
     "fetch:bulletins": "node scripts/fetch-texas-works.mjs",
     "serve:pages": "node scripts/serve-as-pages.mjs",
     "fetch:snap": "node scripts/fetch-snap-stats.mjs",
-    "fetch:data": "npm run fetch:bulletins && npm run fetch:snap"
+    "fetch:data": "npm run fetch:bulletins && npm run fetch:snap && npm run fetch:medicaid",
+    "fetch:medicaid": "node scripts/fetch-medicaid-stats.mjs"
   },
   "dependencies": {
     "d3-array": "^3.2.4",

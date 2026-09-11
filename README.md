@@ -99,6 +99,28 @@ Generated data **is** committed so CI builds standalone.
 
 ### Swapping in the real export
 
+### Observed data (not fixtures)
+
+Two datasets on this page are real, fetched from Texas HHSC at build time and
+committed:
+
+| Script | Output | Coverage |
+|---|---|---|
+| `npm run fetch:snap` | `snap-observed.json`, `snap-by-county.json` | Jan 2022 – **Aug 2025** |
+| `npm run fetch:medicaid` | `medicaid-observed.json` | Feb 2022 – **Jan 2026**, 7 months unpublished |
+| `npm run fetch:bulletins` | `bulletins.json` | Texas Works policy feed |
+
+`npm run fetch:data` runs all three.
+
+HHSC **stopped publishing the county-level SNAP series after August 2025** — the
+timeliness series on the same page runs to July 2026, so this is specific to that
+dataset. Medicaid is the more current of the two and is the only observed series
+wired into the map (the `medicaid_loss` layer; attached to County records in
+`load.js` and aligned onto the statewide month axis, with unpublished months as
+null). Everything else on the map is fixtures.
+
+### Swapping in the real export
+
 One file: `src/data/load.js`. Point `getJson` at the real payloads. Then read
 `docs/SPEC-DEVIATIONS.md` §A first — the export needs MOE columns, integer
 tiers, and a county-by-month `snap_children` series, none of which

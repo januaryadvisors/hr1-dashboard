@@ -19,11 +19,13 @@ const roundTrip = (state) =>
   fromSearchParams(toSearchParams(state, defaults), defaults, MONTHS);
 
 describe('initial state matches the spec defaults', () => {
-  it('starts on Benefits lost, geo, rate, since-H.R.-1', () => {
+  it('starts on Benefits lost, geo, count, since-H.R.-1', () => {
     // §6.4 said D1; superseded 2026-09-10 by the four-view rework.
     expect(defaults.layer).toBe('loss');
     expect(defaults.style).toBe('geo'); // §6.5
-    expect(defaults.measure).toBe('rate');
+    // Count, not rate, since 2026-09-11: the first question a reader brings to
+    // this page is how many people.
+    expect(defaults.measure).toBe('count');
     expect(defaults.window).toEqual(['2025-07', '2026-05']); // §6.2
     expect(defaults.infra).toEqual(ALL_INFRA);
   });

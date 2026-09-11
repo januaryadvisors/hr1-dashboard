@@ -141,6 +141,49 @@ export const METRICS = [
     views: ALL,
   },
 
+  // ---------------------------------------------------------------- medicaid
+  {
+    /*
+     * OBSERVED, unlike every other metric here. `medicaid_enrolled` is attached
+     * at load time from HHSC's published county workbooks and is null in the
+     * months they did not publish — including everything after Jan 2026, which
+     * is inside the default brush window. buildLayerValues resolves the window
+     * to the published months it contains; this does the same.
+     */
+    id: 'medicaid_loss_share',
+    label: 'Share of the Medicaid caseload lost',
+    axis: 'Share of Medicaid lost',
+    group: 'Medicaid',
+    format: (v) => fmtPct(v, 1),
+    value: (c, ctx) => {
+      const m = c.medicaid_enrolled;
+      if (!m) return null;
+      let a = -1;
+      let b = -1;
+      for (let i = ctx.i0; i <= ctx.i1; i++) if (typeof m[i] === 'number') { a = i; break; }
+      for (let i = ctx.i1; i >= ctx.i0; i--) if (typeof m[i] === 'number') { b = i; break; }
+      if (a < 0 || b <= a || m[a] <= 0) return null;
+      return Math.max(0, m[a] - m[b]) / m[a];
+    },
+    direction: 'worse-high',
+    views: ALL,
+  },
+  {
+    id: 'medicaid_now',
+    label: 'Medicaid enrollment, latest published month',
+    axis: 'On Medicaid',
+    group: 'Medicaid',
+    format: fmtInt,
+    value: (c, ctx) => {
+      const m = c.medicaid_enrolled;
+      if (!m) return null;
+      for (let i = ctx.i1; i >= 0; i--) if (typeof m[i] === 'number') return m[i];
+      return null;
+    },
+    direction: 'neutral',
+    views: ALL,
+  },
+
   // ------------------------------------------------------- work requirements
   {
     id: 'subject_people',
@@ -460,6 +503,26 @@ export const SCATTER_PRESETS = [
     ],
   },
   {
+    id: 'medicaid-snap',
+    label: 'Medicaid against SNAP',
+    question: 'Which counties are losing both SNAP and Medicaid coverage?',
+    x: 'loss_share',
+    y: 'medicaid_loss_share',
+    quadrants: [
+      /*
+         The only preset drawing one observed axis against one fixture axis, and
+         the only one where the two axes come from genuinely independent data —
+         which is why it discriminates where the children pairing did not.
+         Note the windows differ: Medicaid is read over the published months
+         inside the brush, which currently end in Jan 2026.
+      */
+      { corner: 'hi-hi', label: 'Losing both', concern: true },
+      { corner: 'hi-lo', label: 'Losing SNAP, holding Medicaid' },
+      { corner: 'lo-hi', label: 'Losing Medicaid, holding SNAP' },
+      { corner: 'lo-lo', label: 'Holding both' },
+    ],
+  },
+  {
     id: 'vulnerability-capacity',
     label: 'Vulnerability against capacity',
     question: 'Where does the highest modelled need meet the least assistance?',
@@ -484,6 +547,7 @@ export const presetById = (id) =>
  */
 export const PRESET_FOR_VIEW = {
   loss: 'loss-capacity',
+  medicaid: 'medicaid-snap',
   work: 'work-access',
   children: 'children-share',
   vulnerability: 'vulnerability-capacity',

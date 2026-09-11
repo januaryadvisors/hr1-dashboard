@@ -190,29 +190,64 @@
 }
 
 /*
- * M-04: the four view cards.
+ * M-04: the view cards, as a SCROLLING STRIP — 2026-09-11 direction.
  *
- * FOUR ACROSS, each card a ROW — text left, thumbnail right.
+ * Five equal grid columns was the previous arrangement and it did not survive
+ * the fifth card: at a fifth of the column each card's text track is ~100px, so
+ * the title wrapped to two lines and the blurb to three, and the strip grew
+ * taller than the map it introduces. A card that is taller than it is wide stops
+ * reading as a thumbnail.
  *
- * Two-up was tried for one round because the comp's card is wide; the client's
- * call is one row. At a quarter of the column the text track is ~110px, so the
- * title and blurb both wrap — the type sizes and the 76px thumbnail below are
- * tuned for that width, not scaled down from the two-up version.
+ * So the cards keep a readable width and the strip scrolls. The width is set so
+ * four sit fully in view and the FIFTH PEEKS — the peek is the affordance, and
+ * it is worth more than a scrollbar because it says what is over there rather
+ * than just that something is.
  */
-.layerStrip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
-}
-
-.mapColumn {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+.layerStripWrap {
+  position: relative;
   min-width: 0;
 }
 
+.layerStrip {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  /* Room for the scrollbar so it never sits on a card's bottom edge. */
+  padding-bottom: var(--space-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+
+.layerStrip::-webkit-scrollbar {
+  height: 6px;
+}
+
+.layerStrip::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 3px;
+}
+
+.layerStrip::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/*
+ * 4.4 cards across: four whole ones and 40% of the next. The four gaps come out
+ * first so the peek does not drift as the column resizes.
+ *
+ * CLAMPED, because the fraction alone reproduces the problem the carousel was
+ * built to solve. At 1100px the rail is still beside the map, so a 4.4-card
+ * strip gives 149px cards — and a card that narrow wraps its title to three
+ * lines and stands 226px tall. The floor holds the card landscape and lets the
+ * count of visible cards fall instead; the ceiling stops them ballooning on a
+ * wide monitor.
+ */
 .layerCard {
+  flex: 0 0 clamp(200px, calc((100% - 4 * var(--space-2)) / 4.4), 300px);
+  scroll-snap-align: start;
+
   display: grid;
   /* Text takes the slack; the thumbnail is a fixed square. */
   grid-template-columns: minmax(0, 1fr) 76px;
@@ -227,6 +262,58 @@
   cursor: pointer;
   min-width: 0;
 }
+
+/*
+ * Scroll buttons. A peeking card says there is more; on a mouse without a
+ * horizontal wheel it does not say how to get at it.
+ */
+.stripNav {
+  position: absolute;
+  top: calc(50% - var(--space-2));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.stripNav:hover {
+  border-color: var(--ja-navy);
+  color: var(--ja-navy);
+}
+
+/* Hidden at the end of its travel rather than disabled — a control that cannot
+   do anything is noise beside a card. */
+.stripNav[hidden] {
+  display: none;
+}
+
+.stripNavPrev {
+  left: calc(-1 * var(--space-3));
+}
+
+.stripNavNext {
+  right: calc(-1 * var(--space-3));
+}
+
+.mapColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
 
 .layerCard:hover {
   border-color: var(--hairline-strong);
@@ -853,8 +940,15 @@
 }
 
 @media (max-width: 1023px) {
-  .layerStrip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* The clamp already handles how many fit. What has to give at this width is
+     the thumbnail, so the text track stays wide enough to set a title on two
+     lines rather than three. */
+  .layerCard {
+    grid-template-columns: minmax(0, 1fr) 56px;
+  }
+  .layerCard > svg,
+  .layerCardNote {
+    height: 56px;
   }
   /* Two charts side by side stop being readable below about 340px each. */
   .movementRow {

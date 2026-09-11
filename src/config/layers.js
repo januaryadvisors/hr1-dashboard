@@ -86,6 +86,26 @@ export const LAYERS = [
     note: 'County child series is not in the §3 contract yet',
   },
   {
+    /*
+     * The one layer on this map drawn from OBSERVED data rather than fixtures.
+     *
+     * `medicaid_enrolled` is attached at load time from
+     * public/data/medicaid-observed.json (see src/data/load.js) and aligned onto
+     * the statewide month axis, so it indexes exactly like snap_enrolled. Months
+     * HHSC never published are null, and a window that starts or ends on one
+     * reads as no data rather than as no loss.
+     */
+    key: 'medicaid_loss',
+    label: 'Medicaid coverage lost',
+    formalName: 'Where Texans are losing Medicaid',
+    components: null,
+    countField: null,
+    basis: 'window',
+    seriesField: 'medicaid_enrolled',
+    countLabel: 'People who left Medicaid',
+    available: true,
+  },
+  {
     key: 'd1',
     label: 'Work requirements',
     formalName: 'D1 — Work-requirement exposure',
@@ -265,6 +285,10 @@ export function countLabelFor(key) {
  *   'enrollment'  the caseload sparkline across the window
  *   'exposure'    caseload against newly-subject against who actually left
  *   'none'        no chart
+ * @property {'enrollment' | 'work'} stats - Which three facts head the tooltip.
+ *   'enrollment'  residents, on SNAP, lost since the window start
+ *   'work'        newly subject, share of caseload, change over the window
+ *   Both follow the Rate/Count toggle — see <CountyTooltip>.
  */
 
 /**
@@ -286,21 +310,21 @@ export function countLabelFor(key) {
 export const VIEWS = [
   {
     key: 'loss',
-    label: 'Benefits lost',
+    label: 'SNAP benefits lost',
     blurb: 'Where people are leaving SNAP',
     metrics: ['loss'],
     showCapacity: false,
-    tooltip: { domains: false, capacity: false, chart: 'enrollment' },
+    tooltip: { domains: false, capacity: false, chart: 'enrollment', stats: 'enrollment' },
   },
   {
     key: 'work',
-    label: 'Work requirements',
+    label: 'H.R. 1 work requirements',
     blurb: 'Who is newly subject, and whether work is reachable',
     metrics: ['d1', 'd3', 'work_both'],
     showCapacity: false,
     // The caseload line belongs to the loss views; here the question is how many
     // people the requirement reaches, so the panel ends on the exposure bars.
-    tooltip: { domains: false, capacity: false, chart: 'exposure' },
+    tooltip: { domains: false, capacity: false, chart: 'exposure', stats: 'work' },
   },
   {
     key: 'vulnerability',
@@ -311,15 +335,23 @@ export const VIEWS = [
     // No chart: this panel already carries five domain bands and four capacity
     // rows, and the caseload line was the one thing on it that said nothing
     // about the index.
-    tooltip: { domains: true, capacity: true, chart: 'none' },
+    tooltip: { domains: true, capacity: true, chart: 'none', stats: 'work' },
+  },
+  {
+    key: 'medicaid',
+    label: 'Medicaid coverage lost',
+    blurb: 'Where people are leaving Medicaid',
+    metrics: ['medicaid_loss'],
+    showCapacity: false,
+    tooltip: { domains: false, capacity: false, chart: 'enrollment', stats: 'enrollment' },
   },
   {
     key: 'children',
-    label: 'Children',
-    blurb: 'Benefits lost, children under 18',
+    label: 'Children losing benefits',
+    blurb: 'SNAP benefits lost, children under 18',
     metrics: ['child_loss'],
     showCapacity: false,
-    tooltip: { domains: false, capacity: false, chart: 'enrollment' },
+    tooltip: { domains: false, capacity: false, chart: 'enrollment', stats: 'enrollment' },
   },
 ];
 

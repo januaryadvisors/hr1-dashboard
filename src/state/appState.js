@@ -45,7 +45,13 @@ export const ALL_INFRA = ['food_bank', 'cms_navigator', 'chw', 'counselor'];
 
 export function initialState(policyStart, latest) {
   return {
-    measure: 'rate',
+    /*
+       COUNT by default — 2026-09-11 direction. §6.5 opened on Rate, on the
+       argument that a share is comparable across counties of wildly different
+       size. It is, but the first question a reader brings to this page is how
+       many people, and a percentage answers a question they have not asked yet.
+    */
+    measure: 'count',
     /**
      * §6.4 made D1 the default. Superseded 2026-09-10: the map opens on the
      * Benefits-lost view, which is observed enrollment change rather than a

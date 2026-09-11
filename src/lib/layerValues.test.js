@@ -156,8 +156,8 @@ describe('views and layers cannot drift apart', () => {
     }
   });
 
-  it('is four views, and exactly one of them draws capacity', () => {
-    expect(VIEWS).toHaveLength(4);
+  it('has one view per layer group, and exactly one draws capacity', () => {
+    expect(VIEWS).toHaveLength(5);
     expect(VIEWS.filter((v) => v.showCapacity).map((v) => v.key)).toEqual(['vulnerability']);
   });
 

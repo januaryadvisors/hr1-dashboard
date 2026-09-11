@@ -59,10 +59,37 @@ function windowLoss(
   let stateStart = 0;
   let stateEnd = 0;
 
+  /*
+     RESOLVE THE ENDPOINTS INSIDE THE WINDOW, rather than demanding the exact
+     months.
+
+     The SNAP series is dense, so for those layers this finds i0 and i1 and stops.
+     The observed Medicaid series is not: it starts in Feb 2022, ends in Jan 2026
+     and is missing seven months in between, while the brush runs to May 2026. On
+     an exact lookup the whole Medicaid map would be no-data at the default
+     window — technically true, useless, and it would read as "nobody lost
+     coverage" rather than "that month is not published".
+
+     So the window is read at the first published month at or after its start and
+     the last at or before its end. That is a narrower window than the brush
+     shows, which the panel note says out loud; it is not extrapolation, and a
+     window containing no published month at all still returns null.
+  */
+  const firstAt = (months, from, to) => {
+    for (let i = from; i <= to; i++) if (typeof months?.[i] === 'number') return i;
+    return -1;
+  };
+  const lastAt = (months, from, to) => {
+    for (let i = to; i >= from; i--) if (typeof months?.[i] === 'number') return i;
+    return -1;
+  };
+
   for (const c of counties) {
     const months = c[series];
-    const start = months?.[i0];
-    const end = months?.[i1];
+    const a = firstAt(months, i0, i1);
+    const b = lastAt(months, i0, i1);
+    const start = a < 0 || b <= a ? undefined : months[a];
+    const end = a < 0 || b <= a ? undefined : months[b];
     if (typeof start !== 'number' || typeof end !== 'number') {
       // A missing series reads as absence, not as zero loss — NO_DATA grey.
       fill.set(c.geoid, null);

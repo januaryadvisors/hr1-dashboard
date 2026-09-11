@@ -48,6 +48,44 @@
   border-radius: 2px;
 }
 
+/* The line and bucket glyphs share the bar's column, so the row grid does not
+   change when the view does. */
+.glyph {
+  display: block;
+  width: 100%;
+  height: 14px;
+  overflow: visible;
+}
+
+.glyphEmpty {
+  display: block;
+  height: 14px;
+}
+
+.glyphLine {
+  fill: none;
+  stroke: var(--ja-burgundy);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.glyphDot {
+  fill: var(--ja-burgundy);
+}
+
+.bucketOff {
+  fill: var(--hairline);
+}
+
+.bucketOn {
+  fill: var(--ja-burgundy);
+}
+
+.bucketCaret {
+  fill: var(--ja-ink);
+}
+
 .value {
   font-size: 0.6875rem;
   color: var(--text-muted);

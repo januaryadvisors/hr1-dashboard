@@ -72,14 +72,47 @@ function parseGeometry(topo) {
  * @property {Map<string, County>} byGeoid
  * @property {Statewide} statewide
  * @property {CountyGeometry} geometry
+ * @property {SnapObserved | null} medicaid - Observed Medicaid enrollment, or null when the file is absent.
+ * @property {boolean} hasMedicaid - Whether the Medicaid view has data to draw. False hides the view.
  * @property {boolean} isFixture - True when either payload is fixture data — drives the standing banner.
  */
 
+/**
+ * Attach observed Medicaid enrollment to the county records.
+ *
+ * The Medicaid series is published on its OWN month axis (Feb 2022 – Jan 2026,
+ * with seven months HHSC never posted) while every other series on a County is
+ * indexed against statewide.meta.months. Aligning here rather than at the point
+ * of use means `medicaid_enrolled[i]` and `snap_enrolled[i]` are the same month,
+ * so the brush, the loss layers and the tooltip all work on it unmodified.
+ *
+ * Months outside the Medicaid range, and months HHSC skipped, are null — not
+ * zero and not carried forward. A loss layer reading a null endpoint renders
+ * the county as no-data, which is the truth.
+ */
+function attachMedicaid(counties, statewide, medicaid) {
+  if (!medicaid?.months?.length) return false;
+  const at = new Map(medicaid.months.map((m, i) => [m, i]));
+  const axis = statewide.meta.months;
+
+  for (const county of counties) {
+    const series = medicaid.counties?.[county.geoid];
+    if (!series) continue;
+    county.medicaid_enrolled = axis.map((m) => {
+      const i = at.get(m);
+      return i == null ? null : series.caseload[i];
+    });
+  }
+  return true;
+}
+
 export async function loadDataset() {
-  const [counties, statewide, topo] = await Promise.all([
+  const [counties, statewide, topo, medicaid] = await Promise.all([
     getJson('counties.json'),
     getJson('statewide.json'),
     getJson('geometry.json'),
+    // Optional by design: the Medicaid view hides itself if the file is absent.
+    getJson('medicaid-observed.json').catch(() => null),
   ]);
 
   const geometry = parseGeometry(topo);
@@ -100,11 +133,15 @@ export async function loadDataset() {
     );
   }
 
+  const hasMedicaid = attachMedicaid(counties, statewide, medicaid);
+
   return {
     counties,
     byGeoid,
     statewide,
     geometry,
+    medicaid: hasMedicaid ? medicaid : null,
+    hasMedicaid,
     isFixture: Boolean(counties[0]?.fixture || statewide.fixture),
   };
 }
