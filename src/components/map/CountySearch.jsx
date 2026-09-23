@@ -24,9 +24,27 @@ const MAX_RESULTS = 8;
  *   score column and three of the layers use three different units, so the page
  *   that owns the values owns the formatting too.
  * @property {(geoid: string | null) => void} onSelect
+ * @property {string} [placeholder] - Defaults to "Find a county…". The Insights scope bar reuses this for districts.
+ * @property {string} [emptyText]
+ * @property {string} [className] - Extra class on the root, for a caller that needs a different width.
+ * @property {number} [maxResults] - Rows listed before the list stops. Defaults to 8; the list scrolls.
+ *
+ * Items may carry `keywords`: a list of names that match but are not
+ * highlighted — a district's counties, so "Travis" finds every district in
+ * Travis. A keyword must match a whole name or the start of one, and exact
+ * matches rank first: "Harris" lists the 24 Harris districts before the one
+ * containing HarrisON County. Name matches always sort ahead of keyword matches.
  */
 
-export function CountySearch({ counties, renderValue, onSelect }) {
+export function CountySearch({
+  counties,
+  renderValue,
+  onSelect,
+  placeholder = 'Find a county…',
+  emptyText = 'No county matches that.',
+  className,
+  maxResults = MAX_RESULTS,
+}) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -41,14 +59,24 @@ export function CountySearch({ counties, renderValue, onSelect }) {
       .map((c) => {
         const name = c.name.toLowerCase();
         const at = name.indexOf(q);
-        if (at === -1) return null;
-        return { county: c, at };
+        if (at !== -1) return { county: c, at, kw: 0 };
+        // Keyword hits rank after every name hit and highlight nothing:
+        // an exact keyword (kw 1) before a keyword that only starts with q (kw 2).
+        const kws = c.keywords?.map((k) => k.toLowerCase()) ?? [];
+        if (kws.includes(q)) return { county: c, at: Infinity, kw: 1 };
+        if (kws.some((k) => k.startsWith(q))) return { county: c, at: Infinity, kw: 2 };
+        return null;
       })
       .filter((r) => r !== null)
-      .sort((a, b) => a.at - b.at || a.county.name.localeCompare(b.county.name));
+      .sort(
+        (a, b) =>
+          (a.at === b.at ? 0 : a.at - b.at) ||
+          a.kw - b.kw ||
+          a.county.name.localeCompare(b.county.name, undefined, { numeric: true }),
+      );
 
-    return scored.slice(0, MAX_RESULTS);
-  }, [counties, query]);
+    return scored.slice(0, maxResults);
+  }, [counties, query, maxResults]);
 
   const commit = (geoid, label) => {
     onSelect(geoid);
@@ -89,7 +117,7 @@ export function CountySearch({ counties, renderValue, onSelect }) {
   const showList = open && query.trim().length > 0;
 
   return (
-    <div className={styles.root}>
+    <div className={className ? `${styles.root} ${className}` : styles.root}>
       <div className={styles.field}>
         <svg className={styles.icon} width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
           <circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
@@ -103,8 +131,8 @@ export function CountySearch({ counties, renderValue, onSelect }) {
           aria-expanded={showList}
           aria-controls="county-search-list"
           aria-autocomplete="list"
-          aria-label="Find a county"
-          placeholder="Find a county…"
+          aria-label={placeholder.replace(/…$/, '')}
+          placeholder={placeholder}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -125,12 +153,13 @@ export function CountySearch({ counties, renderValue, onSelect }) {
 
       {showList && (
         <ul className={styles.list} id="county-search-list" role="listbox">
-          {results.length === 0 && <li className={styles.empty}>No county matches that.</li>}
+          {results.length === 0 && <li className={styles.empty}>{emptyText}</li>}
           {results.map((r, i) => {
             const q = query.trim();
-            const before = r.county.name.slice(0, r.at);
-            const hit = r.county.name.slice(r.at, r.at + q.length);
-            const after = r.county.name.slice(r.at + q.length);
+            const inName = Number.isFinite(r.at);
+            const before = inName ? r.county.name.slice(0, r.at) : r.county.name;
+            const hit = inName ? r.county.name.slice(r.at, r.at + q.length) : '';
+            const after = inName ? r.county.name.slice(r.at + q.length) : '';
             return (
               <li
                 key={r.county.geoid}

@@ -39,9 +39,20 @@ describe('initial state matches the spec defaults', () => {
 
 describe('reducer', () => {
   it('toggles infrastructure keys while preserving canonical order', () => {
-    let s = reducer(defaults, { type: 'toggleInfra', key: 'food_bank' });
-    expect(s.infra).toEqual(['cms_navigator', 'chw', 'counselor']);
-    s = reducer(s, { type: 'toggleInfra', key: 'food_bank' });
+    let s = reducer(defaults, { type: 'toggleInfra', key: 'cms_navigator' });
+    expect(s.infra).toEqual(['chw']);
+    s = reducer(s, { type: 'toggleInfra', key: 'cms_navigator' });
+    expect(s.infra).toEqual(ALL_INFRA);
+  });
+
+  /**
+   * Food-bank and counselor registries are not sourced: every county carries
+   * null. A mark type with no data behind it must not be switchable on, or the
+   * map would draw "none listed" everywhere by omission.
+   */
+  it('offers only the sourced registries', () => {
+    expect(ALL_INFRA).toEqual(['cms_navigator', 'chw']);
+    const s = reducer(defaults, { type: 'toggleInfra', key: 'food_bank' });
     expect(s.infra).toEqual(ALL_INFRA);
   });
 
@@ -147,6 +158,32 @@ describe('URL mirroring', () => {
       expect(
         fromSearchParams(new URLSearchParams('county=48999'), defaults, MONTHS).scope,
       ).toBe('48999');
+    });
+  });
+
+  describe('district scope', () => {
+    const keys = new Set(['48201', 'txhouse-133', 'txsenate-15']);
+
+    it('round-trips a district through its own param', () => {
+      const p = toSearchParams({ ...defaults, scope: 'txhouse-133' }, defaults);
+      expect(p.get('district')).toBe('txhouse-133');
+      expect(p.get('county')).toBeNull();
+      expect(fromSearchParams(p, defaults, MONTHS, keys).scope).toBe('txhouse-133');
+    });
+
+    it('degrades an unknown district to statewide', () => {
+      const p = new URLSearchParams('district=txhouse-999');
+      expect(fromSearchParams(p, defaults, MONTHS, keys).scope).toBeNull();
+    });
+
+    it('does not read a county key out of the district param', () => {
+      const p = new URLSearchParams('district=48201');
+      expect(fromSearchParams(p, defaults, MONTHS, keys).scope).toBeNull();
+    });
+
+    it('prefers the district when a link carries both', () => {
+      const p = new URLSearchParams('county=48201&district=txsenate-15');
+      expect(fromSearchParams(p, defaults, MONTHS, keys).scope).toBe('txsenate-15');
     });
   });
 

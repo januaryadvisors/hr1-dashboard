@@ -97,15 +97,21 @@ export function IndexedLines({
     .map((e) => ({ si: e.si, lastIndex: e.last.i, value: e.last.v }))
     .sort((a, b) => a.value - b.value);
 
+  // Walk from the highest-ending series down, pushing each label at least 11
+  // below the one above it — then lift the whole stack if that ran it off the
+  // bottom. (This used to push each label ABOVE the previous one, so the stack
+  // climbed out of the top of the chart and printed in reverse value order.)
   const placed = new Map();
-  let lastY = Infinity;
+  let lastY = -Infinity;
   for (let k = ends.length - 1; k >= 0; k--) {
     const e = ends[k];
     let ty = y(e.value);
-    if (lastY - ty < 11) ty = lastY - 11;
+    if (ty - lastY < 11) ty = lastY + 11;
     placed.set(e.si, ty);
     lastY = ty;
   }
+  const overflow = lastY - (height - 4);
+  if (overflow > 0) for (const [si, ty] of placed) placed.set(si, ty - overflow);
 
   // Sorted so the emphasised series paints on top of the rest.
   const order = series

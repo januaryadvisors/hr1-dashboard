@@ -40,7 +40,7 @@ export default function App() {
           >
             {error instanceof MissingDataError ? (
               <>
-                Waiting on <code>{error.file}</code>. Generate the fixtures with{' '}
+                Waiting on <code>{error.file}</code>. Build it from the analysis repo with{' '}
                 <code>npm run build:data</code>, or drop the real export into{' '}
                 <code>public/data/</code>.
               </>

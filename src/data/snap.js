@@ -1,12 +1,11 @@
 /**
  * Observed SNAP enrollment, published monthly by Texas HHSC.
  *
- * This is the one dataset on the page that is NOT a fixture. counties.json and
- * statewide.json are synthetic (see scripts/build-fixtures.mjs); every number
- * here was read out of HHSC's own workbooks by scripts/fetch-snap-stats.mjs.
- * That difference is the reason <SnapTrend> labels its source in the panel
- * rather than leaving it to a methodology page — the two sit inches apart on
- * screen and a reader has no other way to tell them apart.
+ * Written by scripts/build-county-data.mjs from the SAME county rows as
+ * counties.json and statewide.json, so the rail's line and the hero number agree
+ * to the person: both are the sum of the 254 counties, with HHSC's call-center
+ * and state-office rows excluded. (The older fetch-snap-stats.mjs scrape summed
+ * those rows in, which put the rail ~3,300 above the hero for the same month.)
  *
  * Optional by design: a missing file renders the panel's empty state rather than
  * failing the page, exactly like the bulletins feed.

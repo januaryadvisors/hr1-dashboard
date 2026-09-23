@@ -83,11 +83,11 @@ export const LAYERS = [
     seriesField: 'snap_children',
     countLabel: 'Children who left SNAP',
     available: true,
-    note: 'County child series is not in the §3 contract yet',
+    note: 'County under-18 series from HHSC age bands; not in the §3 contract',
   },
   {
     /*
-     * The one layer on this map drawn from OBSERVED data rather than fixtures.
+     * Observed HHSC Medicaid enrollment, on its own month axis.
      *
      * `medicaid_enrolled` is attached at load time from
      * public/data/medicaid-observed.json (see src/data/load.js) and aligned onto
@@ -374,9 +374,42 @@ export function viewForLayer(layer) {
 /** The layer a view opens on. */
 export const defaultLayerFor = (key) => viewByKey(key).metrics[0];
 
+/**
+ * The four assistance registries §6.6 names. Only two are sourced.
+ *
+ * `available: false` means the registry has not been acquired and every county
+ * carries null for it — not zero. Those types draw no marks, have no checkbox and
+ * are named as "not yet sourced" wherever capacity is shown, so an absent mark
+ * never reads as a confirmed absence. Flip the flag when the export fills the
+ * column.
+ */
 export const INFRA_TYPES = [
-  { key: 'food_bank', label: 'Food bank enrollment site', glyph: 'square', source: 'Feeding Texas partner registry' },
-  { key: 'cms_navigator', label: 'CMS-funded navigator', glyph: 'circle', source: '149 counties have none' },
-  { key: 'chw', label: 'CHW / promotor network', glyph: 'diamond', source: 'DSHS-certified' },
-  { key: 'counselor', label: 'Certified application counselor', glyph: 'plus', source: 'CMS assister locator' },
+  {
+    key: 'food_bank',
+    label: 'Food bank enrollment site',
+    glyph: 'square',
+    source: 'Feeding Texas partner registry — not yet supplied',
+    available: false,
+  },
+  {
+    key: 'cms_navigator',
+    label: 'CMS-funded navigator',
+    glyph: 'circle',
+    source: 'CMS 2025–26 awardees, counties served · 149 counties have none',
+    available: true,
+  },
+  {
+    key: 'chw',
+    label: 'CHW / promotor network',
+    glyph: 'diamond',
+    source: 'DSHS networks directory, Dec 2021 · partial county coverage',
+    available: true,
+  },
+  {
+    key: 'counselor',
+    label: 'Certified application counselor',
+    glyph: 'plus',
+    source: 'CMS assister locator — bot-blocked, not pulled',
+    available: false,
+  },
 ];

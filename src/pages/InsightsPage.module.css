@@ -279,3 +279,52 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* A district's counties on the capacity chapter. Same hairline rhythm as the
+   registry rows above, so the two read as one kind of list. */
+.districtTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+}
+
+.districtTable th,
+.districtTable td {
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  font-weight: 400;
+}
+
+.districtTable thead th {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.districtTable td {
+  text-align: right;
+}
+
+.districtTable thead th:not(:first-child) {
+  text-align: right;
+}
+
+/* A county name that re-scopes the page to that county. */
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration-color: currentColor;
+}

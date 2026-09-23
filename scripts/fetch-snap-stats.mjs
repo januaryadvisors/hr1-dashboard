@@ -5,11 +5,14 @@
  *   Index page  https://www.hhs.texas.gov/about/records-statistics/data-statistics/supplemental-nutritional-assistance-program-snap-statistics
  *   Workbooks   .../documents/snap-cases-eligible-ind-by-county-aug-2025.xls
  *
- * This is the FIRST OBSERVED DATA IN THE PROJECT. counties.json and
- * statewide.json are still fixtures from build-fixtures.mjs (see §12 / the
- * README); everything this script writes is real, and the UI labels it as such.
- * Do not merge the two without deciding which one the headline number comes
- * from.
+ * SUPERSEDED FOR THE PAGE, 2026-09-23. HHSC stopped posting these workbooks
+ * after Aug 2025 (later months are Tableau-only and bot-blocked), and this
+ * script's statewide sum includes the "Call Centers" / "State Office" rows, so
+ * its Jul 2025 figure is ~3,300 above the county sum the hero and map use.
+ * public/data/snap-observed.json is now written by build-county-data.mjs from the
+ * same county rows as everything else, through the latest month. Running this
+ * OVERWRITES that file with the shorter, differently-summed series — it is no
+ * longer part of `fetch:data`. Kept as an independent scrape of the source.
  *
  * WHY THIS IS A BUILD STEP, NOT A RUNTIME FETCH
  * Same reasoning as fetch-texas-works.mjs: the page is static on GitHub Pages,

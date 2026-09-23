@@ -98,7 +98,7 @@ function Ready({ data, children }) {
       new URLSearchParams(location.search),
       defaults,
       months,
-      new Set(data.byGeoid.keys()),
+      new Set([...data.byGeoid.keys(), ...(data.districtCounts?.byId.keys() ?? [])]),
     ),
   );
 

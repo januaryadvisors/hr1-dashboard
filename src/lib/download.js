@@ -119,15 +119,18 @@ export function downloadSelection(data, state) {
           window: state.window,
           components: def.components,
           fixture: data.isFixture,
+          sources: data.statewide.meta.sources ?? [],
           notes: [
-            'Every estimate ships with its margin of error.',
+            // Provenance written by the data build: what is summed, what is null
+            // and why (MOEs, unsourced registries).
+            ...(data.statewide.meta.notes ?? []),
             def.countField === 'newly_subject_persons'
               ? 'newly_subject_persons is a PUMS-modelled estimate, not a lookup.'
               : null,
             isWindowLayer
               ? 'layer_value is observed enrollment loss over `window`, floored at zero — a county whose caseload grew reads 0. snap_change carries the true signed change.'
               : null,
-            'snap_children_* is not in the build spec §3 contract — see docs/SPEC-DEVIATIONS.md §A4.',
+            'snap_children_* is the county under-18 series (HHSC age bands under 5 + 5–17); not in the build spec §3 contract — see docs/SPEC-DEVIATIONS.md §A4.',
             data.isFixture
               ? 'FIXTURE DATA — synthetic values generated against the build spec §3 contract.'
               : null,

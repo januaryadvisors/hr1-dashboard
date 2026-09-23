@@ -1,6 +1,7 @@
 /**
  * The data contract — spec §3. These types are the shape export_tool_data.R must
- * satisfy. public/data/*.json are fixtures matching them (see scripts/).
+ * satisfy. public/data/*.json are built to them from the analysis repo by
+ * scripts/build-county-data.mjs.
  */
 
 /**
@@ -52,10 +53,10 @@
 
 /**
  * @typedef {Object} CountyInfra
- * @property {number} food_bank
- * @property {number} cms_navigator
- * @property {number} chw
- * @property {number} counselor
+ * @property {number | null} food_bank - null: Feeding Texas registry not supplied yet.
+ * @property {number} cms_navigator - CMS 2025–26 navigator organisations serving the county.
+ * @property {number} chw - DSHS CHW networks naming the county (Dec 2021 directory).
+ * @property {number | null} counselor - null: CMS assister locator not pulled.
  */
 
 /**
@@ -91,16 +92,17 @@
  * @property {number} noncit_snap_persons - D2 count basis.
  * @property {number[]} snap_enrolled - Monthly enrolled individuals, parallel to statewide meta.months.
  * @property {(number|null)[]} [medicaid_enrolled] - Monthly Medicaid enrollment, aligned onto statewide meta.months.
- *   OBSERVED, unlike everything else on this record, and attached at load time
- *   from medicaid-observed.json rather than shipped in counties.json. null in
+ *   Observed HHSC data on its own month axis, attached at load time from
+ *   medicaid-observed.json rather than shipped in counties.json. null in
  *   any month HHSC did not publish, and absent entirely if the file 404s.
  * @property {number[]} snap_children - Monthly enrolled children (under 18), parallel to statewide meta.months.
- *   Added 2026-09-10 for the Children view. NOT in the spec's §3.1 contract and
- *   NOT produced by build_scores.R — see docs/SPEC-DEVIATIONS.md §A4. Fixture
- *   values apply the statewide under-18 caseload share with a county tilt; the
- *   real export owes a genuine county-by-month child series.
- * @property {CountyInfra} infra
- * @property {boolean} is_gap - Top-quintile vulnerability, zero food banks, zero navigators. Precomputed.
+ *   Added 2026-09-10 for the Children view. NOT in the spec's §3.1 contract —
+ *   see docs/SPEC-DEVIATIONS.md §A4. Built from HHSC's own county age columns
+ *   (under 5 + 5–17), so it is observed, not apportioned.
+ * @property {CountyInfra} infra - Organisations listed as serving the county. food_bank and counselor are
+ *   null (registry not sourced), which is NOT the same as 0 — see INFRA_TYPES.
+ * @property {boolean} is_gap - Top-quintile vulnerability and zero CMS navigators. The spec's food-bank clause
+ *   waits on the registry. Precomputed.
  * @property {boolean} small_denominator - pop < 10,000. Drives dimming in rate view (§6.5).
  * @property {[number, number]} centroid - [lon, lat]. See docs/SPEC-DEVIATIONS.md.
  * @property {{ r: number; c: number }} grid - Tile-cartogram cell. Precomputed, never solved at runtime.
@@ -120,14 +122,17 @@
  *
  * @typedef {Object} Statewide
  * @property {boolean} [fixture]
- * @property {{ months: string[]; history_months: string[]; policy_start: string; latest: string; texas_population: number; grid: { cols: number; rows: number }; generated_from?: string; seed?: number; }} meta
+ * @property {{ months: string[]; history_months: string[]; policy_start: string; latest: string; texas_population: number; grid: { cols: number; rows: number }; generated_from?: string; sources?: string[]; notes?: string[]; }} meta
  * @property {number[]} enrolled
  * @property {(number | null)[]} monthly_change
  * @property {number[]} participation_share
- * @property {AgeBand[]} age_bands
+ * @property {AgeBand[]} age_bands - Policy start to latest, steepest loss first.
+ * @property {Record<string, number[]>} [age_series] - Monthly enrolled per band, parallel to meta.months.
+ * @property {number[]} [cases] - Monthly SNAP cases (households).
  * @property {{ people: number; households: number }} people_vs_households
  * @property {{ type: string; pctChange: number }[]} county_type_rollup
- * @property {{ center: number; limits: { caseload: number; sd: number }[] }} funnel
+ * @property {{ method?: string; center: number; limits: { caseload: number; sd: number }[] }} funnel - The policy-window
+ *   fit, for reference and downloads. The Insights page refits per window (buildFunnel).
  */
 
 /**

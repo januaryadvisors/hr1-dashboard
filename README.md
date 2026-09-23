@@ -47,27 +47,100 @@ Payload is ~160KB gzipped including geometry, against the §3 target of 900KB.
 
 ## Data
 
-The front end reads four static files from `public/data/`. Their shapes are the
-§3 contract that `export_tool_data.R` must satisfy — see `src/types.js`.
+The front end reads static files from `public/data/`. Their shapes are the §3
+contract — see `src/types.js`.
 
 | File | Status |
 |---|---|
 | `geometry.json` | Real. Quantized TopoJSON, 254 counties + state outline, 22.7KB gz |
-| `counties.json` | **Fixture.** 254 records matching §3.1 |
-| `statewide.json` | **Fixture.** Statewide series matching §3.3 |
-| `districts.json` | Absent by design — the Districts route renders an empty state (§3.4) |
+| `counties.json` | **Real.** Built from the analysis repo — see below |
+| `statewide.json` | **Real.** Sum of the 254 counties, plus age bands, funnel, provenance |
+| `snap-observed.json` | **Real.** The rail chart; same rows as the hero, so they agree to the person |
+| `medicaid-observed.json` | Real. Scraped from HHSC (`npm run fetch:medicaid`) |
+| `district-counts.json` | **Real, partly estimated.** TX House / Senate enrollment counts for the Insights scope picker — see below |
+| `districts.json` | Absent by design — reserved for *scored* districts; the Districts route renders an empty state (§3.4) |
 | `timeline.json` | Hero-column topline figures. Editorial — edit freely |
 | `bulletins.json` | **Generated.** Texas Works bulletins + quarterly revisions |
 
-`export_tool_data.R` is unwritten (§12), so per §13 step 1 the build runs against
-fixtures:
+### Building the county data
+
+`scripts/build-county-data.mjs` reads the R pipeline's outputs in
+`feeding-texas-hr1/data-clean/` (a sibling checkout by default) and writes
+`counties.json`, `statewide.json` and `snap-observed.json`:
 
 ```bash
-npm run build:data       # geometry + fixtures
-npm run build:geometry   # needs the source geojson, see below
-npm run build:fixtures
-npm run fetch:bulletins  # re-scrape Texas Works (also runs weekly in CI)
+npm run build:counties                          # reads ../feeding-texas-hr1/data-clean
+FT_DATA=/path/to/data-clean npm run build:counties
+npm run build:data                              # geometry + counties
 ```
+
+| Input parquet | Gives |
+|---|---|
+| `snap_county_monthly` | SNAP enrolled, cases, age bands by county × month, Jan 2022 → latest (HHSC Excel to Aug 2025, then the PMAS Tableau export) |
+| `vulnerability_county` | d1–d4 scores/tiers/counts, composite, cumulative impact, newly-subject and non-citizen counts, 2026 projected population |
+| `snap_county` | Metro / Micro / Rural |
+| `navigator_county`, `chw_county_presence` | The two capacity registries that exist |
+| `crosswalk_districts`, `acs_tract` | County/tract → TX House and Senate weights; tract population, for the weight check |
+
+Plus one input fetched here rather than in the R pipeline:
+`data/acs-snap-households-tract.json` (`npm run fetch:acs-snap`) — ACS 2020–24
+households receiving SNAP by tract (table B22001), from the Census bulk summary
+file because the Census API now needs a key. Committed; the vintage is fixed. It
+belongs in `collect_acs.R` eventually.
+
+Nothing is synthetic. The script refuses to write if a county or month is
+missing or the age bands stop adding up, warns if the scored file and the monthly
+file are different vintages, and prints the hero's hand-written figures next to
+the values it computes so they can be checked by eye after every refresh.
+
+What the real data does **not** have, and how the page handles it:
+
+- **Domain MOEs** — `build_scores.R` does not produce them (§A1). `*_moe` is
+  null and renders as "—".
+- **Food-bank and application-counselor registries** — not sourced. Those infra
+  counts are `null`, not 0; the map offers only navigator and CHW marks and names
+  the other two as "not yet sourced". The gap overlay is therefore "top-quintile
+  vulnerability, no CMS navigator" until the food-bank registry lands.
+
+Statewide figures everywhere are the **sum of the 254 counties**; HHSC's
+call-center and state-office rows (~3,300 people) are excluded, matching the
+analysis. `fetch-snap-stats.mjs` sums them in, which is one reason it is no
+longer part of `fetch:data` — running it overwrites the rail's file with a
+series that stops at Aug 2025.
+
+To refresh after HHSC publishes a new month: rerun the R collectors and
+`build_scores.R` in the analysis repo, then `npm run build:counties` here and
+commit `public/data/`.
+
+### District counts (Insights only)
+
+`district-counts.json` carries, for each of the 150 TX House (PlanH2316) and 31
+TX Senate (PlanS2168) districts: monthly SNAP enrolled and children, the
+newly-subject count, population, and the counties it draws from. It is built in
+the same script, and each chamber reconciles to the statewide total exactly in
+every month.
+
+- **Counts only.** Scores are not allocated — §9 forbids weighting percentiles
+  into districts. The Insights domain chapter says so for a district.
+- **Whole counties are exact; split counties are estimates.** SNAP is published
+  by county. A county split across districts is apportioned by where the ACS
+  finds households receiving SNAP, tract by tract, through the crosswalk's
+  block-population weights; HHSC's count stays the total. Tested against the
+  county data, where the truth is known, the share of enrollees put in the wrong
+  county is 15.0% by population, 5.6% by low-income population and 4.2% by SNAP
+  households — the build prints this every run. 25 of 150 House and 2 of 31
+  Senate districts are exact.
+- **Estimated figures carry a ±.** Each split share has a 90% survey margin
+  (`share_moe`), and the scope bar shows it on the district's counts — e.g. HD 134
+  is 5,140 ± 1,066 enrollees. The margin moves a district's size, not a
+  single-county district's percent change.
+- **A district inside one split county inherits that county's trend.** All 24
+  Harris House districts show Harris's −17.1%; only their size differs. The scope
+  bar says so, and ranks treat equal figures as ties.
+
+The URL is `/insights/<chapter>?district=txhouse-133` (or `txsenate-15`), and the
+district is ranked, funnel-plotted and top-ten'd against its own chamber, not the
+254 counties.
 
 ### The Texas Works feed
 
@@ -80,15 +153,6 @@ headers, and a static page should not depend on a government host being up. The
 script refuses to write if it parses zero entries, so a markup change upstream
 fails the Action loudly rather than silently blanking the panel.
 
-**The fixtures are synthetic.** Every record carries `fixture: true`, and the
-JSON download repeats it in `meta.notes`, so exported files stay
-self-describing. The on-page banner was removed on client direction
-(SPEC-DEVIATIONS.md §I1) — **the page no longer says so itself**. Statewide
-totals reconcile to every published figure in the spec — the hero number is
-exactly −547,051, and county monthly enrollment is apportioned so county sums
-equal the statewide series in all 55 months. County-level values are synthetic
-and describe no real county.
-
 Geometry is built from an 8MB source geojson that is **not** committed:
 
 ```bash
@@ -99,32 +163,9 @@ Generated data **is** committed so CI builds standalone.
 
 ### Swapping in the real export
 
-### Observed data (not fixtures)
-
-Two datasets on this page are real, fetched from Texas HHSC at build time and
-committed:
-
-| Script | Output | Coverage |
-|---|---|---|
-| `npm run fetch:snap` | `snap-observed.json`, `snap-by-county.json` | Jan 2022 – **Aug 2025** |
-| `npm run fetch:medicaid` | `medicaid-observed.json` | Feb 2022 – **Jan 2026**, 7 months unpublished |
-| `npm run fetch:bulletins` | `bulletins.json` | Texas Works policy feed |
-
-`npm run fetch:data` runs all three.
-
-HHSC **stopped publishing the county-level SNAP series after August 2025** — the
-timeliness series on the same page runs to July 2026, so this is specific to that
-dataset. Medicaid is the more current of the two and is the only observed series
-wired into the map (the `medicaid_loss` layer; attached to County records in
-`load.js` and aligned onto the statewide month axis, with unpublished months as
-null). Everything else on the map is fixtures.
-
-### Swapping in the real export
-
-One file: `src/data/load.js`. Point `getJson` at the real payloads. Then read
-`docs/SPEC-DEVIATIONS.md` §A first — the export needs MOE columns, integer
-tiers, and a county-by-month `snap_children` series, none of which
-`build_scores.R` currently produces.
+When `export_tool_data.R` exists it can replace `build-county-data.mjs`: point
+`getJson` in `src/data/load.js` at its payloads. Read `docs/SPEC-DEVIATIONS.md`
+§A first — the export still owes MOE columns and integer tiers.
 
 ## Where things are
 
@@ -270,9 +311,10 @@ Two rules when adding a chart there:
   `lossRank` returns both because they disagree, and picking the flattering one
   is how a stat page misleads.
 
-`FunnelPlot.markOutliers` is **off** on purpose: the published control limits are
-not calibrated to the observed dispersion (43% of counties fall outside a 2sd
-band). See §Q2 of the deviations doc before turning it on.
+The funnel's limits are **fitted per window** (`fitFunnel` in
+`src/lib/insights.js`, ported from the analysis notebook), and outliers are only
+coloured while the band catches ≤10% of counties — 17 of 254 on the policy
+window. See §Q2 and §U of the deviations doc.
 
 ### The policy feed filter
 
@@ -293,8 +335,8 @@ chart at all. Rationale in §N and §P of the deviations doc.
 bivariate layer keep theirs because the copy is doing work the map cannot (a
 component list, and the red/blue reading instructions).
 
-`snap_children` is not in the build spec's §3 contract; the real export owes it.
-See §A4.
+`snap_children` is not in the build spec's §3 contract; it is built from HHSC's
+county age columns (under 5 + 5–17). See §A4.
 
 ## Deploy
 

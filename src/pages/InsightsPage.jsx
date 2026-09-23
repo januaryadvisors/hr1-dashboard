@@ -20,6 +20,7 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useApp } from '../state/AppContext';
 import { INFRA_TYPES, SCORE_LAYERS, scoreField } from '../config/layers';
+import { sites } from '../config/metrics';
 import { Callout } from '../components/shell/Callout';
 import { ColumnChart } from '../components/charts/ColumnChart';
 import { DomainScale } from '../components/charts/DomainScale';
@@ -35,8 +36,11 @@ import { ScatterChart } from '../components/charts/ScatterChart';
 import { ScopeBar } from '../components/shell/ScopeBar';
 import { buildLayerStats } from '../components/map/CountyTooltip';
 import {
+  ageBandRows,
   buildFunnel,
   buildScope,
+  childPace,
+  peersFor,
   indexTo,
   lossRank,
   monthlyChange,
@@ -65,7 +69,8 @@ const VIEW_WIDTH = 470;
  *   This is the one piece of running prose the page keeps: the client's note on
  *   2026-09-11 was that the claims are what make the page readable and the
  *   callouts around them were not.
- * @property {(name: string) => string} [countyClaim] - The claim, rewritten for a single county.
+ * @property {(name: string, ctx: { kind: string, childPace: string | null }) => string} [countyClaim] - The claim,
+ *   rewritten for a single county or district.
  * @property {string[]} pending - Charts not built yet. Each renders as a placeholder card in
  *   the grid, so the layout shows what is coming rather than a list describing it.
  */
@@ -82,21 +87,34 @@ const CHAPTERS = [
     slug: 'who',
     title: 'Who is falling off',
     claim: 'Working-age adults and children carry the entire decline; seniors are unchanged.',
-    countyClaim: (n) => `Children are leaving SNAP in ${n} faster than the caseload as a whole.`,
+    // Read off the numbers — see childPace(). This used to say "faster" for
+    // every county, which the real data contradicts in many of them.
+    countyClaim: (n, { childPace: pace }) =>
+      pace === 'faster'
+        ? `Children are leaving SNAP in ${n} faster than the caseload as a whole.`
+        : pace === 'slower'
+          ? `Children are leaving SNAP in ${n} more slowly than the caseload as a whole.`
+          : `Children are leaving SNAP in ${n} at about the same pace as the caseload as a whole.`,
     pending: ['People vs households, indexed (statewide only)'],
   },
   {
     slug: 'domains',
     title: 'The four domains disagree',
     claim: 'No single ranking of counties can be honest about all four exposures.',
-    countyClaim: (n) => `${n} does not sit in the same place on all four domains.`,
+    countyClaim: (n, { kind }) =>
+      kind === 'district'
+        ? `Domain scores are county percentiles; ${n} does not have its own yet.`
+        : `${n} does not sit in the same place on all four domains.`,
     pending: ['Small multiples with synced hover', 'Correlation matrix'],
   },
   {
     slug: 'capacity',
     title: 'Where exposure meets thin capacity',
     claim: 'The counties with the least enrollment help are not the ones with the most.',
-    countyClaim: (n) => `What is listed in ${n} to help people stay enrolled.`,
+    countyClaim: (n, { kind }) =>
+      kind === 'district'
+        ? `What is listed in the counties that make up ${n}.`
+        : `What is listed in ${n} to help people stay enrolled.`,
     pending: ['Infrastructure coverage bars', 'Gap-county table'],
   },
   {
@@ -173,20 +191,27 @@ export default function InsightsPage() {
   const i0 = months.indexOf(state.window[0]);
   const i1 = months.indexOf(state.window[1]);
 
+  const { districtCounts } = data;
   const scope = useMemo(
-    () => buildScope(counties, byGeoid, statewide, state.scope),
-    [counties, byGeoid, statewide, state.scope],
+    () => buildScope(counties, byGeoid, statewide, state.scope, districtCounts),
+    [counties, byGeoid, statewide, state.scope, districtCounts],
   );
-  const isCounty = scope.county != null;
+  const isCounty = scope.kind === 'county';
+  const isDistrict = scope.kind === 'district';
+  /** Scoped to anything below the state — the comparison charts and badges key off this. */
+  const isScoped = scope.kind !== 'state';
+
+  /** What the scope is ranked and plotted against: counties, or the same chamber's districts. */
+  const peers = useMemo(
+    () => peersFor(scope, counties, districtCounts),
+    [scope, counties, districtCounts],
+  );
 
   const change = useMemo(() => windowChange(scope.enrolled, i0, i1), [scope.enrolled, i0, i1]);
 
   const rank = useMemo(
-    () =>
-      scope.county
-        ? lossRank(counties, scope.county.geoid, statewide.enrolled, i0, i1)
-        : null,
-    [counties, scope.county, statewide.enrolled, i0, i1],
+    () => (isScoped ? lossRank(peers.units, scope.key, statewide.enrolled, i0, i1) : null),
+    [isScoped, peers, scope.key, statewide.enrolled, i0, i1],
   );
 
   /** Statewide series, always available as the comparison line. */
@@ -197,19 +222,21 @@ export default function InsightsPage() {
     [scope.children, i0],
   );
 
-  const funnel = useMemo(() => buildFunnel(counties, statewide, i0, i1), [counties, statewide, i0, i1]);
+  const funnel = useMemo(() => buildFunnel(peers.units, i0, i1), [peers, i0, i1]);
+  const funnelOutside = funnel.points.filter((p) => p.outside).length;
+  /** A 2-sd band should catch ~5%; past 10% it is not describing this window. */
+  const funnelCalibrated = funnelOutside <= funnel.points.length * 0.1;
 
   const layerStats = useMemo(() => buildLayerStats(counties), [counties]);
 
   const scatterPoints = useMemo(
     () =>
       counties.map((c) => {
-        const sites = c.infra.food_bank + c.infra.cms_navigator + c.infra.chw + c.infra.counselor;
         return {
           geoid: c.geoid,
           name: c.name,
           x: c.vulnerability_score / 4,
-          y: (sites / c.pop) * 10000,
+          y: (sites(c) / c.pop) * 10000,
           weight: c.pop,
         };
       }),
@@ -217,7 +244,9 @@ export default function InsightsPage() {
   );
 
   const claim =
-    isCounty && chapter.countyClaim ? chapter.countyClaim(scope.label) : chapter.claim;
+    isScoped && chapter.countyClaim
+      ? chapter.countyClaim(scope.label, { kind: scope.kind, childPace: childPace(scope, i0, i1) })
+      : chapter.claim;
 
   return (
     <div className={styles.page}>
@@ -239,6 +268,9 @@ export default function InsightsPage() {
           scope={scope}
           change={change}
           rank={rank}
+          peers={peers}
+          districtCounts={districtCounts}
+          byGeoid={byGeoid}
           window={state.window}
           onSelect={(geoid) => dispatch({ type: 'setScope', geoid })}
         />
@@ -263,7 +295,7 @@ export default function InsightsPage() {
               />
             </ChartCard>
 
-            {isCounty && (
+            {isScoped && (
               <ChartCard
                 title={`${scope.label} against Texas`}
                 subhead={`Indexed, ${fmtMonthBody(state.window[0])} = 100`}
@@ -293,7 +325,7 @@ export default function InsightsPage() {
               <ColumnChart
                 months={months.slice(i0, i1 + 1)}
                 values={monthlyChange(scope.enrolled).slice(i0, i1 + 1)}
-                annotations={isCounty ? [] : [{ month: '2025-11', label: 'NOV −110k' }]}
+                annotations={isScoped ? [] : [{ month: '2025-11', label: 'NOV −110k' }]}
                 viewWidth={VIEW_WIDTH}
                 height={220}
               />
@@ -357,31 +389,26 @@ export default function InsightsPage() {
               title="Change by age band"
               subhead={`Enrolled individuals by age band, ${fmtMonthBody(state.window[0])} → ${fmtMonthBody(state.window[1])}`}
               statewideOnly
-              scoped={isCounty}
+              scoped={isScoped}
             >
-              <DumbbellChart
-                rows={statewide.age_bands.map((b) => ({
-                  label: b.band,
-                  from: b.july_enrolled,
-                  to: b.latest_enrolled,
-                  pctChange: b.pct_change,
-                }))}
-                viewWidth={VIEW_WIDTH}
-              />
+              <DumbbellChart rows={ageBandRows(statewide, i0, i1)} viewWidth={VIEW_WIDTH} />
             </ChartCard>
 
             <ChartCard
               title="Age bands, indexed"
               subhead="Age bands, indexed to 100 at the window start"
               statewideOnly
-              scoped={isCounty}
+              scoped={isScoped}
             >
               <IndexedLines
-                months={[state.window[0], state.window[1]]}
+                months={statewide.age_series ? months.slice(i0, i1 + 1) : [state.window[0], state.window[1]]}
                 refIndex={0}
                 series={statewide.age_bands.map((b) => ({
                   label: b.band,
-                  values: [100, 100 * (1 + b.pct_change)],
+                  // Monthly, from the band series, when the data carries it.
+                  values: statewide.age_series
+                    ? indexTo(statewide.age_series[b.band].slice(i0, i1 + 1), 0)
+                    : [100, 100 * (1 + b.pct_change)],
                 }))}
                 viewWidth={VIEW_WIDTH}
                 height={220}
@@ -431,9 +458,18 @@ export default function InsightsPage() {
                 </div>
               </ChartCard>
             ) : (
-              <Callout tone="info" title="Pick a county">
-                Choose a county above to compare its four domain percentiles.
-              </Callout>
+              isDistrict ? (
+                <Callout tone="info" title="No domain scores for districts yet">
+                  The four domains are percentiles ranked across the 254 counties. They cannot be
+                  averaged into a district and stay meaningful; they have to be re-ranked within the{' '}
+                  {peers.noun} (spec §9). {scope.label}&rsquo;s counties are listed on the capacity
+                  chapter — pick one of them to see its domain profile.
+                </Callout>
+              ) : (
+                <Callout tone="info" title="Pick a county">
+                  Choose a county above to compare its four domain percentiles.
+                </Callout>
+              )
             )}
 
             <ChartCard
@@ -459,10 +495,10 @@ export default function InsightsPage() {
             {scope.county && (
               <ChartCard
                 title={`Listed in ${scope.label}`}
-                subhead="Listed sites by registry"
+                subhead="Organizations listed as serving the county, by registry. Food-bank and application-counselor registries are not yet sourced."
               >
                 <div className={styles.registryGrid}>
-                  {INFRA_TYPES.map((t) => {
+                  {INFRA_TYPES.filter((t) => t.available).map((t) => {
                     const n = scope.county.infra[t.key];
                     return (
                       <div
@@ -483,15 +519,56 @@ export default function InsightsPage() {
               </ChartCard>
             )}
 
+            {scope.district && (
+              <ChartCard
+                title={`Counties in ${scope.label}`}
+                subhead="Assistance is listed by county, so this is every county the district draws from. Share is the part of that county's SNAP caseload counted in this district."
+              >
+                <table className={styles.districtTable}>
+                  <thead>
+                    <tr>
+                      <th scope="col">County</th>
+                      <th scope="col">Share of county</th>
+                      <th scope="col">Navigator orgs</th>
+                      <th scope="col">CHW networks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scope.district.counties.map((m) => {
+                      const c = byGeoid.get(m.geoid);
+                      return (
+                        <tr key={m.geoid}>
+                          <th scope="row">
+                            <button
+                              type="button"
+                              className={styles.linkButton}
+                              onClick={() => dispatch({ type: 'setScope', geoid: m.geoid })}
+                            >
+                              {m.name}
+                            </button>
+                          </th>
+                          <td className="tabular">{m.share >= 1 ? 'whole' : fmtPct(m.share, 1)}</td>
+                          <td className="tabular">{c?.infra.cms_navigator || 'none listed'}</td>
+                          <td className="tabular">{c?.infra.chw || 'none listed'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </ChartCard>
+            )}
+
             <ChartCard
               title="Where need meets capacity"
-              subhead="Vulnerability percentile against listed sites per 10,000 residents"
+              subhead="Vulnerability index against listed assistance organizations per 10,000 residents. The strip along the bottom is counties with none listed."
             >
               <ScatterChart
                 points={scatterPoints}
                 viewWidth={VIEW_WIDTH}
                 height={340}
                 hovered={scope.county?.geoid ?? null}
+                yLabel="Assistance orgs per 10k"
+                ySplit="any"
               />
             </ChartCard>
           </>
@@ -508,18 +585,21 @@ export default function InsightsPage() {
               which is not a finding this page supports. Full reasoning in
               docs/SPEC-DEVIATIONS.md §Q2.
             */}
-            <Callout tone="caution" title="Limits are not calibrated">
-              {funnel.points.filter((p) => p.outside).length} of {funnel.points.length} counties
-              fall outside the published limits, so the chart does not mark outliers. See §Q2.
-            </Callout>
+            {!funnelCalibrated && (
+              <Callout tone="caution" title="Limits are not calibrated for this window">
+                {funnelOutside} of {funnel.points.length} counties fall outside the fitted limits, so
+                the chart does not mark outliers. See §Q2.
+              </Callout>
+            )}
 
             <ChartCard
               title="Percentage change against caseload size"
-              subhead="Percent change against caseload size, with 2-sd limits"
+              subhead={`Percent change against caseload size, one point per ${peers.singular}. The band is the spread expected at that size (2 sd, fitted to this window); ${funnelOutside} of ${funnel.points.length} ${peers.noun} fall outside it.`}
             >
               <FunnelPlot
                 data={funnel}
-                highlight={scope.county?.geoid ?? null}
+                markOutliers={funnelCalibrated}
+                highlight={isScoped ? scope.key : null}
                 viewWidth={VIEW_WIDTH}
                 height={340}
               />
@@ -527,13 +607,15 @@ export default function InsightsPage() {
 
             <ChartCard
               title="The ten largest absolute losses"
-              subhead="Top 10 counties by people who left"
+              subhead={`Top 10 ${peers.noun} by people who left`}
             >
               <DumbbellChart
-                rows={[...counties]
+                rows={[...peers.units]
                   .map((c) => {
                     const w = windowChange(c.snap_enrolled, i0, i1);
-                    return { name: c.name, ...w };
+                    // "HD 133", not "House District 133": the label column is narrow.
+                    const name = c.plan ? `${c.plan === 'txhouse' ? 'HD' : 'SD'} ${c.number}` : c.name;
+                    return { name, ...w };
                   })
                   .sort((a, b) => a.absolute - b.absolute)
                   .slice(0, 10)
@@ -544,7 +626,7 @@ export default function InsightsPage() {
                     pctChange: r.pct ?? 0,
                   }))}
                 xMax={Math.max(
-                  ...counties.map((c) => c.snap_enrolled[i0] ?? 0),
+                  ...peers.units.map((c) => c.snap_enrolled[i0] ?? 0),
                 )}
                 viewWidth={VIEW_WIDTH}
               />

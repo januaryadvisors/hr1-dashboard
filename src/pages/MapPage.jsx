@@ -54,6 +54,7 @@ import { loadSnapObserved } from '../data/snap';
 import { buildGeometry } from '../lib/mapGeometry';
 import { useElementSize } from '../lib/useElementSize';
 import { buildLayerValues, countBinsFor, formatLayerValue, fractionOf } from '../lib/layerValues';
+import { ageBandRows } from '../lib/insights';
 import { binIndex, binsFor } from '../lib/scales';
 import { fmtDelta, fmtInt, fmtMonthBody, fmtPct, fmtPctDelta } from '../lib/format';
 /**
@@ -143,22 +144,35 @@ export default function MapPage() {
     [months, statewide.monthly_change, i0, i1],
   );
 
-  // §6.8 "Who is falling off" — age bands, recomputed against the window by
-  // scaling the published policy-window change to the window's share of it.
-  const ageRows = useMemo(() => {
-    const fullSpan = statewide.enrolled[months.length - 1] -
-      statewide.enrolled[months.indexOf(statewide.meta.policy_start)];
-    const share = fullSpan === 0 ? 0 : windowChange / fullSpan;
-    return statewide.age_bands.map((b) => {
-      const change = b.july_enrolled * b.pct_change * share;
-      return {
-        label: b.band,
-        from: b.july_enrolled,
-        to: b.july_enrolled + change,
-        pctChange: b.pct_change * share,
-      };
-    });
-  }, [statewide, months, windowChange]);
+  // §6.8 "Who is falling off" — age bands over the window, read from the
+  // monthly band series so any brush window gets its own real numbers.
+  const ageRows = useMemo(() => ageBandRows(statewide, i0, i1), [statewide, i0, i1]);
+
+  /**
+   * The decline chart's subhead and annotation, from the data rather than typed
+   * in, so they cannot go stale when a new month lands. The November break is
+   * the largest single-month loss; "since" is every month after it.
+   */
+  const declineFacts = useMemo(() => {
+    const change = statewide.monthly_change;
+    const p0 = Math.max(1, months.indexOf(statewide.meta.policy_start));
+    let worst = p0;
+    for (let i = p0; i < change.length; i++) if (change[i] < change[worst]) worst = i;
+    const after = change.slice(worst + 1).filter((v) => typeof v === 'number');
+    const k = (v) => `${Math.round(Math.abs(v) / 1000)}k`;
+    const [y, m] = months[worst].split('-').map(Number);
+    const name = new Date(Date.UTC(y, m - 1)).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+    return {
+      breakMonth: months[worst],
+      breakLabel: `${name.slice(0, 3).toUpperCase()} −${k(change[worst])}`,
+      breakName: name,
+      // Only claimed while every month since the break is a loss.
+      range:
+        after.length && after.every((v) => v < 0)
+          ? `${k(Math.max(...after))} to ${k(Math.min(...after))}`
+          : null,
+    };
+  }, [statewide, months]);
 
   // §6.8 "Where need meets capacity".
   // ------------------------------------------------- scatter axes and focus
@@ -357,6 +371,8 @@ export default function MapPage() {
       ),
     [counties],
   );
+  /** Registries with no source yet: listed under the picker, never as a zero count. */
+  const unsourcedInfra = INFRA_TYPES.filter((t) => !t.available);
 
   // C-03: count measure with no count basis replaces the map, and the toggle is
   // NOT greyed out.
@@ -550,8 +566,9 @@ export default function MapPage() {
         <div className={styles.heroBodyRow}>
           <p className={styles.heroBody}>
             Losses began three months after signing, broke sharply in November, and have run
-            50,000–80,000 a month since. This is observed enrollment change, not a modelled
-            estimate of who H.R. 1 affected.
+            roughly 70,000–80,000 a month since, with no floor in sight yet. Every county with
+            more than 1,000 enrollees has lost people. This is observed enrollment change, not a
+            modelled estimate of who H.R. 1 affected.
           </p>
           <button
             type="button"
@@ -872,7 +889,7 @@ export default function MapPage() {
                         <span className={styles.switchKnob} />
                       </button>
                       <span className={styles.switchDef}>
-                        Top-quintile need with no site and no navigator.
+                        Top-quintile need with no CMS navigator listed.
                       </span>
                     </div>
                   )}
@@ -943,7 +960,7 @@ export default function MapPage() {
                           </button>
                         </div>
 
-                        {INFRA_TYPES.map((t) => (
+                        {INFRA_TYPES.filter((t) => t.available).map((t) => (
                           <label key={t.key} className={styles.checkRow}>
                             <input
                               type="checkbox"
@@ -956,6 +973,12 @@ export default function MapPage() {
                             </span>
                           </label>
                         ))}
+                        {unsourcedInfra.length > 0 && (
+                          <p className={styles.blockNote}>
+                            Not yet sourced: {unsourcedInfra.map((t) => t.label.toLowerCase()).join(' and ')}.
+                            Counts are organizations serving a county, not sites or capacity.
+                          </p>
+                        )}
                       </div>
                     )}
             </aside>
@@ -968,7 +991,7 @@ export default function MapPage() {
             {showCapacity && (
               <>
                 <span className="eyebrow">Marks</span>
-                {INFRA_TYPES.map((t) => (
+                {INFRA_TYPES.filter((t) => t.available).map((t) => (
                   <span key={t.key} className={styles.markKey}>
                     <svg width="12" height="12" aria-hidden="true">
                       <InfraGlyph type={t.key} x={6} y={6} size={3.5} legend />
@@ -1006,6 +1029,7 @@ export default function MapPage() {
               yLabel={yMetric.axis}
               /* All four corners, named by the preset; the chart counts them. */
               quadrants={preset.quadrants}
+              ySplit={preset.ySplit}
             />
           </div>
 
@@ -1032,13 +1056,18 @@ export default function MapPage() {
           <div className={chartStyles.card}>
             <h3 className={chartStyles.title}>The decline has not stopped</h3>
             <p className={chartStyles.subhead}>
-              Month-over-month change in enrolled individuals across the selected window. Steady
-              losses of 50k to 80k every month since November.
+              Month-over-month change in enrolled individuals across the selected window.
+              {declineFacts.range &&
+                ` Losses of ${declineFacts.range} every month since ${declineFacts.breakName}, with no sign yet of a floor.`}
             </p>
             <ColumnChart
               months={changeSlice.months}
               values={changeSlice.values}
-              annotations={[{ month: '2025-11', label: 'NOV −110k' }]}
+              annotations={
+                declineFacts.breakMonth
+                  ? [{ month: declineFacts.breakMonth, label: declineFacts.breakLabel }]
+                  : []
+              }
               viewWidth={SUMMARY_VIEW_WIDTH}
               height={240}
             />

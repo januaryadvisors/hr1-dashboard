@@ -7,6 +7,7 @@ import {
   presetById,
   PRESET_FOR_VIEW,
   SCATTER_PRESETS,
+  splitQuadrants,
 } from './metrics';
 /**
  * @typedef {import('./metrics').MetricContext} MetricContext
@@ -80,6 +81,21 @@ describe('values', () => {
   it('sums the four registries for capacity', () => {
     expect(metricById('sites_total').value(county(), CTX)).toBe(4);
     expect(metricById('sites_per_10k').value(county(), CTX)).toBeCloseTo(2);
+  });
+
+  it('skips an unsourced registry rather than reading it as a count', () => {
+    const real = county({ infra: { food_bank: null, cms_navigator: 2, chw: 1, counselor: null } });
+    expect(metricById('sites_total').value(real, CTX)).toBe(3);
+  });
+
+  it('splits a zero-inflated axis at none-listed, not at a median of zero', () => {
+    const points = [0, 0, 0, 0, 0, 0, 2, 5].map((y, i) => ({ x: i, y }));
+    const median = splitQuadrants(points);
+    const any = splitQuadrants(points, 'any');
+    // At the median (0) every point is "hi" and the lower half is empty…
+    expect(points.filter((p) => !median.isHiY(p))).toHaveLength(0);
+    // …where none/any puts the six zeros below the line.
+    expect(points.filter((p) => !any.isHiY(p))).toHaveLength(6);
   });
 
   it('reports newly subject as a share of the window-start caseload', () => {
@@ -219,8 +235,6 @@ describe('scatter presets', () => {
       });
     }
 
-    const median = (vals) => [...vals].sort((a, b) => a - b)[Math.floor(vals.length / 2)];
-
     for (const preset of SCATTER_PRESETS) {
       const mx = metricById(preset.x);
       const my = metricById(preset.y);
@@ -230,13 +244,15 @@ describe('scatter presets', () => {
 
       expect(points.length, `${preset.id}: no plottable counties`).toBeGreaterThan(200);
 
-      const cx = median(points.map((p) => p.x));
-      const cy = median(points.map((p) => p.y));
+      // The same split the chart draws — a median on most axes, none/any on a
+      // zero-inflated capacity axis. A median there left the concern corner
+      // empty on the real data, which is what this test caught.
+      const split = splitQuadrants(points, preset.ySplit);
 
       for (const q of preset.quadrants) {
         const [qx, qy] = q.corner.split('-');
         const n = points.filter(
-          (p) => (qx === 'hi' ? p.x >= cx : p.x < cx) && (qy === 'hi' ? p.y >= cy : p.y < cy),
+          (p) => split.isHiX(p) === (qx === 'hi') && split.isHiY(p) === (qy === 'hi'),
         ).length;
         // Every corner should hold somebody; a flagged one especially.
         expect(n, `${preset.id} ${q.corner} ("${q.label}") is empty`).toBeGreaterThan(0);

@@ -35,6 +35,12 @@
   outline: none;
 }
 
+.input:focus-visible {
+  /* The field's focus-within ring already marks focus; the global
+     :focus-visible ring on the input drew a second box inside it. */
+  box-shadow: none;
+}
+
 .input::placeholder {
   color: var(--text-faint);
 }

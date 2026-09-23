@@ -2,9 +2,11 @@
  * Data loading — spec §2: "Static JSON fetched once, cached in context."
  *
  * The four files are the §3 contract. counties.json and statewide.json are
- * currently FIXTURES from scripts/build-fixtures.mjs; districts.json is expected
- * to 404 until the aggregation method is settled (§3.4, §12), which is a normal
- * state and not an error.
+ * built from the analysis repo's data-clean/ parquets by
+ * scripts/build-county-data.mjs — real HHSC enrollment and build_scores.R
+ * output, no synthetic values. districts.json is expected to 404 until the
+ * aggregation method is settled (§3.4, §12), which is a normal state and not an
+ * error.
  */
 import { feature } from 'topojson-client';
 /**
@@ -74,7 +76,10 @@ function parseGeometry(topo) {
  * @property {CountyGeometry} geometry
  * @property {SnapObserved | null} medicaid - Observed Medicaid enrollment, or null when the file is absent.
  * @property {boolean} hasMedicaid - Whether the Medicaid view has data to draw. False hides the view.
- * @property {boolean} isFixture - True when either payload is fixture data — drives the standing banner.
+ * @property {DistrictCounts | null} districtCounts - TX House / Senate enrollment counts for the Insights
+ *   scope picker, or null when district-counts.json is absent (the picker then offers counties only).
+ * @property {boolean} isFixture - True when either payload carries `fixture: true`. The real build never sets it;
+ *   kept so a hand-dropped fixture file still labels itself in downloads.
  */
 
 /**
@@ -106,13 +111,53 @@ function attachMedicaid(counties, statewide, medicaid) {
   return true;
 }
 
+/**
+ * @typedef {Object} DistrictUnit
+ * @property {string} geoid - The unit key, e.g. "txhouse-133". NOT a Census GEOID — those collide with county
+ *   FIPS (SLDL 48133 is also Eastland County). Named geoid so the county helpers (lossRank, buildFunnel,
+ *   search) take a district unchanged.
+ * @property {'txhouse' | 'txsenate'} plan
+ * @property {number} number
+ * @property {string} name - "House District 133".
+ * @property {number} pop
+ * @property {number[]} snap_enrolled - Parallel to statewide meta.months.
+ * @property {number[]} snap_children
+ * @property {number} newly_subject_persons - PUMS-modelled, apportioned.
+ * @property {boolean} exact - Built entirely from whole counties, so the counts are sums, not estimates.
+ * @property {number} allocated_share - Share of the Jul 2025 caseload apportioned from split counties.
+ * @property {{ geoid: string, name: string, share: number, share_moe: number | null }[]} counties - Share = the
+ *   fraction of that county's caseload assigned here, 1 for a whole county. share_moe is the 90% survey margin
+ *   on a split share (0 for a whole county, null where a fallback weight has none).
+ */
+
+/**
+ * @typedef {Object} DistrictCounts
+ * @property {{ months: string[], chambers: Record<string, { label: string, plan: string, noun: string, count: number }>, method: string, notes: string[] }} meta
+ * @property {DistrictUnit[]} districts
+ * @property {Map<string, DistrictUnit>} byId
+ */
+
+/**
+ * district-counts.json, indexed. Rejected (null) if its month axis is not the
+ * statewide one — a district series one month out of step would put every
+ * window figure on the wrong months without looking wrong.
+ */
+function prepareDistricts(raw, statewide) {
+  if (!raw?.districts?.length) return null;
+  const axis = statewide.meta.months;
+  if (raw.meta?.months?.join() !== axis.join()) return null;
+  return { ...raw, byId: new Map(raw.districts.map((d) => [d.geoid, d])) };
+}
+
 export async function loadDataset() {
-  const [counties, statewide, topo, medicaid] = await Promise.all([
+  const [counties, statewide, topo, medicaid, districtsRaw] = await Promise.all([
     getJson('counties.json'),
     getJson('statewide.json'),
     getJson('geometry.json'),
     // Optional by design: the Medicaid view hides itself if the file is absent.
     getJson('medicaid-observed.json').catch(() => null),
+    // Optional too: without it the Insights picker offers counties only.
+    getJson('district-counts.json').catch(() => null),
   ]);
 
   const geometry = parseGeometry(topo);
@@ -142,6 +187,7 @@ export async function loadDataset() {
     geometry,
     medicaid: hasMedicaid ? medicaid : null,
     hasMedicaid,
+    districtCounts: prepareDistricts(districtsRaw, statewide),
     isFixture: Boolean(counties[0]?.fixture || statewide.fixture),
   };
 }

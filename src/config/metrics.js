@@ -59,8 +59,13 @@ const pctChange = (m, ctx) => {
   return (end - start) / start;
 };
 
-const sites = (c) =>
-  c.infra.food_bank + c.infra.cms_navigator + c.infra.chw + c.infra.counselor;
+/**
+ * Listed assistance across the registries that exist. An unsourced registry is
+ * null on every county (see INFRA_TYPES.available) and adds nothing — it is not
+ * read as a zero, because it was never counted.
+ */
+export const sites = (c) =>
+  Object.values(c.infra ?? {}).reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0);
 
 const num = (v) =>
   typeof v === 'number' && Number.isFinite(v) ? v : null;
@@ -144,7 +149,7 @@ export const METRICS = [
   // ---------------------------------------------------------------- medicaid
   {
     /*
-     * OBSERVED, unlike every other metric here. `medicaid_enrolled` is attached
+     * Observed, on its OWN month axis. `medicaid_enrolled` is attached
      * at load time from HHSC's published county workbooks and is null in the
      * months they did not publish — including everything after Jan 2026, which
      * is inside the default brush window. buildLayerValues resolves the window
@@ -338,20 +343,27 @@ export const METRICS = [
   },
 
   // ---------------------------------------------------------------- capacity
+  /*
+     Capacity is the thin half of the data: CMS navigator organisations serving
+     the county and DSHS CHW networks naming it. These are ORGANISATIONS, not
+     sites, and 149 counties have no navigator at all. The food-bank and
+     application-counselor registries are not sourced, so there is no metric for
+     them rather than a column of zeros.
+  */
   {
     id: 'sites_per_10k',
-    label: 'Listed assistance sites per 10,000 residents',
-    axis: 'Sites per 10k',
+    label: 'Listed assistance organizations per 10,000 residents',
+    axis: 'Assistance orgs per 10k',
     group: 'Capacity',
-    format: (v) => v.toFixed(1),
+    format: (v) => v.toFixed(2),
     value: (c) => (c.pop <= 0 ? null : (sites(c) / c.pop) * 10000),
     direction: 'better-high',
     views: ALL,
   },
   {
     id: 'sites_total',
-    label: 'Listed assistance sites, total',
-    axis: 'Listed sites',
+    label: 'Listed assistance organizations, total',
+    axis: 'Assistance orgs',
     group: 'Capacity',
     format: fmtInt,
     value: (c) => sites(c),
@@ -360,21 +372,11 @@ export const METRICS = [
   },
   {
     id: 'navigators',
-    label: 'CMS-funded navigators',
-    axis: 'Navigators',
+    label: 'CMS-funded navigator organizations',
+    axis: 'Navigator orgs',
     group: 'Capacity',
     format: fmtInt,
     value: (c) => num(c.infra.cms_navigator),
-    direction: 'better-high',
-    views: ALL,
-  },
-  {
-    id: 'food_banks',
-    label: 'Food bank enrollment sites',
-    axis: 'Food bank sites',
-    group: 'Capacity',
-    format: fmtInt,
-    value: (c) => num(c.infra.food_bank),
     direction: 'better-high',
     views: ALL,
   },
@@ -420,6 +422,16 @@ export const metricsForView = (view) =>
  * metric means — "high vulnerability" and "high capacity" both read upward, and
  * which of those is bad is what `concern` records.
  *
+ * `lo` on a loss axis is NOT "holding". 248 of 254 counties lost SNAP between
+ * Jul 2025 and May 2026, and every county with 1,000+ enrollees did; below the
+ * median means losing more slowly than most, and the labels say so.
+ *
+ * `ySplit: 'any'` replaces the median on a zero-inflated y axis. Capacity is
+ * zero in 149 counties, so its median IS zero and a median split leaves both
+ * lower quadrants empty — the concern corner would read "0 counties" on every
+ * view. Split there at none-listed / some-listed instead, which is also the
+ * honest reading of a presence registry. See splitQuadrants().
+ *
  * @typedef {Object} Quadrant
  * @property {'lo-lo'|'hi-lo'|'lo-hi'|'hi-hi'} corner
  * @property {string} label - What a county in this corner is. Shown in the corner itself.
@@ -431,20 +443,22 @@ export const metricsForView = (view) =>
  * @property {string} question - What the pairing answers, in one line.
  * @property {string} x - Metric id.
  * @property {string} y - Metric id.
+ * @property {'median' | 'any'} [ySplit] - Where y divides lo from hi. Defaults to the median.
  * @property {Quadrant[]} quadrants - All four, always.
  */
 export const SCATTER_PRESETS = [
   {
     id: 'loss-capacity',
     label: 'Loss against capacity',
-    question: 'Where is the caseload falling fastest with the least help nearby?',
+    question: 'Where is the caseload falling fastest with no listed help?',
     x: 'loss_share',
     y: 'sites_per_10k',
+    ySplit: 'any',
     quadrants: [
-      { corner: 'hi-lo', label: 'Losing most, helped least', concern: true },
-      { corner: 'hi-hi', label: 'Losing most, help nearby' },
-      { corner: 'lo-lo', label: 'Holding, thinly served' },
-      { corner: 'lo-hi', label: 'Holding, well served' },
+      { corner: 'hi-lo', label: 'Losing fastest, none listed', concern: true },
+      { corner: 'hi-hi', label: 'Losing fastest, help listed' },
+      { corner: 'lo-lo', label: 'Losing slower, none listed' },
+      { corner: 'lo-hi', label: 'Losing slower, help listed' },
     ],
   },
   {
@@ -475,67 +489,80 @@ export const SCATTER_PRESETS = [
     y: 'child_share',
     quadrants: [
       /*
-         WHY THIS PAIR AND NOT THE OBVIOUS ONE.
+         WHY THIS PAIR AND NOT CHILD LOSS AGAINST OVERALL LOSS.
 
-         The question is "which counties have a disproportionate number of
-         children losing benefits", and the obvious pairing is child loss share
-         against overall loss share — counties above the diagonal lose children
-         faster than they lose everyone. That pairing is UNUSABLE on the current
-         fixtures: build-fixtures.mjs derives snap_children from snap_enrolled by
-         a near-constant factor, so the two shares correlate at r = 0.9998 and
-         both off-diagonal quadrants are exactly empty. A chart whose finding is
-         always "0 counties" is worse than no chart.
+         That pairing was degenerate on the old fixtures (r = 0.9998, both
+         off-diagonal corners empty). On the real HHSC child series it is usable
+         but still says little: r = 0.89, so its median quadrants mostly restate
+         "this county is losing fast".
 
-         So this asks the answerable version of the same question: where is the
-         caseload that is MOST made of children also falling fastest? Child share
-         is a real county-level quantity (0.34 to 0.49 across Texas) and it is
-         nearly independent of the loss share (r = 0.17), so the quadrants
-         actually divide the state.
-
-         Swap y to 'child_loss_share' the day the export ships a genuine
-         county-by-month child series — see docs/SPEC-DEVIATIONS.md §A4 and the
-         note on County.snap_children.
+         Child SHARE is the more informative axis: it runs 0.36–0.58 across the
+         175 counties with 1,000+ enrollees and correlates NEGATIVELY with the
+         loss share across all 254 (r = −0.35). Child-heavy caseloads are falling
+         more slowly than adult-heavy ones — consistent with the age bands, where
+         18–59 fell hardest.
       */
       { corner: 'hi-hi', label: 'Child-heavy caseload, losing fastest', concern: true },
       { corner: 'hi-lo', label: 'Losing fastest, fewer children on it' },
-      { corner: 'lo-hi', label: 'Child-heavy caseload, holding' },
-      { corner: 'lo-lo', label: 'Fewer children, holding' },
+      { corner: 'lo-hi', label: 'Child-heavy caseload, losing slower' },
+      { corner: 'lo-lo', label: 'Fewer children, losing slower' },
     ],
   },
   {
     id: 'medicaid-snap',
     label: 'Medicaid against SNAP',
-    question: 'Which counties are losing both SNAP and Medicaid coverage?',
+    question: 'Which counties are losing both SNAP and Medicaid coverage fastest?',
     x: 'loss_share',
     y: 'medicaid_loss_share',
     quadrants: [
       /*
-         The only preset drawing one observed axis against one fixture axis, and
-         the only one where the two axes come from genuinely independent data —
-         which is why it discriminates where the children pairing did not.
+         Both axes are observed HHSC series, from independent programmes.
          Note the windows differ: Medicaid is read over the published months
          inside the brush, which currently end in Jan 2026.
       */
-      { corner: 'hi-hi', label: 'Losing both', concern: true },
-      { corner: 'hi-lo', label: 'Losing SNAP, holding Medicaid' },
-      { corner: 'lo-hi', label: 'Losing Medicaid, holding SNAP' },
-      { corner: 'lo-lo', label: 'Holding both' },
+      { corner: 'hi-hi', label: 'Losing both fastest', concern: true },
+      { corner: 'hi-lo', label: 'SNAP faster, Medicaid slower' },
+      { corner: 'lo-hi', label: 'Medicaid faster, SNAP slower' },
+      { corner: 'lo-lo', label: 'Slower on both' },
     ],
   },
   {
     id: 'vulnerability-capacity',
     label: 'Vulnerability against capacity',
-    question: 'Where does the highest modelled need meet the least assistance?',
+    question: 'Where does the highest modelled need meet no listed assistance?',
     x: 'vulnerability',
     y: 'sites_per_10k',
+    ySplit: 'any',
     quadrants: [
-      { corner: 'hi-lo', label: 'Highest need, least capacity', concern: true },
-      { corner: 'hi-hi', label: 'Highest need, capacity present' },
-      { corner: 'lo-lo', label: 'Lower need, little capacity' },
-      { corner: 'lo-hi', label: 'Lower need, capacity present' },
+      { corner: 'hi-lo', label: 'Highest need, none listed', concern: true },
+      { corner: 'hi-hi', label: 'Highest need, help listed' },
+      { corner: 'lo-lo', label: 'Lower need, none listed' },
+      { corner: 'lo-hi', label: 'Lower need, help listed' },
     ],
   },
 ];
+
+/**
+ * Which side of each crosshair a point falls on — the one definition the chart
+ * draws and the tests check, so the tinted corner and its count cannot disagree.
+ *
+ * x always splits at the median of the plotted counties. y does too, unless the
+ * preset says `ySplit: 'any'`: then `hi` is any listed value and `lo` is exactly
+ * none, for axes where most counties sit at zero.
+ *
+ * @param {{ x: number, y: number }[]} points
+ * @param {'median' | 'any'} [ySplit]
+ */
+export function splitQuadrants(points, ySplit = 'median') {
+  const median = (arr) => [...arr].sort((a, b) => a - b)[Math.floor(arr.length / 2)] ?? 0;
+  const mx = median(points.map((p) => p.x));
+  const isHiX = (p) => p.x >= mx;
+  if (ySplit === 'any') {
+    return { mx, my: 0, isHiX, isHiY: (p) => p.y > 0 };
+  }
+  const my = median(points.map((p) => p.y));
+  return { mx, my, isHiX, isHiY: (p) => p.y >= my };
+}
 
 export const presetById = (id) =>
   SCATTER_PRESETS.find((p) => p.id === id) ?? SCATTER_PRESETS[0];

@@ -1431,6 +1431,173 @@ Two decisions inside it worth keeping:
 
 ---
 
+## U. Real data replaces the fixtures (2026-09-23)
+
+`counties.json`, `statewide.json` and `snap-observed.json` are now built by
+`scripts/build-county-data.mjs` from the analysis repo's `data-clean/` parquets.
+`build-fixtures.mjs` and its helpers are deleted, so fake data cannot be
+regenerated over the real files by accident.
+
+### U1. What the fixtures got wrong
+
+The fixtures pinned the statewide **endpoints** to the published figures
+(−547,051, 3,654,101 peak, the age-band percentages) and invented everything
+between and beneath them. Against the real series:
+
+| | Fixture | Real |
+|---|---|---|
+| Aug–Oct 2025 monthly change | −8k, −12k, −18k | **+7k, +23k, −27k** |
+| Jan 2022 enrolled | ~3.40M (interpolated) | 3.61M |
+| Child share of caseload, Jul 2025 | 42.5% | **49.3%** |
+| Age bands, Jul 2025 (18–59 / 5–17 / <5) | 1.41M / 1.08M / 0.42M | 1.26M / 1.23M / 0.50M |
+| County populations, scores, enrollment, infra | synthetic | real |
+| CHW-network counties | 134 | **12** |
+| Month axis | Nov 2021 – May 2026 | Jan 2022 – May 2026 |
+
+It also split the page in two: the rail chart read HHSC's statewide total
+(including call-center and state-office rows) and stopped at Aug 2025, so for
+Jul 2025 it said 3,521,957 while the hero and map said 3,518,649. Both now come
+from the same county rows.
+
+The editorial figures in the hero all hold up against the real data: −19.1%
+(18–59), −22.6% excess decline, 11.0% → 9.3% participation. The build prints
+them next to its own computation on every run.
+
+### U2. Items this resolves
+
+- **§A3/§A4** — `snap_children` is now HHSC's own county under-18 series (under 5
+  + 5–17), not an apportionment. D5 is still unsourced; nothing changed there.
+- **§G** — no longer applies. There are no synthetic county figures.
+- **§I1** — the missing fixture banner no longer matters; the page is real.
+- **§Q2** — the funnel is fitted to the counties' own dispersion, per window,
+  with the notebook's method (`fitFunnel`). 17 of 254 counties fall outside on
+  the policy window, against 110 under the old limits, and outliers are coloured
+  again while the share stays ≤10%.
+
+### U3. What the real data forced
+
+- **Capacity is two registries, not four.** Food-bank sites (FT has not supplied
+  its registry) and certified application counselors (the CMS locator is
+  bot-blocked) are `null` on every county. `INFRA_TYPES.available` hides them
+  from the picker, the marks, the tooltip and the Insights registry list, and each
+  of those places names them as "not yet sourced". A null is not a zero: showing
+  "—" would claim "none listed" in all 254 counties.
+- **`is_gap` drops the food-bank clause** → top-quintile vulnerability with no
+  CMS navigator (32 counties). The overlay's label says so. Restore the clause
+  when the registry lands. **Worth confirming with FT.**
+- **Capacity scatters split at none/any, not the median.** 149 counties have no
+  navigator, so the capacity median is zero and a median split left both
+  "least help" quadrants empty — the concern corner read "0 counties". Presets
+  now declare `ySplit: 'any'`; the chart draws those counties in a strip along the
+  bottom. `metrics.test.js`'s real-data guard caught this.
+- **"Holding" was wrong.** 248 of 254 counties lost SNAP (all 175 with 1,000+
+  enrollees; the six that did not are all under 510 people). Quadrant labels
+  below the loss median now say "losing slower".
+- **The children preset keeps child share, not child loss.** On real data child
+  loss against overall loss is usable but correlates at r = 0.89, so its
+  quadrants mostly restate "losing fast". Child share runs 0.36–0.58 across
+  1,000+ counties and correlates at r = −0.35 with loss: child-heavy caseloads
+  are falling more slowly, consistent with 18–59 falling hardest.
+- **Age bands are window-true.** `statewide.age_series` carries the five bands
+  monthly, so the dumbbell and the indexed lines show the brush window's real
+  change rather than the policy-window change rescaled.
+- **The hero copy and the decline subhead** say there is no floor yet, which is
+  what the data shows (every month since November lost 69k–79k). The subhead and
+  the November annotation are now computed from the series.
+- **`IndexedLines` label stacking** pushed every label above the previous one,
+  so stacks climbed off the top of the chart in reverse order. Fixed.
+
+### U4. Still not real
+
+- **MOEs** (§A1) — null everywhere; `build_scores.R` still owes them.
+- **District scores** (§9) — still absent; counts now exist (§V). Scores must be
+  re-ranked in R.
+- **Medicaid** ends Jan 2026 with seven unpublished months, unchanged.
+
+---
+
+## V. District counts on the Insights page (2026-09-23)
+
+The Insights scope picker takes TX House (PlanH2316, 150) and TX Senate
+(PlanS2168, 31) districts as well as counties. **Counts only** — enrollment,
+children, newly subject, population. The Districts route (§9) is unchanged and
+still waits for a scored `districts.json`; the counts ship as a separate
+`district-counts.json` so that file's meaning is not muddied.
+
+### V1. The apportionment, and why SNAP households
+
+SNAP is published by whole county. A district built from whole counties is an
+exact sum. A county split across districts is apportioned tract by tract:
+
+    share(county → district) = Σ tracts  S(t) · x(t → district)  /  Σ tracts  S(t)
+
+where `x` is `crosswalk_districts`' tract → district block-population weight and
+`S` is the ACS 2020–24 count of households that received SNAP (table B22001,
+`data/acs-snap-households-tract.json`). HHSC's count stays the total; the survey
+only says where inside the county the caseload sits.
+
+The spec (§9) and `helpers/crosswalk.R` describe population weighting. Three
+weights were tested where the truth is known — splitting the statewide caseload
+across the 254 counties and comparing with HHSC:
+
+| Weight | Enrollees put in the wrong county |
+|---|---|
+| Population | 15.0% |
+| Residents under 200% of poverty | 5.6% |
+| **ACS households receiving SNAP** | **4.2%** |
+
+A low-income weight was used for one round and replaced on review, because low
+income is not SNAP eligibility: college students count as poor and are mostly
+barred, and take-up is lower among seniors and immigrant families. A receipt
+count reflects both. In Brazos the Texas A&M district's share of the county
+moves 88.9% → 87.2%; in Harris, HD 140 (east Houston) moves 6.1% → 4.8%.
+
+**The survey has a margin, and it is shown.** Each split share carries a 90% MOE
+from the tract MOEs (ACS handbook formula for a proportion): median ±10% of the
+share for House pieces, ±20% at the 90th percentile, and up to ±52% (Hays →
+HD 73). It ships as `share_moe`; the scope bar prints `± n · 90% margin` under an
+estimated district's counts. For a district inside one county the margin applies
+to its size only — its percent change is the county's own observed figure.
+
+Caveats that remain: the county-level test is evidence for a within-county
+assumption, not proof of it (no sub-county SNAP data exists to test against);
+ACS undercounts SNAP receipt, which only matters if the undercount varies across
+a county; and the 2020–24 survey predates the 2025 immigration-enforcement
+effects on take-up. The real fix is sub-county data from HHSC (e.g. by ZIP) —
+**worth raising with David and FT.**
+
+### V2. What a district can and cannot say
+
+- **Exact vs estimated is a badge on the district's name** ("Exact count" /
+  "Estimated"), and a method key under a divider in the same box explains both,
+  with the district's own margin of error. 25 of 150 House and 2 of 31 Senate
+  districts are exact. (The per-stat ± lines and the long "apportioned from…"
+  sentence were tried and removed on client direction, 2026-09-23 — the key
+  carries both.)
+- **A district wholly inside one split county inherits that county's trend.** A
+  fixed share of Harris moves exactly as Harris does, so all 24 Harris House
+  districts show −17.1%. The page no longer says this in words (removed on client
+  direction); the meta line ("part of Harris County") and the tie count in the
+  rank sentence are what remain. **Worth restoring as one clause if districts go
+  to legislative offices.**
+- **Ranks are tie-aware** (competition ranking at the 0.1-point precision shown).
+  Before this, HD 134 read "31st steepest" — an ordering produced by rounding
+  among 25 districts at the same figure. It now reads "joint 7th … 25 share that
+  figure". This also applies to counties.
+- **Peers are the chamber.** Rank, funnel and top ten compare a district with its
+  own chamber, never with the 254 counties.
+- **No domain scores** — the domain chapter explains why and points to the
+  district's counties. The capacity chapter lists those counties with their share
+  and registry counts, each a link to that county's report.
+
+### V3. Fixed on the way
+
+The "Who is falling off" heading asserted *"Children are leaving SNAP in {place}
+faster than the caseload as a whole"* for every county. It is now read off the
+numbers (`childPace`), because on the real data it is often slower.
+
+---
+
 ## H. Not built yet
 
 Deliberate, following §13's build order. Nothing here is blocked by anything above.

@@ -1,9 +1,9 @@
 /**
  * <ScatterChart> — §7 / §6.8 "Where need meets capacity".
  *
- * Vulnerability percentile on x, listed enrollment-support sites per 10,000
- * residents on y. Median crosshairs; the bottom-right quadrant is tinted and
- * labelled GAP QUADRANT. Points scale by population.
+ * Two county metrics chosen by a preset (config/metrics.js). Median
+ * crosshairs, or a none-listed floor strip on a zero-inflated y axis; the
+ * preset's concern corner is tinted and counted. Points scale by population.
  *
  * Hovering or pinning a county on the map highlights it here with a ring and a
  * label. The 254 base points are memoised into their own layer so a hover
@@ -11,6 +11,7 @@
  * is what keeps map-hover smooth.
  */
 import { memo, useMemo } from 'react';
+import { splitQuadrants } from '../../config/metrics';
 import styles from './charts.module.css';
 
 /**
@@ -58,6 +59,7 @@ export function ScatterChart({
   xLabel = 'Vulnerability percentile →',
   yLabel = 'Sites per 10k',
   quadrants = [],
+  ySplit = 'median',
 }) {
   /*
  * Left margin carries the rotated y-axis label and NOTHING ELSE — this chart
@@ -72,27 +74,42 @@ export function ScatterChart({
  */
 const M = { top: 14, right: 18, bottom: 30, left: 34 };
 
-  const { scales, mx, my } = useMemo(() => {
+  /**
+   * Height of the strip along the bottom that holds the zeros on a `ySplit:
+   * 'any'` axis. Without it the "none listed" counties — most of Texas on a
+   * capacity axis — would sit ON the x axis and the two lower quadrants would
+   * have no height to tint or label.
+   */
+  const FLOOR = ySplit === 'any' ? 34 : 0;
+  /** Zeros ride in the strip's upper half; its lower half is left for the two corner labels. */
+  const FLOOR_DOTS = 11;
+
+  const { scales, split } = useMemo(() => {
     if (!points.length) {
       const id = (v) => v;
-      return { scales: { x: id, y: id, r: () => 0 }, mx: 0, my: 0 };
+      return { scales: { x: id, y: id, r: () => 0 }, split: splitQuadrants([], ySplit) };
     }
     const xMax = Math.max(...points.map((p) => p.x)) || 1;
     // Clip the y-axis at the 98th percentile so a single outlier does not flatten
     // every other county onto the axis.
     const ys = points.map((p) => p.y).sort((a, b) => a - b);
-    const yMax = Math.max(ys[Math.floor(ys.length * 0.98)] || 1, 0.5);
+    const positive = ys.filter((v) => v > 0);
+    const yMax =
+      ySplit === 'any'
+        ? Math.max(positive[Math.floor(positive.length * 0.98)] || 1, 1e-6)
+        : Math.max(ys[Math.floor(ys.length * 0.98)] || 1, 0.5);
     const maxWeight = Math.max(...points.map((p) => p.weight)) || 1;
-
-    const median = (arr) => {
-      const s = [...arr].sort((a, b) => a - b);
-      return s[Math.floor(s.length / 2)];
-    };
+    const bottom = height - M.bottom;
 
     return {
       scales: {
         x: (v) => M.left + (v / xMax) * (W - M.left - M.right),
-        y: (v) => M.top + (1 - Math.min(v, yMax) / yMax) * (height - M.top - M.bottom),
+        // On a floor-split axis zeros sit mid-strip and everything listed rises
+        // from the strip's top edge, which is where the crosshair is drawn.
+        y: (v) =>
+          FLOOR && v <= 0
+            ? bottom - FLOOR + FLOOR_DOTS
+            : bottom - FLOOR - (Math.min(v, yMax) / yMax) * (bottom - FLOOR - M.top),
         /*
            Radii are PIXELS, not viewBox units — both callers now author their
            viewBox at the element's real size, so a 3px dot is 3px on screen.
@@ -101,11 +118,12 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
         */
         r: (w) => 3 + Math.sqrt(w / maxWeight) * 9,
       },
-      mx: median(points.map((p) => p.x)),
-      my: median(points.map((p) => p.y)),
+      split: splitQuadrants(points, ySplit),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [points, W, height]);
+  }, [points, W, height, ySplit]);
+
+  const { mx, my } = split;
 
   if (!points.length) return null;
 
@@ -118,7 +136,7 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
      which is which — see SCATTER_PRESETS.
   */
   const qx = scales.x(mx);
-  const qy = scales.y(my);
+  const qy = FLOOR ? height - M.bottom - FLOOR : scales.y(my);
   const edge = { left: M.left, right: W - M.right, top: M.top, bottom: height - M.bottom };
   const PAD = 6;
 
@@ -144,7 +162,7 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
       labelY: hiY ? edge.top + 9 : edge.bottom - PAD,
       anchor: hiX ? 'end' : 'start',
       count: points.filter(
-        (p) => (hiX ? p.x >= mx : p.x < mx) && (hiY ? p.y >= my : p.y < my),
+        (p) => split.isHiX(p) === hiX && split.isHiY(p) === hiY,
       ).length,
     };
   });
@@ -173,7 +191,9 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
         The dashed crosshair below sits on the MEDIAN of the plotted counties,
         so every quadrant holds roughly a quarter of them by construction. That
         is a relative reading, not a threshold — "worse than most Texas
-        counties", never "bad" in absolute terms.
+        counties", never "bad" in absolute terms. The one exception is a
+        `ySplit: 'any'` axis, where the horizontal line separates the strip of
+        counties with none listed from those with any — see splitQuadrants().
       */}
       {quadrantBoxes.map((q) => (
         <g key={q.corner}>
@@ -201,8 +221,8 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
       <line
         x1={M.left}
         x2={W - M.right}
-        y1={scales.y(my)}
-        y2={scales.y(my)}
+        y1={qy}
+        y2={qy}
         className={styles.gridline}
         strokeDasharray="3 3"
       />

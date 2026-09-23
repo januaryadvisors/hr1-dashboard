@@ -11,20 +11,16 @@
  * about policy. Here a county only reads as unusual if it sits outside the band
  * FOR ITS OWN SIZE.
  *
- * The band comes from statewide.json's published funnel rather than a curve
- * fitted in the browser, so "outside the limits" means the same thing here as in
- * the analysis.
+ * The band is fitted to the counties' own dispersion for the window on screen
+ * (buildFunnel / fitFunnel in lib/insights.js), ported from the analysis
+ * notebook so "outside the limits" means the same thing here as there.
  *
- * `markOutliers` DEFAULTS TO FALSE, and that is a deliberate call. On the current
- * data 110 of 254 counties fall outside the published 2sd limits — 43%, where a
- * calibrated 2sd band should catch about 5%. The published limits describe
- * sampling noise only (sd = 0.9/sqrt(caseload)); the actual county-to-county
- * dispersion is sigma ~= 4.2 percentage points, roughly seven times the band at a
- * 10,000 caseload. Colouring 43% of Texas as statistical outliers in a document
- * built for legislators would be a wrong claim, so until the analysis adds an
- * over-dispersion term the chart shows the spread against the band and makes no
- * outlier claim. Flip the flag when the limits are reconciled — see
- * docs/SPEC-DEVIATIONS.md §Q2.
+ * `markOutliers` defaults to false and the caller turns it on only when the band
+ * is calibrated. The first build used binomial-style limits (sd = 0.9/sqrt(n)),
+ * which put 43% of counties outside a band meant to catch ~5% — county-to-county
+ * variation is structural, not sampling noise. The fitted band catches ~7% on the
+ * policy window. InsightsPage still withholds the colouring if a window ever
+ * pushes that past 10% — see docs/SPEC-DEVIATIONS.md §Q2 and §U.
  *
  * X is log-scaled because Texas county caseloads span three orders of magnitude.
  */

@@ -1,4 +1,7 @@
 .root {
+  /* The stat row wraps on the box's own width, not the viewport's: the box
+     sits beside the chapter nav, so its width and the screen's disagree. */
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -21,6 +24,88 @@
   min-width: 0;
 }
 
+.nameRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Exact vs estimated, beside a district's name. Amber for the estimate — the
+   same caution colours the "Statewide figure" badge on the charts uses — and the
+   calmer teal for a figure that is a plain sum of published counts. Both text
+   colours clear 4.5:1 on their backgrounds. */
+.badge {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.5rem;
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: var(--radius-pill);
+  cursor: help;
+}
+
+.badgeEstimated {
+  color: #8a5a00;
+  background: var(--caution-bg);
+  border-color: var(--caution-border);
+}
+
+.badgeExact {
+  color: #0b5f66;
+  background: var(--info-bg);
+  border-color: var(--info-border);
+}
+
+/* The district method note: under a divider, small and grey — present for
+   anyone who needs to defend a figure, out of the way of anyone who does not. */
+.method {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
+  font-size: 0.6875rem;
+  line-height: 1.55;
+  color: var(--text-faint);
+}
+
+.method p {
+  margin: 0;
+}
+
+.method a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--hairline-strong);
+  text-underline-offset: 2px;
+}
+
+.method a:hover {
+  color: var(--text-muted);
+  text-decoration-color: currentColor;
+}
+
+.methodTitle {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.methodSteps {
+  margin: var(--space-1) 0;
+  padding-left: 1.3em;
+}
+
+.methodSteps li + li {
+  margin-top: 2px;
+}
+
 .name {
   font-family: var(--font-figure);
   font-size: var(--step-2);
@@ -40,8 +125,18 @@
   flex-direction: column;
   gap: var(--space-2);
   align-items: flex-end;
-  /* Wide enough for a long county name in the results list. */
-  flex: 0 1 260px;
+  /* Wide enough for the search below — see .search. */
+  flex: 0 1 360px;
+}
+
+/* The picker right-aligns its children, so without a width the search shrank to
+   its input's intrinsic ~185px, and the results list (which matches the field)
+   cut off "Senate District 28 · Lubbock +40". 360px fits the longest district
+   row; the map page's search keeps its own width. Two classes so it beats the
+   component's own max-width whatever order the stylesheets load in. */
+.picker .search {
+  width: 360px;
+  max-width: 100%;
 }
 
 .clear {
@@ -54,18 +149,68 @@
   text-decoration: underline;
 }
 
-/* The four numbers a reader arriving from a shared link wants first. */
+/* The five numbers a reader arriving from a shared link wants first. One row
+   when the box is wide, divided by inset hairlines; three, then two, columns as
+   it narrows, with the divider dropped at the start of each row. */
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-3) 0;
   margin: 0;
   padding-top: var(--space-3);
   border-top: 1px solid var(--hairline);
 }
 
 .stat {
+  position: relative;
   min-width: 0;
+  padding: 0 var(--space-4);
+}
+
+.stat:first-child {
+  padding-left: 0;
+}
+
+/* Inset top and bottom so the rule reads as a separator, not a table border. */
+.stat + .stat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 1px;
+  background: var(--hairline);
+}
+
+@container (max-width: 760px) {
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .stat:nth-child(3n + 1) {
+    padding-left: 0;
+  }
+  .stat:nth-child(3n + 1)::before {
+    display: none;
+  }
+}
+
+@container (max-width: 480px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Undo the three-column row starts, then set the two-column ones. */
+  .stat:nth-child(3n + 1) {
+    padding-left: var(--space-4);
+  }
+  .stat:nth-child(3n + 1)::before {
+    display: block;
+  }
+  .stat:nth-child(2n + 1) {
+    padding-left: 0;
+  }
+  .stat:nth-child(2n + 1)::before {
+    display: none;
+  }
 }
 
 .statLabel {
@@ -90,8 +235,17 @@
   color: var(--ja-burgundy);
 }
 
+/* The sentences under the stats. One group with a tight gap: as direct
+   children of .root they took its --space-4 gap PLUS the browser's default
+   paragraph margins, ~42px between each. */
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .compare {
-  max-width: 78ch;
+  margin: 0;
   font-size: 0.8125rem;
   line-height: 1.5;
   color: var(--text-muted);
@@ -106,12 +260,11 @@
 }
 
 @media (max-width: 720px) {
-  .stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-3);
-  }
   .picker {
     flex: 1 1 100%;
     align-items: stretch;
+  }
+  .picker .search {
+    width: 100%;
   }
 }

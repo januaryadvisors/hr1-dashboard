@@ -438,9 +438,11 @@ export function CountyTooltip({
           not omitted. */}
       {spec.capacity && (
         <>
-          <div className={styles.resourcesHead}>Listed assistance sites</div>
+          <div className={styles.resourcesHead}>Listed assistance</div>
           <div className={styles.resources}>
-            {INFRA_TYPES.map((t) => {
+            {/* Sourced registries only. An unsourced one would render "—", which
+                reads as "none listed" — a claim nobody has checked. */}
+            {INFRA_TYPES.filter((t) => t.available).map((t) => {
               const count = county.infra[t.key];
               const present = count > 0;
               return (

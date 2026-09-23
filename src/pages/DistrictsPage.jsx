@@ -7,6 +7,7 @@
  * districts.json exists.
  */
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { loadDistricts } from '../data/load';
 import { Callout } from '../components/shell/Callout';
 import { SegmentedControl } from '../components/shell/SegmentedControl';
@@ -56,6 +57,11 @@ export default function DistrictsPage() {
             <code>districts.json</code> has not been exported. It needs TX House (PlanH2316, 150)
             and TX Senate (PlanS2168, 31) with the same score fields as counties, re-percentiled
             within the district set.
+          </p>
+          <p>
+            District <strong>enrollment counts</strong> are already available: open{' '}
+            <Link to="/insights/decline">Insights</Link> and switch the geography to TX House or TX
+            Senate above the search. Those are counts apportioned from counties, not scores.
           </p>
           <p className={styles.emptyMeta}>
             Owner: David / January Advisors. Tracked as an open blocker in build spec §12.

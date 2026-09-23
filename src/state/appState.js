@@ -8,7 +8,7 @@
  *
  * Spec §2 is explicit: no Redux, no Zustand.
  */
-import { VIEWS } from '../config/layers';
+import { INFRA_TYPES, VIEWS } from '../config/layers';
 /**
  * @typedef {import('../types').InfraKey} InfraKey
  * @typedef {import('../types').LayerKey} LayerKey
@@ -25,7 +25,8 @@ import { VIEWS } from '../config/layers';
  * @property {InfraKey[]} infra
  * @property {boolean} overlayQ5
  * @property {boolean} overlayGap
- * @property {string | null} scope - The county every Insights chart reads from, or null for statewide.
+ * @property {string | null} scope - What every Insights chart reads from: a county geoid ("48201"), a district
+ *   key ("txhouse-133", "txsenate-15"), or null for statewide.
  *   Separate from `hovered` on purpose: `hovered` is transient and pointer-
  *   driven, this is a deliberate, shareable selection. It is what makes
  *   `/insights/decline?county=48201` a county stat page someone can send to a
@@ -41,7 +42,11 @@ import { VIEWS } from '../config/layers';
  * @typedef {| { type: 'setMeasure'; measure: Measure } | { type: 'setLayer'; layer: LayerKey } | { type: 'setStyle'; style: MapStyle } | { type: 'setWindow'; window: [string, string] } | { type: 'toggleInfra'; key: InfraKey } | { type: 'setInfra'; keys: InfraKey[] } | { type: 'toggleOverlayQ5' } | { type: 'toggleOverlayGap' } | { type: 'setScope'; geoid: string | null } | { type: 'hover'; geoid: string | null; origin?: 'pointer' | 'external' }} Action
  */
 
-export const ALL_INFRA = ['food_bank', 'cms_navigator', 'chw', 'counselor'];
+/** A scope key naming a legislative district rather than a county. */
+export const isDistrictKey = (key) => typeof key === 'string' && /^tx(house|senate)-\d+$/.test(key);
+
+/** Registries that can draw marks — the sourced ones only (see INFRA_TYPES). */
+export const ALL_INFRA = INFRA_TYPES.filter((t) => t.available).map((t) => t.key);
 
 export function initialState(policyStart, latest) {
   return {
@@ -161,7 +166,7 @@ export function toSearchParams(state, defaults) {
   }
   if (state.overlayQ5) p.set('q5', '1');
   if (state.overlayGap) p.set('gap', '1');
-  if (state.scope) p.set('county', state.scope);
+  if (state.scope) p.set(isDistrictKey(state.scope) ? 'district' : 'county', state.scope);
   return p;
 }
 
@@ -174,9 +179,10 @@ export function fromSearchParams(
   defaults,
   validMonths,
   /**
-   * Every geoid in the dataset. A `?county=` naming a county that does not
-   * exist degrades to statewide rather than leaving the page scoped to nothing
-   * — the same treatment every other unrecognised param gets.
+   * Every county geoid and district key in the dataset. A `?county=` or
+   * `?district=` naming one that does not exist degrades to statewide rather
+   * than leaving the page scoped to nothing — the same treatment every other
+   * unrecognised param gets.
    */
   validGeoids,
 ) {
@@ -211,8 +217,12 @@ export function fromSearchParams(
   state.overlayQ5 = params.get('q5') === '1';
   state.overlayGap = params.get('gap') === '1';
 
+  // A district link wins if both are present; either degrades to statewide if
+  // the key is not in the dataset.
   const county = params.get('county');
-  if (county && (!validGeoids || validGeoids.has(county))) state.scope = county;
+  const district = params.get('district');
+  const pick = district && isDistrictKey(district) ? district : county;
+  if (pick && (!validGeoids || validGeoids.has(pick))) state.scope = pick;
 
   return state;
 }
