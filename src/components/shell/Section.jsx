@@ -20,12 +20,13 @@ import styles from './Section.module.css';
  * @property {string} title
  * @property {'base' | 'alt'} [tone] - Alternating ground. 'alt' is the half-step darker tan.
  * @property {ReactNode} [aside] - Rendered on the title's right, e.g. a control that belongs to the section.
+ * @property {string} [id] - Anchor for in-page jumps.
  * @property {ReactNode} children
  */
 
-export function Section({ title, tone = 'base', aside, children }) {
+export function Section({ title, tone = 'base', aside, id, children }) {
   return (
-    <section className={`${styles.root} ${tone === 'alt' ? styles.alt : ''}`}>
+    <section id={id} className={`${styles.root} ${tone === 'alt' ? styles.alt : ''}`}>
       <div className={styles.head}>
         <h2 className={styles.title}>{title}</h2>
         {aside && <div className={styles.headAside}>{aside}</div>}

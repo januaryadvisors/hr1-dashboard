@@ -215,7 +215,7 @@ export const METRICS = [
   },
   {
     id: 'd1',
-    label: 'D1 — work-requirement exposure',
+    label: 'Work-requirement exposure',
     axis: 'D1 exposure',
     group: 'Domain percentiles',
     format: (v) => `p${Math.round(v * 100)}`,
@@ -225,7 +225,7 @@ export const METRICS = [
   },
   {
     id: 'd3',
-    label: 'D3 — work is harder to reach',
+    label: 'Work is harder to reach',
     axis: 'D3 access to work',
     group: 'Domain percentiles',
     format: (v) => `p${Math.round(v * 100)}`,

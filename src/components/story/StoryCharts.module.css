@@ -1,0 +1,328 @@
+/*
+ * Static rail figures. Type is sized in viewBox units at the rail's content
+ * width (~380), so 9–10 units renders at about 9–10px.
+ */
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.grid {
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+
+.tick,
+.axisLabel {
+  font-family: var(--font-body);
+  font-size: 9px;
+  fill: var(--text-faint);
+}
+
+.axisLabel {
+  fill: var(--text-muted);
+}
+
+.shade {
+  fill: var(--ja-burgundy);
+  opacity: 0.08;
+}
+
+.line {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.rule {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.ruleLabel {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 600;
+  fill: var(--text-muted);
+}
+
+.markerRing {
+  fill: var(--ja-ink);
+  stroke: var(--ft-tan-alt);
+  stroke-width: 1.5;
+}
+
+.markerNum {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  fill: #fff;
+}
+
+.endNote {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.endLabel {
+  font-family: var(--font-body);
+  font-size: 9px;
+  fill: var(--text-muted);
+}
+
+.endLabelName {
+  font-weight: 700;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-1);
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legendSwatch {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* Shortfall bars */
+.bar {
+  fill: var(--ja-navy);
+  opacity: 0.85;
+}
+
+.hatchGround {
+  fill: #fbeeec;
+}
+
+.hatchLine {
+  stroke: var(--ja-burgundy);
+  stroke-width: 1.2;
+}
+
+.gap {
+  stroke: var(--ja-burgundy);
+  stroke-width: 0.6;
+}
+
+.baseLine {
+  stroke: var(--ja-ink);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+}
+
+.baseLabel {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  fill: var(--ja-ink);
+}
+
+/* Strips */
+.rowLabel {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--text);
+}
+
+.rowSub {
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  fill: var(--text-faint);
+}
+
+.dot {
+  opacity: 0.72;
+  stroke: var(--ft-tan-alt);
+  stroke-width: 0.5;
+}
+
+.medianTick {
+  stroke: var(--ja-ink);
+  stroke-width: 2.4;
+}
+
+.medianLabel {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  fill: var(--ja-ink);
+}
+
+/* Group bars */
+.groupBars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.groupRow {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) 3.5rem;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.groupLabel {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.groupTrack {
+  display: block;
+  height: 16px;
+}
+
+.groupBar {
+  display: block;
+  height: 100%;
+  background: #cfc6bb;
+  border-radius: 2px;
+}
+
+.groupBarOn {
+  background: #b9654a;
+}
+
+.groupValue {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Stat bars */
+.statBars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.statRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.statLabel {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.statValue {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.statTrack {
+  display: block;
+  height: 7px;
+  background: #ddd6cc;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.statBar {
+  display: block;
+  height: 100%;
+  background: var(--ja-navy);
+  border-radius: 4px;
+}
+
+.statNote {
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+}
+
+/* Year bars */
+.yearBar {
+  fill: var(--ja-navy);
+}
+
+.yearWarn {
+  fill: #b9654a;
+}
+
+.yearAlert {
+  fill: #a8392e;
+}
+
+.yearValue {
+  font-family: var(--font-display);
+  font-size: 9.5px;
+  font-weight: 700;
+  fill: var(--text);
+}
+
+/* Index recipe */
+.recipe {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recipeDomain {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.recipeDomain:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.recipeHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.recipeName {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.recipeCount {
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+}
+
+.recipeMeasures {
+  margin: 1px 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.recipeFormula {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text);
+}

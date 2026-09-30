@@ -1,0 +1,87 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.num {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ja-navy);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-figure);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.where {
+  flex: 0 0 auto;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+/* Chapters are groups with a wider gap between them than between steps, so
+   the bar reads as five chapters rather than twelve equal ticks. */
+.bar {
+  display: flex;
+  gap: 6px;
+}
+
+.group {
+  display: flex;
+  flex-basis: 0;
+  gap: 2px;
+}
+
+/*
+ * The visible bar is 4px; the button is 18px tall so a thumb can hit it.
+ */
+.seg {
+  position: relative;
+  flex: 1;
+  height: 18px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.seg::before {
+  content: '';
+  position: absolute;
+  inset: 7px 0;
+  background: var(--hairline-strong);
+  border-radius: 2px;
+  transition: background 200ms ease;
+}
+
+.segOn::before {
+  background: var(--ja-navy);
+}
+
+/* The chapter in view is a touch thicker, so it can be found at a glance. */
+.groupCurrent .seg::before {
+  inset: 6px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seg::before {
+    transition: none;
+  }
+}

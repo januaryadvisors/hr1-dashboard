@@ -1,0 +1,241 @@
+/*
+ * The chapter bar. Every chapter on one row, equal widths — a table of contents
+ * that scrolls sideways is not one.
+ */
+.root {
+  min-width: 0;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(var(--chapters, 5), minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * The card is the list item, not the button: it holds two kinds of target, the
+ * chapter button and one button per step, and a button cannot contain buttons.
+ * The chapter button stretches over the whole card; the step segments sit on
+ * top of it along the bottom edge.
+ */
+.card {
+  position: relative;
+  /* Sized by its own width, for the narrow-card rule at the end. */
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.card:hover {
+  background: var(--surface);
+  border-color: var(--hairline-strong);
+}
+
+/* The chapter the reader is in: the one card with a surface, a navy edge and a
+   lift, so it reads at a glance from the far side of the map. */
+.current,
+.current:hover {
+  background: var(--surface);
+  border-color: var(--ja-navy);
+  box-shadow: 0 0 0 1px var(--ja-navy), var(--shadow-panel);
+}
+
+/* Compact: the bar is a table of contents, and the map below it is the point. */
+.main {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  column-gap: var(--space-2);
+  align-items: start;
+  flex: 1;
+  width: 100%;
+  /* Room at the bottom for the step segments laid over it. */
+  padding: 6px var(--space-2) 16px 6px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: inherit;
+  cursor: pointer;
+}
+
+.thumb {
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  opacity: 0.55;
+  transition: opacity 160ms ease;
+}
+
+.card:hover .thumb,
+.current .thumb {
+  opacity: 1;
+}
+
+.thumb > svg {
+  width: 100%;
+  height: 100%;
+}
+
+.num {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.current .num {
+  color: var(--ja-navy);
+}
+
+.label {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-muted);
+}
+
+.current .label {
+  color: var(--text);
+}
+
+/*
+ * One segment per step, each its own button. The visible bar is 3px; the
+ * button is 14px tall so it is a target a pointer can actually hit, and the bar
+ * thickens under the pointer so it is obvious the segment does something.
+ */
+.progress {
+  position: absolute;
+  right: var(--space-2);
+  bottom: 2px;
+  /* Starts under the text, not the thumbnail, in the wide layout. */
+  left: calc(6px + 30px + var(--space-2));
+  display: flex;
+  gap: 3px;
+}
+
+.seg {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.seg::before {
+  content: '';
+  position: absolute;
+  inset: 5px 0;
+  background: var(--hairline);
+  border-radius: 2px;
+  transition:
+    background 200ms ease,
+    inset 120ms ease;
+}
+
+.segOn::before {
+  background: var(--ja-navy);
+}
+
+.seg:hover::before,
+.seg:focus-visible::before {
+  inset: 3px 0;
+  background: var(--ja-teal);
+}
+
+/* The step on screen stays a touch thicker than the ones already passed. */
+.segHere::before {
+  inset: 4px 0;
+}
+
+/* Narrow stages: beside a thumbnail the label track is ~70px and words like
+   "requirements" do not fit, so the label drops under the thumbnail and takes
+   the card's full width. */
+@media (max-width: 1279px) {
+  .main {
+    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    row-gap: 2px;
+  }
+  .thumb {
+    grid-row: 1;
+    width: 24px;
+    height: 24px;
+  }
+  .num {
+    align-self: center;
+  }
+  .label {
+    grid-column: 1 / -1;
+  }
+  .progress {
+    left: 6px;
+    right: var(--space-2);
+  }
+}
+
+/*
+ * Narrow cards — a pinned tablet in portrait, five across ~420px. A name that
+ * cannot be read is worse than none, so under ~110px a card is its thumbnail,
+ * number and progress; the rail beside it names every chapter by the same
+ * number. A container query, not a media query, because the card's width is
+ * what decides and it depends on more than the viewport.
+ */
+@container (max-width: 110px) {
+  .main {
+    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-rows: auto;
+    align-items: center;
+  }
+  .thumb {
+    width: 26px;
+    height: 26px;
+  }
+  .label {
+    display: none;
+  }
+}
+
+/* Phones: five equal columns would be 60px each, so the bar scrolls sideways
+   here. Provisional until the mobile layout is settled. */
+@media (max-width: 640px) {
+  .list {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 168px;
+    overflow-x: auto;
+    padding-bottom: var(--space-1);
+    scroll-snap-type: x proximity;
+  }
+  .list > li {
+    scroll-snap-align: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .thumb,
+  .seg::before {
+    transition: none;
+  }
+}

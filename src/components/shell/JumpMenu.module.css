@@ -1,0 +1,164 @@
+.root {
+  position: relative;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 340px;
+  padding: 0.4rem 0.75rem 0.4rem 0.9rem;
+  font-family: var(--font-display);
+  font-size: var(--step--1);
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.trigger:hover,
+.triggerOpen {
+  border-color: var(--ja-navy);
+}
+
+.triggerLabel {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.triggerCurrent {
+  overflow: hidden;
+  font-weight: 600;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caret {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.triggerOpen .caret {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 280px;
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-panel);
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+.group + .group {
+  margin-top: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--hairline);
+}
+
+.heading {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0.4rem var(--space-2);
+  font-size: var(--step--1);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--surface-warm);
+}
+
+/* A group laid out as a row of equal pills — the Map / Insights switch. */
+.row {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-1);
+  padding: var(--space-1);
+}
+
+.row .item {
+  justify-content: center;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+}
+
+.row .itemCurrent {
+  color: var(--text-inverse);
+  background: var(--ja-navy);
+  border-color: var(--ja-navy);
+}
+
+.indent {
+  padding-left: var(--space-3);
+}
+
+.itemCurrent {
+  font-weight: 600;
+  color: var(--ja-navy);
+  background: var(--surface-warm);
+}
+
+.prefix {
+  flex: 0 0 1.4rem;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.6875rem;
+  color: var(--text-faint);
+}
+
+.itemCurrent .prefix {
+  color: var(--ja-navy);
+}
+
+@media (max-width: 640px) {
+  .triggerLabel {
+    display: none;
+  }
+  .trigger {
+    max-width: 160px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret {
+    transition: none;
+  }
+}

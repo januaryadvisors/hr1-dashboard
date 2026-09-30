@@ -11,6 +11,14 @@
   border-bottom: 1px solid var(--hairline);
 }
 
+/* Where the page switch sits on other pages: the right-hand end. */
+.slot {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+  padding-left: var(--space-4);
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -28,6 +36,18 @@
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Phones: the Jump to menu shares the bar, so the name steps down a size
+   rather than wrapping onto two lines. */
+@media (max-width: 480px) {
+  .header {
+    padding: 0 var(--space-4);
+  }
+  .title {
+    font-size: 0.875rem;
+  }
 }
 
 

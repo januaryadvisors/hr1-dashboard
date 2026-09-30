@@ -103,7 +103,12 @@ function useTweenedSeries(target) {
  *   observed record reaches it.
  */
 
-export function SnapTrend({ data, policyStart }) {
+/**
+ * `isStatic`: the chart only — no series tabs, no pointer readout. The story rail
+ * shows charts as figures to read, not controls to work, so there it draws the
+ * People series at its latest month and nothing on it responds to the pointer.
+ */
+export function SnapTrend({ data, policyStart, className = '', isStatic = false }) {
   /** Which series is drawn. One at a time. */
   const [seriesKey, setSeriesKey] = useState(SERIES[0].key);
   /** Index under the pointer; null falls back to the latest month. */
@@ -153,7 +158,7 @@ export function SnapTrend({ data, policyStart }) {
 
   if (!data || !chart) {
     return (
-      <div className={styles.root}>
+      <div className={`${styles.root} ${className}`}>
         <h3 className={styles.title}>Texans enrolled in SNAP</h3>
         <p className={styles.empty}>
           No observed data loaded. Run <code>npm run fetch:snap</code>.
@@ -169,7 +174,8 @@ export function SnapTrend({ data, policyStart }) {
   const value = data.statewide[series.key][at];
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} ${className}`}>
+      {!isStatic && (
       <div className={styles.tabs} role="group" aria-label="Series">
         {SERIES.map((sx) => (
           <button
@@ -184,6 +190,7 @@ export function SnapTrend({ data, policyStart }) {
           </button>
         ))}
       </div>
+      )}
 
       {/* The chart's title. Named for the series showing, so the plot below never
           has to be read together with a legend. */}
@@ -201,8 +208,8 @@ export function SnapTrend({ data, policyStart }) {
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label={`${series.title}, ${fmtMonthBody(data.first)} to ${fmtMonthBody(data.latest)}: ${fmtInt(data.statewide[series.key][0])} to ${fmtInt(data.statewide[series.key][last])}.`}
-        onPointerLeave={() => setHover(null)}
-        onPointerMove={(e) => {
+        onPointerLeave={isStatic ? undefined : () => setHover(null)}
+        onPointerMove={isStatic ? undefined : (e) => {
           const box = e.currentTarget.getBoundingClientRect();
           // The SVG scales to the rail's width, so the pointer has to come back
           // through the viewBox rather than being read in CSS pixels.

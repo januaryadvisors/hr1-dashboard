@@ -1,5 +1,11 @@
 .root {
-  --col-side: 320px;
+  /*
+     One width for every right-hand column on the page: the hero's stats, the
+     story rail and the page rail, so their edges line up down the page. Fluid,
+     because the story rail carries charts and reads cramped at a fixed 320px on
+     a wide monitor.
+  */
+  --col-side: clamp(260px, 28vw, 440px);
   --col-gap: var(--space-6);
   /* One width for the map's controls and the scatter's, so the two sections'
      side panels line up down the page. */
@@ -77,9 +83,6 @@
  * between rows and not between colours.
  */
 .page {
-  --col-side: 320px;
-  --col-gap: var(--space-6);
-
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--col-side);
   column-gap: 0;
@@ -189,220 +192,6 @@
   color: var(--on-green);
 }
 
-/*
- * M-04: the view cards, as a SCROLLING STRIP — 2026-09-11 direction.
- *
- * Five equal grid columns was the previous arrangement and it did not survive
- * the fifth card: at a fifth of the column each card's text track is ~100px, so
- * the title wrapped to two lines and the blurb to three, and the strip grew
- * taller than the map it introduces. A card that is taller than it is wide stops
- * reading as a thumbnail.
- *
- * So the cards keep a readable width and the strip scrolls. The width is set so
- * four sit fully in view and the FIFTH PEEKS — the peek is the affordance, and
- * it is worth more than a scrollbar because it says what is over there rather
- * than just that something is.
- */
-.layerStripWrap {
-  position: relative;
-  min-width: 0;
-}
-
-.layerStrip {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scroll-behavior: smooth;
-  /* Room for the scrollbar so it never sits on a card's bottom edge. */
-  padding-bottom: var(--space-2);
-  scrollbar-width: thin;
-  scrollbar-color: var(--hairline-strong) transparent;
-}
-
-.layerStrip::-webkit-scrollbar {
-  height: 6px;
-}
-
-.layerStrip::-webkit-scrollbar-thumb {
-  background: var(--hairline-strong);
-  border-radius: 3px;
-}
-
-.layerStrip::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/*
- * 4.4 cards across: four whole ones and 40% of the next. The four gaps come out
- * first so the peek does not drift as the column resizes.
- *
- * CLAMPED, because the fraction alone reproduces the problem the carousel was
- * built to solve. At 1100px the rail is still beside the map, so a 4.4-card
- * strip gives 149px cards — and a card that narrow wraps its title to three
- * lines and stands 226px tall. The floor holds the card landscape and lets the
- * count of visible cards fall instead; the ceiling stops them ballooning on a
- * wide monitor.
- */
-.layerCard {
-  flex: 0 0 clamp(200px, calc((100% - 4 * var(--space-2)) / 4.4), 300px);
-  scroll-snap-align: start;
-
-  display: grid;
-  /* Text takes the slack; the thumbnail is a fixed square. */
-  grid-template-columns: minmax(0, 1fr) 76px;
-  gap: var(--space-2);
-  align-items: start;
-  padding: var(--space-3);
-  text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-left: 2px solid transparent;
-  border-radius: var(--radius);
-  cursor: pointer;
-  min-width: 0;
-}
-
-/*
- * Scroll buttons. A peeking card says there is more; on a mouse without a
- * horizontal wheel it does not say how to get at it.
- */
-.stripNav {
-  position: absolute;
-  top: calc(50% - var(--space-2));
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  font-size: 0.75rem;
-  line-height: 1;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--hairline-strong);
-  border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  cursor: pointer;
-  transform: translateY(-50%);
-}
-
-.stripNav:hover {
-  border-color: var(--ja-navy);
-  color: var(--ja-navy);
-}
-
-/* Hidden at the end of its travel rather than disabled — a control that cannot
-   do anything is noise beside a card. */
-.stripNav[hidden] {
-  display: none;
-}
-
-.stripNavPrev {
-  left: calc(-1 * var(--space-3));
-}
-
-.stripNavNext {
-  right: calc(-1 * var(--space-3));
-}
-
-.mapColumn {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-
-.layerCard:hover {
-  border-color: var(--hairline-strong);
-}
-
-.layerCardActive {
-  background: #fdf8f2;
-  border-left-color: var(--ja-navy);
-}
-
-.layerCardTitle {
-  font-family: var(--font-display);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.15;
-}
-
-/*
- * The thumbnail sits in its own 76px track, so it no longer drives the card's
- * height — the text block does. Texas in Albers is nearly square, so a
- * full-width thumbnail on a quarter-column card was ~235px tall and made the
- * strip taller than the hero.
- */
-.layerCard > svg {
-  width: 100%;
-  height: 76px;
-}
-
-/* Title, blurb and headline figure, in the card's left track. */
-.layerCardText {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-/* One line saying what the view answers. Reserves two lines' height so the
-   cards keep their figures on one baseline whatever the blurb wraps to. */
-.layerCardBlurb {
-  min-height: 2.6em;
-  font-size: 0.625rem;
-  line-height: 1.3;
-  color: var(--text-muted);
-}
-
-/*
- * The card's headline figure, per the comps.
- *
- * Each view reports its own measure — an index average, a median county rate, a
- * headcount — so the values are deliberately not comparable across cards. The
- * note under each says which measure it is.
- */
-.layerCardStat {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  margin-top: var(--space-1);
-}
-
-.layerCardStatValue {
-  font-family: var(--font-figure);
-  font-size: 1.125rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.layerCardStatNote {
-  font-size: 0.5625rem;
-  line-height: 1.2;
-  color: var(--text-faint);
-}
-
-/* Placeholder where a thumbnail cannot honestly be drawn. Matches the
-   thumbnail height so the strip does not reflow between measures. */
-.layerCardNote {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 76px;
-  font-size: 0.5625rem;
-  color: var(--text-faint);
-  text-align: center;
-  background: var(--surface-sunken);
-  border: 1px dashed var(--hairline);
-  border-radius: 3px;
-}
-
 .panel {
   padding: var(--space-3) var(--space-4);
   background: var(--surface);
@@ -410,45 +199,51 @@
   border-radius: var(--radius);
 }
 
-.panelHead {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+/*
+ * The map's title, first in the section and above the chapter bar, with the
+ * Map options button at its right. Set like a section title: it names what the
+ * whole stage is showing.
+ */
+.stageHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-4);
-  align-items: start;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--hairline);
+  min-width: 0;
 }
 
-.panelTitle {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.panelSearch {
-  margin-top: var(--space-3);
+.stageTitle {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-figure);
+  font-size: clamp(1.75rem, 2.4vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
 }
 
 .panelCopy {
   max-width: 80ch;
-  margin-top: var(--space-1);
+  margin-bottom: var(--space-3);
   font-size: 0.75rem;
   line-height: 1.4;
   color: var(--text-muted);
 }
 
-.panelControls {
+/* The map's column inside .mapBody: the key and options, then the map. */
+.mapCol {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  align-items: flex-end;
+  min-width: 0;
 }
 
-.controlRow {
+.mapHead {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-2);
-  justify-content: flex-end;
 }
 
 /* Texas in Albers is nearly square, so a wide column would otherwise force a
@@ -475,6 +270,12 @@
   border-top: 1px solid var(--hairline);
   font-size: 0.6875rem;
   color: var(--text-muted);
+}
+
+/* Only the vulnerability view has a mark key; elsewhere the footer is empty
+   and its rule would be a stray line under the map. */
+.panelFooter:empty {
+  display: none;
 }
 
 .markKey {
@@ -851,11 +652,499 @@
   border-left: 1px solid var(--hairline);
 }
 
-/* Section 04: the two time-series charts, side by side. */
-.movementRow {
+/*
+ * THE STORY — the map and the story rail, pinned while the page scrolls behind
+ * them one step at a time. See config/story.js and lib/useScrollSteps.js.
+ *
+ * Unpinned (below STORY_MEDIA in MapPage.jsx, or before JS decides) the stage is
+ * an ordinary two-column block and everything below still applies. Pinned, the
+ * section grows to one viewport plus a fixed distance per extra step, the stage
+ * sticks under the header for that whole distance, and the markers are the
+ * scroll stops.
+ *
+ * --step-h is the scroll distance between two steps, and it is what "not too
+ * easy" is tuned on. Snapping is proximity (global.css), so a scroll shorter
+ * than roughly half of this settles back on the step the reader is on; a longer
+ * one carries on to the next. Much shorter and a trackpad flick skips a step,
+ * much longer and moving on starts to feel like work.
+ */
+.story {
+  --stage-h: calc(100vh - var(--header-height));
+  --step-h: 70vh;
+
+  position: relative;
+}
+
+/*
+ * svh where it exists: on a tablet the browser's toolbars come and go, and 100vh
+ * is the height with them hidden — a stage that tall has its bottom under the
+ * toolbar whenever the toolbar is showing. The small viewport height is the
+ * height with them shown, so the stage always fits.
+ */
+@supports (height: 100svh) {
+  .story {
+    --stage-h: calc(100svh - var(--header-height));
+    --step-h: 70svh;
+  }
+}
+
+/* +2px: one to match the markers' 1px offset (see .stepMarker), one of slack
+   for the story's fractional top — so the last stop still has the stage
+   pinned rather than a fraction of a pixel into its release. */
+.storyPinned {
+  height: calc(var(--stage-h) + (var(--story-steps) - 1) * var(--step-h) + 2px);
+}
+
+/* Repeats .page's width, gutters and column split, so the story's columns line
+   up with the hero above and the sections below. */
+.stage {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr) var(--col-side);
+  align-items: stretch;
+  max-width: 1680px;
+  margin-inline: auto;
+  padding-inline: clamp(var(--space-5), 5vw, 5rem);
+}
+
+.storyPinned .stage {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 1;
+  height: var(--stage-h);
+}
+
+.stageMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5) 0;
+}
+
+/*
+ * Pinned, the map card takes whatever height the chapter bar leaves, and the map
+ * fills its slot. Texas is nearly square, so the SVG's own aspect ratio (meet,
+ * centred) decides which dimension it fills.
+ */
+.storyPinned .stageMain {
+  height: 100%;
+  min-height: 0;
+  padding-bottom: var(--space-4);
+}
+
+.storyPinned .panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.storyPinned .mapBody {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  /* Stretch, not start: the side panel has to be exactly the row's height for
+     its inner scroller to engage instead of running out of the card. */
+  align-items: stretch;
+  /* Beats the <1200px stacking rule: stacked, the controls would push the map
+     out of a viewport-high stage. */
+  grid-template-columns: minmax(0, 1fr) var(--side-panel);
+}
+
+.storyPinned .mapHolder {
+  flex: 1;
+  min-height: 0;
+}
+
+.storyPinned .mapHolder > svg {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+}
+
+.storyPinned .sidePanel {
+  min-height: 0;
+  padding-top: 0;
+  padding-left: var(--space-4);
+  border-top: 0;
+  border-left: 1px solid var(--hairline);
+}
+
+/* The shortlist and switches scroll inside the panel when the stage is short;
+   the search above them does not, so its dropdown is never clipped. */
+.storyPinned .sideScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+
+/*
+ * The story rail: the page rail's single tan ground and hairline, full-bleed to
+ * the right in the same way (see .rail).
+ */
+.storyRail {
+  min-width: 0;
+  background: var(--ft-tan-alt);
+  border-left: 1px solid var(--hairline);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+  margin-right: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
+  padding-right: clamp(var(--space-5), 5vw, 5rem);
+}
+
+/* Pinned, a step whose chart runs past a short viewport scrolls the rail rather
+   than being cut off. At usual heights nothing overflows and wheel events pass
+   straight through to the page. */
+.storyPinned .storyRail {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+
+/* The no-count reason over a faded map, pinned only — see MapPage. */
+.storyPinned .mapHolder {
+  position: relative;
+}
+
+.storyPinned .mapHolder:has(.mapCallout) > svg {
+  opacity: 0.18;
+}
+
+.mapCallout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+}
+
+.mapCallout > * {
+  max-width: 44ch;
+  box-shadow: var(--shadow-panel);
+}
+
+/*
+ * NO BOX, pinned — the map, its title and the shortlist sit straight on the
+ * page ground. The card's surface, border and inner rules all go; the side
+ * panel keeps its own row rules, which are what make it read as a list.
+ */
+.storyPinned .panel {
+  position: relative;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+/*
+ * FIXED SLOTS, so the map never moves.
+ *
+ * The map takes whatever height is left above it, so anything there that can
+ * change size — a title that wraps, the bivariate key being taller than a ramp,
+ * the count-only "equal-count bands" note — would resize or shift Texas on
+ * every step. Pinned, each of those sits in a slot of fixed height: the title
+ * on one line (with Map options beside it), and directly over the map the key,
+ * sized for the tallest key there is, the bivariate matrix.
+ * The layer copy is not shown here at all; the open step says it.
+ */
+/* Rem, not em: the title's font shrinks to fit (useFitText) and the slot must
+   not shrink with it. The ellipsis is only a backstop below the fit's floor. */
+.storyPinned .stageTitle {
+  height: 3rem;
+  overflow: hidden;
+  line-height: 3rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.storyPinned .mapCol {
+  height: 100%;
+  min-height: 0;
+}
+
+.storyPinned .mapHead {
+  --legend-h: 72px;
+
+  flex: 0 0 auto;
+  height: var(--legend-h);
+}
+
+.storyPinned .panelLegend {
+  height: var(--legend-h);
+  margin-top: 0;
+  overflow: hidden;
+}
+
+.storyPinned .sidePanel {
+  border-left: 0;
+}
+
+/*
+ * The mark key (vulnerability view only) floats in the map's empty lower-left
+ * corner — below El Paso, where Texas has no counties — rather than taking a
+ * row under the map, which would shrink the map on that one chapter.
+ */
+.storyPinned .panelFooter {
+  position: absolute;
+  bottom: var(--space-2);
+  left: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: 0;
+  border-top: 0;
+  pointer-events: none;
+}
+
+/*
+ * The rail's way out, at its foot: back to the top, or past the story. Pinned,
+ * the rail is a column and this sits at the bottom whatever the step's height.
+ */
+.storyPinned .storyRail {
+  display: flex;
+  flex-direction: column;
+}
+
+.storyExit {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+
+.exitButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.35rem 0.8rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+/*
+ * Short viewports: the timeline should fit beside the open step without the
+ * rail scrolling, so the rail gives up a little everywhere it can. The exits
+ * shrink, and the SNAP chart drops its own title — the step title above it
+ * already says what it shows.
+ */
+@media (max-height: 800px), (max-width: 899px) {
+  .storyExit {
+    padding-top: var(--space-2);
+  }
+  .exitButton {
+    padding-block: 0.2rem;
+  }
+  .storySnapTrend h3 {
+    display: none;
+  }
+  .storyPinned .storyRail {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-2);
+  }
+}
+
+.exitButton:hover {
+  color: var(--ja-navy);
+  border-color: var(--ja-navy);
+  background: var(--surface);
+}
+
+/* The SNAP chart was styled as the top of the page rail; inside a step it is
+   the step's own content, so its closing rule goes. */
+.storySnapTrend {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+
+/* The infrastructure picker, set on the rail's ground inside its step. The
+   chips box keeps a surface so it still reads as an input. */
+.storyInfra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.infraActions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* The numbered markers' key, under the enrollment chart. */
+.figureKey {
+  margin: var(--space-1) 0 0;
+  font-size: 0.6875rem;
+  font-style: italic;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+.figureKey b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 0.5625rem;
+  color: #fff;
+  background: var(--ja-ink);
+  border-radius: 50%;
+}
+
+/* One per step, spaced --step-h apart: the scroll stops. Invisible. */
+.stepMarker {
+  position: absolute;
+  /*
+     +1px: the story's top sits on a fractional pixel (the hero above it is not
+     a whole number of pixels tall), and scroll positions round. Landing exactly
+     on the first stop could leave the page a fraction short of where the stage
+     pins, and the map a quarter-pixel lower on step one than on every other.
+     One pixel in, the stage is always already pinned.
+  */
+  top: calc(var(--i) * var(--step-h) + 1px);
+  left: 0;
+  width: 1px;
+  height: var(--step-h);
+  pointer-events: none;
+  scroll-snap-align: start;
+  /* A hard flick stops at the next step rather than skipping several. */
+  scroll-snap-stop: always;
+}
+
+/* A narrower control column on a narrow pinned stage, so the map keeps the
+   width it needs to read. */
+@media (max-width: 1279px) {
+  .storyPinned {
+    --side-panel: 240px;
+  }
+}
+
+/*
+ * TABLETS, pinned — the story pins from 700px wide (STORY_MEDIA in MapPage).
+ *
+ * The map and the rail keep their two columns; what gives is the shortlist
+ * beside the map. In landscape it stays beside it, narrower. In portrait the
+ * left column is too narrow for both (a 768px iPad leaves ~420px), but it is
+ * tall, so the shortlist moves under the map and the map takes the full column
+ * width. The split is fixed (3 : 2), so the map's size still cannot change
+ * between steps; the shortlist fits as many rows as its share holds.
+ */
+@media (max-width: 1099px) {
+  .storyPinned {
+    --side-panel: 220px;
+  }
+  .storyPinned .stageMain {
+    gap: var(--space-2);
+    padding-right: var(--space-4);
+  }
+  .storyPinned .storyRail {
+    padding-left: var(--space-4);
+  }
+}
+
+@media (max-width: 1099px) and (orientation: portrait) {
+  /* Two lines, fixed, in rem so the fit (useFitText) cannot shrink the slot:
+     at ~420px even a mid-length title needs the second line. */
+  .storyPinned .stageTitle {
+    display: -webkit-box;
+    height: 4.2rem;
+    line-height: 2.1rem;
+    white-space: normal;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .storyPinned .mapBody {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+    gap: var(--space-2);
+  }
+  .storyPinned .sidePanel {
+    padding-top: var(--space-2);
+    padding-left: 0;
+    border-top: 1px solid var(--hairline);
+  }
+}
+
+/*
+ * PHONES, pinned — see PHONE_MEDIA in MapPage.
+ *
+ * The map is the whole stage: the progress bar pinned at the top, the title
+ * and key, the map, and the open step as a fixed-height caption underneath.
+ * No rail, no side panel beside the map; the step's chart and the county
+ * shortlist open in a sheet from the caption, on request. Every slot is fixed
+ * or flexes only the map, so the map still cannot move between steps.
+ */
+.storyPhone .stage {
+  grid-template-columns: minmax(0, 1fr);
+  padding-inline: var(--space-4);
+}
+
+.storyPhone .stageMain {
+  position: relative;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-3);
+}
+
+.storyPhone .mapBody {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* Two lines, as on a portrait tablet, a size down. */
+.storyPhone .stageTitle {
+  height: 3.6rem;
+  font-size: 1.5rem;
+  line-height: 1.8rem;
+}
+
+/* Taller than on desktop: at phone width the count key's note wraps to two
+   lines, and the slot has to hold the tallest key in full. */
+.storyPhone .mapHead {
+  --legend-h: 84px;
+}
+
+/* In the sheet, the shortlist is the sheet's content, not a column. */
+.storyPhone .sidePanel {
+  padding: 0;
+  border: 0;
+}
+
+/* Unpinned and narrow: map card, then the rail under it as an accordion. */
+@media (max-width: 900px) {
+  .story:not(.storyPinned) .stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .story:not(.storyPinned) .stageMain {
+    padding-right: 0;
+  }
+  .story:not(.storyPinned) .storyRail {
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+    margin-inline: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
+    padding-inline: clamp(var(--space-5), 5vw, 5rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .stage {
+    padding-inline: var(--space-4);
+  }
+  .storyRail {
+    margin-inline: calc(-1 * var(--space-4));
+    padding-inline: var(--space-4);
+  }
 }
 
 /*
@@ -871,12 +1160,6 @@
 /* The inner splits give up first: below this the map and the scatter take the
    full main column and their panels go underneath. */
 @media (max-width: 1199px) {
-  /* The rail narrows instead of stacking, so the main column keeps the width
-     the two collapsing panels just handed back to it. */
-  .page {
-    --col-side: 280px;
-  }
-
   .capacityRow {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -905,11 +1188,8 @@
   }
 }
 
-/* Narrower still, and the rail gives up another 40px rather than the column. */
+/* Narrower still, and the rail gives up some padding rather than the column. */
 @media (max-width: 900px) {
-  .page {
-    --col-side: 240px;
-  }
   .rail {
     padding-left: var(--space-4);
   }
@@ -939,23 +1219,6 @@
   }
 }
 
-@media (max-width: 1023px) {
-  /* The clamp already handles how many fit. What has to give at this width is
-     the thumbnail, so the text track stays wide enough to set a title on two
-     lines rather than three. */
-  .layerCard {
-    grid-template-columns: minmax(0, 1fr) 56px;
-  }
-  .layerCard > svg,
-  .layerCardNote {
-    height: 56px;
-  }
-  /* Two charts side by side stop being readable below about 340px each. */
-  .movementRow {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 /* Phones. The hero number is already clamped against the viewport; these are the
    knock-on adjustments so nothing else reserves desktop-sized space. */
 @media (max-width: 560px) {
@@ -979,9 +1242,6 @@
     width: 100%;
     text-align: center;
   }
-  /* Stays two-up. One card per row means scrolling past four full-width
-     thumbnails to reach the map they are thumbnails of. */
-  .movementRow,
   .capacityRow {
     gap: var(--space-3);
   }
@@ -996,6 +1256,6 @@
  * than a key.
  */
 .panelLegend {
+  width: 100%;
   max-width: 260px;
-  margin-top: var(--space-3);
 }

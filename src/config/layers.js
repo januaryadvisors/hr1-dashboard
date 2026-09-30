@@ -59,6 +59,9 @@
  * @property {'snap_enrolled' | 'snap_children'} [seriesField] - Window layers only: the monthly County series the loss is measured on.
  * @property {string} [countLabel] - Legend heading in count measure, where `countField` does not name it.
  * @property {[BivariateAxis, BivariateAxis]} [axes] - Bivariate layers only: the red axis then the blue axis.
+ * @property {number} [rankFloor] - Window layers: in rate measure, counties whose caseload at the
+ *   window start is under this are left out of the "Top affected counties" list. A county of 40
+ *   that loses 20 reads −50% and would top every list on its denominator alone.
  */
 
 export const LAYERS = [
@@ -71,6 +74,7 @@ export const LAYERS = [
     basis: 'window',
     seriesField: 'snap_enrolled',
     countLabel: 'People who left SNAP',
+    rankFloor: 1000,
     available: true,
   },
   {
@@ -82,6 +86,7 @@ export const LAYERS = [
     basis: 'window',
     seriesField: 'snap_children',
     countLabel: 'Children who left SNAP',
+    rankFloor: 100,
     available: true,
     note: 'County under-18 series from HHSC age bands; not in the §3 contract',
   },
@@ -103,12 +108,13 @@ export const LAYERS = [
     basis: 'window',
     seriesField: 'medicaid_enrolled',
     countLabel: 'People who left Medicaid',
+    rankFloor: 1000,
     available: true,
   },
   {
     key: 'd1',
     label: 'Work requirements',
-    formalName: 'D1 — Work-requirement exposure',
+    formalName: 'Work-requirement exposure',
     components: 5,
     countField: 'newly_subject_persons',
     available: true,
@@ -116,7 +122,7 @@ export const LAYERS = [
   {
     key: 'd4',
     label: 'Socioeconomic Need',
-    formalName: 'D4 — Socioeconomic need',
+    formalName: 'Socioeconomic need',
     copy:
       'Baseline need: the share of residents below 165% of the federal poverty level and the ' +
       'share of adults without a high-school credential. Only two components, so this layer ' +
@@ -131,7 +137,7 @@ export const LAYERS = [
   {
     key: 'd3',
     label: 'Access to work',
-    formalName: 'D3 — Access to work',
+    formalName: 'Access to work',
     copy:
       'Whether meeting a work requirement is practical where someone lives: in-county employment ' +
       'share, jobs per worker, vehicle and internet access, unemployment, the low-wage mix, and ' +
@@ -178,7 +184,7 @@ export const LAYERS = [
   {
     key: 'd2',
     label: 'Citizenship',
-    formalName: 'D2 — Citizenship and status',
+    formalName: 'Citizenship and status',
     copy:
       'Households affected by H.R. 1’s eligibility restrictions tied to immigration status, ' +
       'including mixed-status households and households with limited English proficiency. This ' +
@@ -192,7 +198,7 @@ export const LAYERS = [
   {
     key: 'd5',
     label: 'Children',
-    formalName: 'D5 — Children',
+    formalName: 'Children',
     copy: 'Not yet defined.',
     components: null,
     countField: null,

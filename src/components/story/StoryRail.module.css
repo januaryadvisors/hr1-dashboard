@@ -1,0 +1,484 @@
+/*
+ * The story rail: one timeline of every chapter, the open one expanded. It sits
+ * on the page rail's single tan ground (see .storyRail in MapPage.module.css);
+ * nothing in here paints its own surface except the node discs, which take the
+ * ground colour so the rule appears to stop at each ring.
+ *
+ * GEOMETRY. Every block starts at the rail's left edge and shares one node
+ * column (--col), so every node, large or small, centres on the same vertical
+ * and the rule segments line up into one line.
+ */
+.root {
+  --col: 24px;
+  --gap: var(--space-3);
+  --ground: var(--ft-tan-alt);
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ------------------------------------------------------------------ the rule */
+
+.ruleDone,
+.ruleHere,
+.ruleTodo {
+  position: relative;
+}
+
+.ruleDone::before,
+.ruleHere::before,
+.ruleTodo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--col) / 2 - 1px);
+  width: 2px;
+  background: var(--hairline-strong);
+  transition: background 240ms ease;
+}
+
+.ruleDone::before {
+  background: var(--ja-navy);
+}
+
+/* Reached at this block's node: travelled above it, not below. */
+.ruleHere::before {
+  background: linear-gradient(
+    to bottom,
+    var(--ja-navy) var(--node-y),
+    var(--hairline-strong) var(--node-y)
+  );
+}
+
+/* The rule joins the first node to the last, and runs off neither end. */
+.ruleStart::before {
+  top: var(--node-y);
+}
+
+.ruleEnd::before {
+  bottom: calc(100% - var(--node-y));
+}
+
+/* ------------------------------------------------------------- chapter rows */
+
+/*
+ * The chapter in view is fenced off from the others by a thin, light rule
+ * above and below it. The rules start at the text column rather than the
+ * rail's edge, so they stop short of the timeline instead of crossing it; the
+ * first chapter has nothing above it and the last nothing below.
+ */
+.chapter {
+  --fence-out: 12px;
+  --fence-in: 12px;
+
+  position: relative;
+}
+
+.current:not(:first-child)::before,
+.current:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  left: calc(var(--col) + var(--gap));
+  height: 1px;
+  background: var(--hairline);
+}
+
+.current::before {
+  top: var(--fence-out);
+}
+
+.current::after {
+  bottom: var(--fence-out);
+}
+
+/*
+ * Space either side of each rule — outside, between it and the neighbouring
+ * chapter; inside, between it and the chapter's own content — so the chapter in
+ * view reads as its own block. All of it goes on the head (above) and the last
+ * step (below) rather than on the chapter, because those two draw the timeline
+ * and the rule has to run straight through the extra space. Under the title
+ * the head keeps only a little, so the title sits with its steps.
+ */
+.current .chapterHead {
+  --pad-top: calc(var(--fence-out) + var(--fence-in));
+  --pad-bottom: 4px;
+}
+
+.current:first-child .chapterHead {
+  --pad-top: 10px;
+}
+
+.current .step:last-child {
+  padding-bottom: calc(var(--fence-in) + var(--fence-out));
+}
+
+.current:last-child .step:last-child {
+  padding-bottom: var(--space-2);
+}
+
+.chapterHead {
+  --pad: 10px;
+  --pad-top: var(--pad);
+  --pad-bottom: var(--pad);
+  --node-y: calc(var(--pad-top) + var(--col) / 2);
+
+  display: grid;
+  grid-template-columns: var(--col) minmax(0, 1fr) auto;
+  gap: var(--gap);
+  align-items: center;
+  width: 100%;
+  padding: var(--pad-top) 0 var(--pad-bottom);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.chapterNode {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--col);
+  height: var(--col);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--ground);
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: 50%;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
+}
+
+.done .chapterNode {
+  color: var(--ja-navy);
+  border-color: var(--ja-navy);
+}
+
+.current .chapterNode {
+  color: var(--text-inverse);
+  background: var(--ja-navy);
+  border-color: var(--ja-navy);
+}
+
+.chapterHead:hover .chapterNode {
+  border-color: var(--ja-navy);
+}
+
+.chapterLabel {
+  font-family: var(--font-figure);
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--text-muted);
+  transition: color 160ms ease;
+}
+
+.chapterHead:hover .chapterLabel {
+  color: var(--text);
+}
+
+/* Open, the label is the section's title. */
+.current .chapterLabel {
+  font-size: clamp(1rem, 1.1vw, 1.125rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.chapterMeta {
+  font-size: 0.5625rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/*
+ * The open chapter's steps. Height animates with the 0fr → 1fr
+ * grid trick, so a chapter opening and the one before it shutting read as one
+ * movement along the timeline.
+ */
+.chapterBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 380ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 220ms ease;
+}
+
+.current .chapterBody {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows 380ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 280ms ease 100ms;
+}
+
+.chapterBodyInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------- steps */
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The space under a chapter's steps belongs to its last step, so that step's
+   stretch of the rule runs through it and meets the next chapter's node. */
+.step:last-child {
+  padding-bottom: var(--space-2);
+}
+
+.step {
+  --node-y: calc(8px + 9px);
+}
+
+.stepHead {
+  display: grid;
+  grid-template-columns: var(--col) minmax(0, 1fr) 12px;
+  gap: var(--gap);
+  align-items: start;
+  width: 100%;
+  padding: 8px 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* The step's node is smaller than a chapter's, centred in the same column. */
+.stepNodeCol {
+  display: flex;
+  justify-content: center;
+  padding-top: 1px;
+}
+
+.stepNode {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--ground);
+  border: 1.5px solid var(--hairline-strong);
+  border-radius: 50%;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
+}
+
+.stepHead:hover .stepNode {
+  border-color: var(--ja-navy);
+  color: var(--ja-navy);
+}
+
+.stepDone .stepNode {
+  color: var(--ja-navy);
+  border-color: var(--ja-navy);
+}
+
+.open .stepNode {
+  color: var(--text-inverse);
+  background: var(--ja-navy);
+  border-color: var(--ja-navy);
+}
+
+.stepTitle {
+  font-family: var(--font-figure);
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text-muted);
+  transition: color 160ms ease;
+}
+
+.stepHead:hover .stepTitle,
+.open .stepTitle {
+  color: var(--text);
+}
+
+/* A plus that loses its vertical stroke when the step opens. */
+.stepIcon {
+  position: relative;
+  align-self: start;
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  color: var(--text-faint);
+}
+
+.stepIcon::before,
+.stepIcon::after {
+  content: '';
+  position: absolute;
+  inset: 4px 0;
+  background: currentColor;
+  border-radius: 1px;
+  transition: transform 240ms ease, opacity 240ms ease;
+}
+
+.stepIcon::after {
+  transform: rotate(90deg);
+}
+
+.open .stepIcon::after {
+  transform: rotate(0deg);
+  opacity: 0;
+}
+
+.stepBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 340ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 220ms ease;
+}
+
+.open .stepBody {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows 340ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 260ms ease 80ms;
+}
+
+.stepBodyInner {
+  min-height: 0;
+  overflow: hidden;
+  /* Aligns the copy with the title, not the node. */
+  padding-left: calc(var(--col) + var(--gap));
+}
+
+.stepText {
+  margin: 0;
+  padding-bottom: var(--space-2);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* What the chart shows, between the copy and the chart. */
+.stepSubhead {
+  margin: 0 0 var(--space-1);
+  font-size: 0.7rem;
+  font-style: italic;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+.stepSource {
+  margin: 0;
+  padding-bottom: var(--space-1);
+  font-size: 0.625rem;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+.stepSource a {
+  color: var(--ja-navy);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Figures to read, not controls: nothing in a step's chart takes the pointer,
+   so hovering the rail never pops a readout or a tooltip. */
+.stepChart {
+  padding-bottom: var(--space-2);
+  pointer-events: none;
+}
+
+/*
+ * Short viewports, and the narrow rail of a pinned tablet: every chapter row
+ * should still fit beside the open one, so the rows and the step heads tighten
+ * and the step counts go.
+ */
+@media (max-height: 800px), (max-width: 899px) {
+  /* Figures scale down rather than push the timeline off the rail. Height-
+     capped with their aspect kept, so a chart gets narrower, not squashed. */
+  .stepChart :global(svg) {
+    width: auto;
+    max-width: 100%;
+    max-height: 112px;
+  }
+  .stepSubhead {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .chapterHead {
+    --pad: 5px;
+  }
+  .chapterMeta {
+    display: none;
+  }
+  .current .chapterLabel {
+    font-size: 1rem;
+  }
+  .step {
+    --node-y: calc(5px + 9px);
+  }
+  .chapter {
+    --fence-out: 8px;
+    --fence-in: 8px;
+  }
+  .stepHead {
+    padding: 5px 0;
+  }
+}
+
+/* Shorter still (a 13" laptop with the browser's own chrome): tighter again. */
+@media (max-height: 760px) {
+  .chapterHead {
+    --pad: 3px;
+  }
+  .current .chapterLabel {
+    font-size: 0.9375rem;
+  }
+  .stepText {
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ruleDone::before,
+  .ruleHere::before,
+  .ruleTodo::before,
+  .chapterNode,
+  .chapterLabel,
+  .chapterBody,
+  .current .chapterBody,
+  .stepNode,
+  .stepTitle,
+  .stepBody,
+  .open .stepBody,
+  .stepIcon::before,
+  .stepIcon::after {
+    transition: none;
+  }
+}

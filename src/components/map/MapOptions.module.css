@@ -1,0 +1,86 @@
+.root {
+  position: relative;
+  display: inline-block;
+}
+
+/* A quiet pill: secondary to the title it sits beside. */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.35rem 0.8rem;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.trigger:hover,
+.open {
+  background: var(--surface);
+  border-color: var(--ja-navy);
+}
+
+.label {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.caret {
+  width: 6px;
+  height: 6px;
+  margin-left: 1px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.open .caret {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  /* Opens leftward: the button sits at the stage's right edge. */
+  right: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 260px;
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-panel);
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.rowLabel {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret {
+    transition: none;
+  }
+}

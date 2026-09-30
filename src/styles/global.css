@@ -72,3 +72,15 @@ button {
   text-transform: uppercase;
   color: var(--text-muted);
 }
+
+/*
+ * The homepage story's scroll stops (see lib/useScrollSteps.js). Set on <html>
+ * only while the story is pinned, so no other page — and no narrow screen —
+ * ever snaps. Proximity rather than mandatory: the page around the story must
+ * still scroll freely, and mandatory would drag every stop-less stretch of it
+ * onto the nearest step.
+ */
+html.story-snap {
+  scroll-snap-type: y proximity;
+  scroll-padding-top: var(--header-height);
+}
