@@ -79,7 +79,8 @@ npm run build:data                              # geometry + counties
 | `snap_county_monthly` | SNAP enrolled, cases, age bands by county × month, Jan 2022 → latest (HHSC Excel to Aug 2025, then the PMAS Tableau export) |
 | `vulnerability_county` | d1–d4 scores/tiers/counts, composite, cumulative impact, newly-subject and non-citizen counts, 2026 projected population |
 | `snap_county` | Metro / Micro / Rural |
-| `navigator_county`, `chw_county_presence` | The two capacity registries that exist |
+| `../tool-data/capacity_county` | CMS navigator orgs, Community Partner Program sites (`infra.cpp` = levels 3–4, `cpp_sites_all`), DSHS certified-CHW ranges (`infra.chw` = band position, `chw_band` label, `meta.chw_bands`) |
+| `foodbank_county` (+ `../data-raw/capacity/tx_foodbanks.csv`) | Reporting food banks serving each county (`infra.food_bank`, drawn as a bar; null = no reporting bank) and the unique households they served (`foodbank_households`), and `meta.foodbank` — the period and N-of-M banks reporting that the app's titles quote |
 | `crosswalk_districts`, `acs_tract` | County/tract → TX House and Senate weights; tract population, for the weight check |
 
 Plus one input fetched here rather than in the R pipeline:
@@ -97,10 +98,15 @@ What the real data does **not** have, and how the page handles it:
 
 - **Domain MOEs** — `build_scores.R` does not produce them (§A1). `*_moe` is
   null and renders as "—".
-- **Food-bank and application-counselor registries** — not sourced. Those infra
-  counts are `null`, not 0; the map offers only navigator and CHW marks and names
-  the other two as "not yet sourced". The gap overlay is therefore "top-quintile
-  vulnerability, no CMS navigator" until the food-bank registry lands.
+- **Food banks** — partial: 4 of 21 member banks report (`meta.foodbank`).
+  Counties none of them covers are `null`, drawn grey, never 0. Kept out of the
+  per-10k capacity metric and the gap overlay, which stays "top-quintile
+  vulnerability, no CMS navigator" until the roster is complete.
+- **Certified CHWs** — DSHS publishes ranges, not counts (exact for the top
+  five). The bar draws the band; every label shows the range.
+- **capacity_county's food-bank copy** can lag `foodbank_county` (it did when the
+  East and West banks were added). The build reads food banks from
+  `foodbank_county` and warns until `build_capacity_county.R` is rerun.
 
 Statewide figures everywhere are the **sum of the 254 counties**; HHSC's
 call-center and state-office rows (~3,300 people) are excluded, matching the

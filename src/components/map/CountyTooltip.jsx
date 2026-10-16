@@ -30,6 +30,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
+  foodbankCoverage,
   layerBasis,
   layerByKey,
   SCORE_LAYERS,
@@ -110,6 +111,8 @@ export function buildLayerStats(counties) {
  * @property {[string, string]} window
  * @property {Measure} [measure] - Rate or count. Decides the unit of the three facts at the top.
  * @property {'enrollment' | 'work' | 'index'} [tooltipStats] - Which three facts to show. From the view's TooltipSpec.
+ * @property {import('../../types').FoodbankMeta} [foodbank] - statewide.meta.foodbank: the period and
+ *   bank coverage the food-bank figures quote, so no date is written into this panel.
  * @property {'pointer' | 'external'} origin - 'pointer' anchors the panel to the cursor. 'external' (search, rank list)
  *   anchors it beside the county's own shape on the hero map.
  */
@@ -123,6 +126,7 @@ export function CountyTooltip({
   window: win,
   measure = 'count',
   tooltipStats = 'enrollment',
+  foodbank,
   origin,
 }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -179,13 +183,17 @@ export function CountyTooltip({
 
   if (!county) return null;
 
+  const fbCoverage = foodbankCoverage(foodbank);
+  const fbHouseholds = county.foodbank_households;
+
   const anchor = countyAnchor ?? pos;
 
   // Flip at the viewport edge rather than letting the panel clip.
   const flipX = anchor.x + OFFSET + WIDTH > window.innerWidth;
   const left = Math.max(8, flipX ? anchor.x - OFFSET - WIDTH : anchor.x + OFFSET);
-  // The index view carries five scale rows and the assistance chart.
-  const estHeight = spec.domains ? 500 : 430;
+  // The index view carries five scale rows, four figures and the assistance
+  // chart.
+  const estHeight = spec.domains ? 520 : 400;
   const top = Math.max(
     8,
     anchor.y + OFFSET + estHeight > window.innerHeight
@@ -256,22 +264,16 @@ export function CountyTooltip({
         const l = layerByKey(layer);
         const value = county[scoreField(l.key)];
         const num = typeof value === 'number' ? value : null;
-        const rank = stats.rank[l.key]?.get(county.geoid);
         const isComposite = l.key === 'composite';
+        // No percentile or rank line (client direction 2026-10-16): the scale
+        // below already places the county, and "p26 · 226th" read as noise.
         return (
           <div className={`${styles.domain} ${styles.active}`}>
             <div className={styles.domainHead}>
               <span className={styles.domainLabel}>
                 {l.key.toUpperCase()} · {l.label}
               </span>
-              {num == null ? (
-                <span className={styles.domainUnavailable}>no data</span>
-              ) : (
-                <span className={`${styles.domainValue} tabular`}>
-                  {isComposite ? num.toFixed(2) : fmtPercentile(num)}
-                  {rank ? ` · ${ordinal(rank)} of ${stats.total}` : ''}
-                </span>
-              )}
+              {num == null && <span className={styles.domainUnavailable}>no data</span>}
             </div>
             <DomainScale
               layer={l.key}
@@ -297,8 +299,12 @@ export function CountyTooltip({
           ].map((l) => {
             const value = county[scoreField(l.key)];
             const num = typeof value === 'number' ? value : null;
-            const rank = stats.rank[l.key]?.get(county.geoid);
             const isComposite = l.key === 'composite';
+            /* No percentile or rank under each index (client direction
+               2026-10-16) — the scale beside it places the county. The
+               composite keeps its 0–4 score, the number the map is coloured
+               by; a missing value still says so. */
+            const valueLine = num == null ? 'no data' : isComposite ? num.toFixed(2) : null;
             return (
               <div
                 key={l.key}
@@ -306,13 +312,9 @@ export function CountyTooltip({
               >
                 <div className={styles.indexText}>
                   <div className={styles.indexLabel}>{l.label}</div>
-                  <div className={`${styles.indexValue} tabular`}>
-                    {num == null
-                      ? 'no data'
-                      : `${isComposite ? num.toFixed(2) : fmtPercentile(num)}${
-                          rank ? ` · ${ordinal(rank)} of ${stats.total}` : ''
-                        }`}
-                  </div>
+                  {valueLine && (
+                    <div className={`${styles.indexValue} tabular`}>{valueLine}</div>
+                  )}
                 </div>
                 <DomainScale
                   layer={l.key}
@@ -391,27 +393,24 @@ export function CountyTooltip({
         moves — a row that changes width as well as content reads as a different
         panel rather than the same one restated.
       */}
-      <div className={styles.stats}>
+      <div className={`${styles.stats} ${indexStats ? styles.statsQuad : ''}`}>
         {indexStats ? (
           <>
             {/* Raw headcounts on client direction 2026-10-16, whatever the
-                Rate/Count toggle says: the index is already the rate. */}
+                Rate/Count toggle says: the index is already the rate. Order on
+                client direction 2026-10-16: caseload now, its change, who the
+                requirement reaches, then food-bank help. Three count PEOPLE and
+                the food-bank one counts HOUSEHOLDS, so every figure names its
+                unit — side by side they would otherwise read as the same kind
+                of number. */}
             <div>
-              <div className={styles.statLabel}>Newly subject</div>
-              <div className={`${styles.statValue} tabular`}>
-                {fmtInt(county.newly_subject_persons)}
-              </div>
-            </div>
-            <div>
-              <div className={styles.statLabel} title={`Enrolled, ${fmtMonth(win[1])}`}>
-                On SNAP
-              </div>
+              <div className={styles.statLabel}>People on SNAP, {fmtMonth(win[1])}</div>
               <div className={`${styles.statValue} tabular`}>
                 {published.length ? fmtInt(end) : '—'}
               </div>
             </div>
             <div>
-              <div className={styles.statLabel}>Since {fmtMonth(win[0])}</div>
+              <div className={styles.statLabel}>Change since {fmtMonth(win[0])}</div>
               <div
                 className={`${styles.statValue} ${netLost > 0 ? styles.negative : ''} tabular`}
               >
@@ -421,6 +420,43 @@ export function CountyTooltip({
                     ? `−${fmtInt(netLost)}`
                     : `+${fmtInt(-netLost)}`}
               </div>
+              <div className={styles.statUnit}>people</div>
+            </div>
+            <div>
+              <div
+                className={styles.statLabel}
+                title="Modelled: SNAP recipients newly subject to the H.R. 1 work requirement"
+              >
+                Newly subject to work requirements
+              </div>
+              <div className={`${styles.statValue} tabular`}>
+                {fmtInt(county.newly_subject_persons)}
+              </div>
+              <div className={styles.statUnit}>people</div>
+            </div>
+            <div>
+              <div
+                className={styles.statLabel}
+                title={[
+                  'Unique households served by reporting food banks',
+                  fbCoverage.period,
+                  county.foodbank_banks?.join(', '),
+                  fbCoverage.banks,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              >
+                Households served by food banks
+              </div>
+              {/* null is "no reporting bank covers this county", not zero. */}
+              <div
+                className={`${styles.statValue} ${
+                  fbHouseholds == null ? styles.statMissing : ''
+                } tabular`}
+              >
+                {fbHouseholds == null ? 'No data yet' : fmtInt(fbHouseholds)}
+              </div>
+              <div className={styles.statUnit}>{fbCoverage.period}</div>
             </div>
           </>
         ) : workStats ? (
@@ -487,12 +523,13 @@ export function CountyTooltip({
 
       {/* Capacity is the index view's story — see ViewDef.tooltip.capacity.
           The same bars as the grid tiles, on the same scale. §L7 still
-          applies: unsourced registries show as n/a, never as a zero. */}
+          applies: unsourced is n/a, and a county no reporting food bank
+          covers is "no data", never a zero. */}
+      {/* No section title (2026-10-16): the bars' own labels say what they are. */}
       {spec.capacity && (
-        <>
-          <div className={styles.resourcesHead}>Listed assistance</div>
+        <div className={styles.capacity}>
           <InfraColumnChart county={county} max={stats.infraMax} />
-        </>
+        </div>
       )}
 
       {spec.chart === 'enrollment' && (
@@ -537,19 +574,4 @@ export function CountyTooltip({
       )}
     </div>
   );
-}
-
-function ordinal(n) {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
 }

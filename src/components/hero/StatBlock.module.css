@@ -4,7 +4,7 @@
 
 .value {
   font-family: var(--font-figure);
-  font-size: var(--step-3);
+  font-size: var(--text-3xl);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.02em;

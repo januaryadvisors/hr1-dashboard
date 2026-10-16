@@ -9,7 +9,7 @@
 .option {
   padding: 0.3rem 0.85rem;
   font-family: var(--font-display);
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-muted);
   background: none;
@@ -28,6 +28,29 @@
   background: var(--ja-navy);
 }
 
+.ink .active {
+  background: var(--ja-ink);
+}
+
+/* On the green header: a dark track, the selected option cream. */
+.onGreen {
+  background: rgba(0, 0, 0, 0.18);
+  border-color: transparent;
+}
+
+.onGreen .option {
+  color: var(--on-green-muted);
+}
+
+.onGreen .option:hover:not(.active):not(:disabled) {
+  color: var(--on-green);
+}
+
+.onGreen .active {
+  color: var(--ja-ink);
+  background: var(--on-green);
+}
+
 .option:disabled {
   color: var(--text-faint);
   cursor: not-allowed;
@@ -35,7 +58,7 @@
 
 .sm .option {
   padding: 0.2rem 0.6rem;
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
 }
 
 /* §8: the control stays visible but goes inert where it does not apply. */

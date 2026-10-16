@@ -57,10 +57,10 @@ export function LineChart({
   /*
    * The right margin is sized to the longest end label, not fixed. At 58 a
    * label like "Harris County" ran off the edge of the viewBox and was clipped;
-   * at ~5.2 units per character in the 9px display face it now always fits.
+   * at ~6.8 units per character in the 12px display face it now always fits.
    */
   const longest = series.reduce((n, s) => Math.max(n, s.label.length), 0);
-  const M = { top: 16, right: Math.max(24, Math.ceil(longest * 5.2) + 12), bottom: 22, left: 52 };
+  const M = { top: 16, right: Math.max(24, Math.ceil(longest * 6.8) + 12), bottom: 22, left: 58 };
 
   const all = series.flatMap((s) => s.values).filter((v) => v != null);
   if (!all.length || months.length < 2) return null;

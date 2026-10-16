@@ -57,7 +57,7 @@ export function IndexedLines({
    * label at all — a truncated figure still reads as a figure.
    */
   const longest = series.reduce((n, s) => Math.max(n, s.label.length), 0);
-  const M = { top: 16, right: Math.max(70, Math.ceil(longest * 5.4) + 46), bottom: 22, left: 40 };
+  const M = { top: 16, right: Math.max(70, Math.ceil(longest * 7) + 46), bottom: 22, left: 48 };
 
   const all = series.flatMap((s) => s.values).filter((v) => v != null);
   if (!all.length || months.length < 2) return null;

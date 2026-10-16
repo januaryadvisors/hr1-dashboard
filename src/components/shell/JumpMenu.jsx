@@ -1,11 +1,12 @@
 /**
- * <JumpMenu> — "Jump to" in the sticky header, for leaving the story quickly.
+ * <JumpMenu> — "Jump to", floating over the story, for leaving it quickly.
  *
  * The story is a long run of scroll stops, and proximity snapping makes it slow
  * to scroll out of on purpose. This is the fast way: every place on the page,
- * one click away, from anywhere on it. The button names where the reader is, so
- * it doubles as a "you are here". On the Map page it also holds the Map /
- * Insights switch, so the header carries one navigation control, not two.
+ * one click away. The button names where the reader is, so it doubles as a
+ * "you are here". It shows only while the story fills the viewport; above and
+ * below it the page scrolls freely and the header's Map / Insights switch is
+ * enough.
  *
  * A plain disclosure (button + list), not an ARIA menu: the items are
  * navigation, and a disclosure keeps normal Tab order without roving focus.
@@ -27,17 +28,21 @@ import styles from './JumpMenu.module.css';
 /**
  * @typedef {Object} JumpGroup
  * @property {string} [heading]
- * @property {'list' | 'row'} [layout] - 'row' sets the items side by side as pills, for a switch.
  * @property {JumpItem[]} items
  */
 
 /**
- * @param {{ groups: JumpGroup[], currentLabel: string }} props
+ * @param {{ groups: JumpGroup[], currentLabel: string, visible?: boolean }} props
  */
-export function JumpMenu({ groups, currentLabel }) {
+export function JumpMenu({ groups, currentLabel, visible = true }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const listId = useId();
+
+  // Leaving the story hides the button; don't leave its list hanging open.
+  useEffect(() => {
+    if (!visible) setOpen(false);
+  }, [visible]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -59,7 +64,11 @@ export function JumpMenu({ groups, currentLabel }) {
   }, [open]);
 
   return (
-    <div className={styles.root} ref={rootRef}>
+    <div
+      className={`${styles.root} ${visible ? styles.visible : ''}`}
+      ref={rootRef}
+      aria-hidden={visible ? undefined : true}
+    >
       <button
         type="button"
         className={`${styles.trigger} ${open ? styles.triggerOpen : ''}`}
@@ -76,7 +85,7 @@ export function JumpMenu({ groups, currentLabel }) {
         {groups.map((g, gi) => (
           <div key={g.heading ?? gi} className={styles.group}>
             {g.heading && <div className={styles.heading}>{g.heading}</div>}
-            <ul className={`${styles.list} ${g.layout === 'row' ? styles.row : ''}`}>
+            <ul className={styles.list}>
               {g.items.map((item) => (
                 <li key={item.key}>
                   <button

@@ -12,12 +12,17 @@
   border-radius: var(--radius);
 }
 
+/*
+ * Name on the left, geography switch and search pinned top right (2026-10-16).
+ * A grid, not a wrapping flex row: with wrap, a district's longer name and meta
+ * line pushed the picker onto its own row, so switching County → TX House moved
+ * the very control that had just been clicked.
+ */
 .topRow {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-4);
-  align-items: flex-end;
-  justify-content: space-between;
+  align-items: start;
 }
 
 .identity {
@@ -39,7 +44,7 @@
   flex: 0 0 auto;
   padding: 0.15rem 0.5rem;
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -68,7 +73,7 @@
   gap: var(--space-2);
   padding-top: var(--space-3);
   border-top: 1px solid var(--hairline);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   line-height: 1.55;
   color: var(--text-faint);
 }
@@ -90,10 +95,8 @@
 }
 
 .methodTitle {
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -108,7 +111,7 @@
 
 .name {
   font-family: var(--font-figure);
-  font-size: var(--step-2);
+  font-size: var(--text-2xl);
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -116,7 +119,7 @@
 
 .meta {
   margin-top: 2px;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-faint);
 }
 
@@ -126,7 +129,7 @@
   gap: var(--space-2);
   align-items: flex-end;
   /* Wide enough for the search below — see .search. */
-  flex: 0 1 360px;
+  width: 360px;
 }
 
 /* The picker right-aligns its children, so without a width the search shrank to
@@ -140,7 +143,7 @@
 }
 
 .clear {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--ja-navy);
   background: none;
   border: 0;
@@ -154,7 +157,7 @@
    it narrows, with the divider dropped at the start of each row. */
 .stats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3) 0;
   margin: 0;
   padding-top: var(--space-3);
@@ -182,28 +185,10 @@
   background: var(--hairline);
 }
 
+/* Narrow: four stats as two rows of two. */
 @container (max-width: 760px) {
   .stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .stat:nth-child(3n + 1) {
-    padding-left: 0;
-  }
-  .stat:nth-child(3n + 1)::before {
-    display: none;
-  }
-}
-
-@container (max-width: 480px) {
-  .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  /* Undo the three-column row starts, then set the two-column ones. */
-  .stat:nth-child(3n + 1) {
-    padding-left: var(--space-4);
-  }
-  .stat:nth-child(3n + 1)::before {
-    display: block;
   }
   .stat:nth-child(2n + 1) {
     padding-left: 0;
@@ -215,17 +200,15 @@
 
 .statLabel {
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .statValue {
   margin: 2px 0 0;
   font-family: var(--font-figure);
-  font-size: 1.375rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -246,7 +229,7 @@
 
 .compare {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--text-muted);
 }
@@ -259,9 +242,13 @@
   color: var(--text-faint);
 }
 
-@media (max-width: 720px) {
+/* Narrow: the picker goes under the name, full width. */
+@container (max-width: 640px) {
+  .topRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .picker {
-    flex: 1 1 100%;
+    width: auto;
     align-items: stretch;
   }
   .picker .search {

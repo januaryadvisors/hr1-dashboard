@@ -5,6 +5,15 @@
  * crosshairs, or a none-listed floor strip on a zero-inflated y axis; the
  * preset's concern corner is tinted and counted. Points scale by population.
  *
+ * MEDIAN-CENTRED AXES, 2026-10-16. Each axis runs from the 2nd to the 98th
+ * percentile with the Texas median at its midpoint, so the crosshair sits in the
+ * middle of the plot and the four quadrants are the same size. On a plain linear
+ * axis from zero the cloud bunched into one corner — most counties lost a
+ * similar share and a few lost far more — and the quadrants were unreadable.
+ * The two halves of an axis have different units per pixel as a result, so the
+ * ends and the median are labelled with their values; the few counties past
+ * the 2nd/98th percentiles sit on the edge, and the end labels say ≤ / ≥.
+ *
  * Hovering or pinning a county on the map highlights it here with a ring and a
  * label. The 254 base points are memoised into their own layer so a hover
  * repaints only the two-element highlight overlay, not the whole cloud — which
@@ -22,6 +31,23 @@ import styles from './charts.module.css';
  * @property {number} y
  * @property {number} weight - Drives radius.
  */
+
+/** Value at quantile `p` of an ascending array. */
+const quantile = (sorted, p) => sorted[Math.round((sorted.length - 1) * p)];
+
+/**
+ * A two-piece linear scale: lo → r0, mid → the midpoint of the range, hi → r1.
+ * Values outside [lo, hi] clamp to the ends.
+ */
+function pivotScale(lo, mid, hi, r0, r1) {
+  const rm = (r0 + r1) / 2;
+  return (v) => {
+    if (v <= mid) {
+      return mid > lo ? r0 + ((Math.max(v, lo) - lo) / (mid - lo)) * (rm - r0) : rm;
+    }
+    return hi > mid ? rm + ((Math.min(v, hi) - mid) / (hi - mid)) * (r1 - rm) : rm;
+  };
+}
 
 /**
  * @typedef {Object} Scales
@@ -58,21 +84,20 @@ export function ScatterChart({
   onHover,
   xLabel = 'Vulnerability percentile →',
   yLabel = 'Sites per 10k',
+  xFormat = String,
+  yFormat = String,
   quadrants = [],
   ySplit = 'median',
+  renderOverlay,
 }) {
   /*
- * Left margin carries the rotated y-axis label and NOTHING ELSE — this chart
- * draws no y tick values, so the gutter only has to fit one line of 8px type
- * turned on its side, plus a little air.
- *
- * It was 68, sized on the theory that a long caller-supplied name ("Share of
- * child caseload lost") needs room. It does not: rotating the label means a long
- * one grows DOWNWARD, not leftward, so the width it needs is the font's line
- * height either way. At 68 the label sat ~50px clear of the axis and the plot
- * read as a tall rectangle pushed to the right of its own frame.
- */
-const M = { top: 14, right: 18, bottom: 30, left: 34 };
+   * Left margin: the rotated y-axis name and, inboard of it, the y tick values.
+   * Top: the "Texas median" label over the vertical crosshair. Bottom: the x
+   * tick values and, under them, the x-axis name.
+   */
+  const M = { top: 26, right: 18, bottom: 48, left: 76 };
+  /** Inset from the axis lines, so a county clamped to an end is not drawn on the axis. */
+  const INSET = 10;
 
   /**
    * Height of the strip along the bottom that holds the zeros on a `ySplit:
@@ -84,32 +109,34 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
   /** Zeros ride in the strip's upper half; its lower half is left for the two corner labels. */
   const FLOOR_DOTS = 11;
 
-  const { scales, split } = useMemo(() => {
+  const { scales, split, ticks } = useMemo(() => {
     if (!points.length) {
       const id = (v) => v;
-      return { scales: { x: id, y: id, r: () => 0 }, split: splitQuadrants([], ySplit) };
+      return { scales: { x: id, y: id, r: () => 0 }, split: splitQuadrants([], ySplit), ticks: null };
     }
-    const xMax = Math.max(...points.map((p) => p.x)) || 1;
-    // Clip the y-axis at the 98th percentile so a single outlier does not flatten
-    // every other county onto the axis.
-    const ys = points.map((p) => p.y).sort((a, b) => a - b);
-    const positive = ys.filter((v) => v > 0);
-    const yMax =
-      ySplit === 'any'
-        ? Math.max(positive[Math.floor(positive.length * 0.98)] || 1, 1e-6)
-        : Math.max(ys[Math.floor(ys.length * 0.98)] || 1, 0.5);
-    const maxWeight = Math.max(...points.map((p) => p.weight)) || 1;
+    const split = splitQuadrants(points, ySplit);
     const bottom = height - M.bottom;
+    const asc = (arr) => [...arr].sort((a, b) => a - b);
+
+    const xs = asc(points.map((p) => p.x));
+    const xLo = Math.min(quantile(xs, 0.02), split.mx);
+    const xHi = Math.max(quantile(xs, 0.98), split.mx);
+
+    // On a floor-split axis only the listed (positive) values are scaled; the
+    // zeros ride in the strip below, which is where the crosshair is drawn.
+    const yVals = asc(points.map((p) => p.y).filter((v) => ySplit !== 'any' || v > 0));
+    const yMid = ySplit === 'any' ? (yVals.length ? quantile(yVals, 0.5) : 1) : split.my;
+    const yLo = yVals.length ? Math.min(quantile(yVals, 0.02), yMid) : 0;
+    const yHi = yVals.length ? Math.max(quantile(yVals, 0.98), yMid) : 1;
+
+    const x = pivotScale(xLo, split.mx, xHi, M.left + INSET, W - M.right - INSET);
+    const yPos = pivotScale(yLo, yMid, yHi, bottom - FLOOR - INSET, M.top + INSET);
+    const maxWeight = Math.max(...points.map((p) => p.weight)) || 1;
 
     return {
       scales: {
-        x: (v) => M.left + (v / xMax) * (W - M.left - M.right),
-        // On a floor-split axis zeros sit mid-strip and everything listed rises
-        // from the strip's top edge, which is where the crosshair is drawn.
-        y: (v) =>
-          FLOOR && v <= 0
-            ? bottom - FLOOR + FLOOR_DOTS
-            : bottom - FLOOR - (Math.min(v, yMax) / yMax) * (bottom - FLOOR - M.top),
+        x,
+        y: (v) => (FLOOR && v <= 0 ? bottom - FLOOR + FLOOR_DOTS : yPos(v)),
         /*
            Radii are PIXELS, not viewBox units — both callers now author their
            viewBox at the element's real size, so a 3px dot is 3px on screen.
@@ -118,7 +145,22 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
         */
         r: (w) => 3 + Math.sqrt(w / maxWeight) * 9,
       },
-      split: splitQuadrants(points, ySplit),
+      split,
+      // Ends get ≤ / ≥ only when some county actually lies past them.
+      ticks: {
+        x: [
+          { v: xLo, pre: xs[0] < xLo ? '≤ ' : '' },
+          { v: split.mx, pre: '' },
+          { v: xHi, pre: xs[xs.length - 1] > xHi ? '≥ ' : '' },
+        ],
+        y: yVals.length
+          ? [
+              { v: yLo, pre: yVals[0] < yLo ? '≤ ' : '' },
+              { v: yMid, pre: '' },
+              { v: yHi, pre: yVals[yVals.length - 1] > yHi ? '≥ ' : '' },
+            ]
+          : [],
+      },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points, W, height, ySplit]);
@@ -173,6 +215,7 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
   const active = byGeoid(hovered);
 
   return (
+    <>
     <svg
       className={styles.svg}
       viewBox={`0 0 ${W} ${height}`}
@@ -285,7 +328,55 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
         </g>
       )}
 
-      <text x={W - M.right} y={height - 6} textAnchor="end" className={styles.axisLabel}>
+      {/* Tick values: each axis's two ends and its median. A short tick on
+          the axis marks each one. */}
+      {ticks.x.map((t, i) => {
+        const tx = scales.x(t.v);
+        return (
+          <g key={`xt-${i}`}>
+            <line x1={tx} x2={tx} y1={height - M.bottom} y2={height - M.bottom + 4} className={styles.zeroLine} />
+            <text
+              x={tx}
+              y={height - M.bottom + 17}
+              textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}
+              className={i === 1 ? styles.tickMedian : styles.tick}
+            >
+              {t.pre}
+              {xFormat(t.v)}
+            </text>
+          </g>
+        );
+      })}
+      {ticks.y.map((t, i) => {
+        const ty = scales.y(t.v);
+        return (
+          <g key={`yt-${i}`}>
+            <line x1={M.left - 4} x2={M.left} y1={ty} y2={ty} className={styles.zeroLine} />
+            <text
+              x={M.left - 8}
+              y={ty + 4}
+              textAnchor="end"
+              className={i === 1 && ySplit !== 'any' ? styles.tickMedian : styles.tick}
+            >
+              {t.pre}
+              {yFormat(t.v)}
+            </text>
+          </g>
+        );
+      })}
+      {FLOOR > 0 && (
+        <text x={M.left - 8} y={height - M.bottom - FLOOR + FLOOR_DOTS + 4} textAnchor="end" className={styles.tick}>
+          None
+        </text>
+      )}
+
+      {/* Names the crosshair, so "the middle of the chart" reads as the Texas
+          median rather than as an arbitrary line. */}
+      <text x={scales.x(mx)} y={M.top - 9} textAnchor="middle" className={styles.medianLabel}>
+        Texas median
+      </text>
+
+      <text x={W - M.right} y={height - 8} textAnchor="end" className={styles.axisLabel}>
         {xLabel}
       </text>
       {/*
@@ -296,11 +387,23 @@ const M = { top: 14, right: 18, bottom: 30, left: 34 };
       */}
       <text
         className={styles.axisLabel}
-        transform={`translate(16 ${(M.top + height - M.bottom) / 2}) rotate(-90)`}
+        transform={`translate(14 ${(M.top + height - M.bottom) / 2}) rotate(-90)`}
         textAnchor="middle"
       >
         {yLabel}
       </text>
     </svg>
+    {/* HTML beside the active point — the tooltip. The viewBox is authored at
+        the slot's real pixels, so these coordinates are CSS pixels in it. */}
+    {active &&
+      renderOverlay?.({
+        geoid: active.geoid,
+        x: scales.x(active.x),
+        y: scales.y(active.y),
+        r: scales.r(active.weight),
+        width: W,
+        height,
+      })}
+    </>
   );
 }

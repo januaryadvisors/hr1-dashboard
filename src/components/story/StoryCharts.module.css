@@ -17,7 +17,7 @@
 .tick,
 .axisLabel {
   font-family: var(--font-body);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   fill: var(--text-faint);
 }
 
@@ -44,7 +44,7 @@
 
 .ruleLabel {
   font-family: var(--font-display);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   fill: var(--text-muted);
 }
@@ -57,20 +57,20 @@
 
 .markerNum {
   font-family: var(--font-display);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   fill: #fff;
 }
 
 .endNote {
   font-family: var(--font-display);
-  font-size: 9.5px;
+  font-size: var(--text-2xs);
   font-weight: 700;
 }
 
 .endLabel {
   font-family: var(--font-body);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   fill: var(--text-muted);
 }
 
@@ -83,7 +83,7 @@
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-3);
   margin-top: var(--space-1);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
@@ -127,7 +127,7 @@
 
 .baseLabel {
   font-family: var(--font-display);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   fill: var(--ja-ink);
 }
@@ -135,14 +135,14 @@
 /* Strips */
 .rowLabel {
   font-family: var(--font-display);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   fill: var(--text);
 }
 
 .rowSub {
   font-family: var(--font-body);
-  font-size: 8.5px;
+  font-size: var(--text-2xs);
   fill: var(--text-faint);
 }
 
@@ -159,7 +159,7 @@
 
 .medianLabel {
   font-family: var(--font-display);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   fill: var(--ja-ink);
 }
@@ -180,7 +180,7 @@
 
 .groupLabel {
   font-family: var(--font-display);
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 
@@ -202,60 +202,8 @@
 
 .groupValue {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
-}
-
-/* Stat bars */
-.statBars {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.statRow {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.statHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.statLabel {
-  font-family: var(--font-display);
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
-.statValue {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
-.statTrack {
-  display: block;
-  height: 7px;
-  background: #ddd6cc;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.statBar {
-  display: block;
-  height: 100%;
-  background: var(--ja-navy);
-  border-radius: 4px;
-}
-
-.statNote {
-  font-size: 0.6875rem;
-  color: var(--text-faint);
 }
 
 /* Year bars */
@@ -273,7 +221,7 @@
 
 .yearValue {
   font-family: var(--font-display);
-  font-size: 9.5px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   fill: var(--text);
 }
@@ -304,25 +252,25 @@
 .recipeName {
   flex: 1;
   font-family: var(--font-display);
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 
 .recipeCount {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-faint);
 }
 
 .recipeMeasures {
   margin: 1px 0 0;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--text-muted);
 }
 
 .recipeFormula {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   line-height: 1.45;
   color: var(--text);
 }

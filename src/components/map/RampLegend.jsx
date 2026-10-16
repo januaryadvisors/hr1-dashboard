@@ -63,7 +63,7 @@ export function RampLegend({
       </div>
       {counting && (
         <div className={styles.note}>
-          Equal-count bands: the same number of counties in every colour.
+          Each shade holds the same number of counties.
         </div>
       )}
     </div>

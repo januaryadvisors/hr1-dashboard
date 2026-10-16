@@ -50,7 +50,7 @@ export function FunnelPlot({
   viewWidth: W = 1000,
   onHover,
 }) {
-  const M = { top: 18, right: 18, bottom: 34, left: 50 };
+  const M = { top: 18, right: 18, bottom: 34, left: 58 };
   const { points, center } = data;
   if (!points.length) return null;
 
@@ -62,12 +62,26 @@ export function FunnelPlot({
 
   const pcts = points.map((p) => p.pct);
   const bandPcts = band.flatMap((b) => [b.lo, b.hi]);
-  const lo = Math.min(...pcts, ...bandPcts);
-  const hi = Math.max(...pcts, ...bandPcts);
+  /*
+     Minimum spans (2026-10-16). The axes fit the data, which is right for 254
+     counties — but 150 House districts all hold 6k–40k people and moved within
+     a few points of each other, so a fitted chart zoomed in until ordinary
+     spread looked dramatic. Never less than MIN_HALF_SPAN either side of the
+     Texas line, nor less than MIN_DECADES of caseload.
+  */
+  const MIN_HALF_SPAN = 0.15;
+  const MIN_DECADES = 2;
+  const lo = Math.min(...pcts, ...bandPcts, center - MIN_HALF_SPAN);
+  const hi = Math.max(...pcts, ...bandPcts, center + MIN_HALF_SPAN);
   const pad = (hi - lo) * 0.08 || 0.02;
 
-  const lx = Math.log10(minC);
-  const hx = Math.log10(maxC);
+  let lx = Math.log10(minC);
+  let hx = Math.log10(maxC);
+  if (hx - lx < MIN_DECADES) {
+    const mid = (lx + hx) / 2;
+    lx = Math.max(0, mid - MIN_DECADES / 2);
+    hx = lx + MIN_DECADES;
+  }
   const x = (c) =>
     M.left + ((Math.log10(Math.max(1, c)) - lx) / (hx - lx || 1)) * (W - M.left - M.right);
   const y = (v) =>

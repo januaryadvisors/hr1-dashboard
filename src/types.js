@@ -48,15 +48,17 @@
  * @typedef {'geo' | 'density'} MapStyle
  */
 /**
- * @typedef {'food_bank' | 'cms_navigator' | 'chw' | 'counselor'} InfraKey
+ * @typedef {'food_bank' | 'cms_navigator' | 'chw' | 'cpp'} InfraKey
  */
 
 /**
  * @typedef {Object} CountyInfra
- * @property {number | null} food_bank - null: Feeding Texas registry not supplied yet.
+ * @property {number | null} food_bank - Reporting Feeding Texas member banks that served at least one
+ *   household in the county. null: no reporting bank covers the county, not 0 (INFRA_TYPES.partial).
  * @property {number} cms_navigator - CMS 2025–26 navigator organisations serving the county.
- * @property {number} chw - DSHS CHW networks naming the county (Dec 2021 directory).
- * @property {number | null} counselor - null: CMS assister locator not pulled.
+ * @property {number} chw - Certified-CHW range as a band position in statewide meta.chw_bands (0 = none).
+ *   NOT a count — see County.chw_band.
+ * @property {number} cpp - HHSC Community Partner Program sites at levels 3–4 (application help).
  */
 
 /**
@@ -99,8 +101,14 @@
  *   Added 2026-09-10 for the Children view. NOT in the spec's §3.1 contract —
  *   see docs/SPEC-DEVIATIONS.md §A4. Built from HHSC's own county age columns
  *   (under 5 + 5–17), so it is observed, not apportioned.
- * @property {CountyInfra} infra - Organisations listed as serving the county. food_bank and counselor are
- *   null (registry not sourced), which is NOT the same as 0 — see INFRA_TYPES.
+ * @property {CountyInfra} infra - Help listed as serving the county. food_bank is null where no reporting
+ *   bank covers the county — NOT the same as 0.
+ * @property {string | null} chw_band - The certified-CHW range as DSHS publishes it, e.g. "11–100". null: none.
+ * @property {number | null} chw_exact - Exact certified-CHW count, where the report prints one (top five).
+ * @property {number} cpp_sites_all - Community Partner Program sites at every level.
+ * @property {number | null} foodbank_households - Unique households those banks served over meta.foodbank.period.
+ *   null where infra.food_bank is.
+ * @property {string[] | null} foodbank_banks - The banks behind infra.food_bank, by full name.
  * @property {boolean} is_gap - Top-quintile vulnerability and zero CMS navigators. The spec's food-bank clause
  *   waits on the registry. Precomputed.
  * @property {boolean} small_denominator - pop < 10,000. Drives dimming in rate view (§6.5).
@@ -120,9 +128,17 @@
 /**
  * statewide.json (§3.3). Everything the Insights page and brush need, precomputed.
  *
+ * @typedef {Object} FoodbankMeta - statewide.meta.foodbank, derived by build-county-data.mjs.
+ * @property {[string, string]} period - First and last month of the food-bank data, "YYYY-MM".
+ * @property {string[]} banks_reporting - Full names of the member banks that have reported.
+ * @property {number | null} banks_total - Texas member banks on the roster; null if the roster is absent.
+ * @property {number} counties_with_data - Counties at least one reporting bank covers.
+ */
+
+/**
  * @typedef {Object} Statewide
  * @property {boolean} [fixture]
- * @property {{ months: string[]; history_months: string[]; policy_start: string; latest: string; texas_population: number; grid: { cols: number; rows: number }; generated_from?: string; sources?: string[]; notes?: string[]; }} meta
+ * @property {{ months: string[]; history_months: string[]; policy_start: string; latest: string; texas_population: number; grid: { cols: number; rows: number }; trend_window: [string, string]; foodbank: FoodbankMeta; chw_bands: string[]; generated_from?: string; sources?: string[]; notes?: string[]; }} meta
  * @property {number[]} enrolled
  * @property {(number | null)[]} monthly_change
  * @property {number[]} participation_share

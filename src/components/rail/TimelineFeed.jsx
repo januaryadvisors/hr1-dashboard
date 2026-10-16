@@ -22,7 +22,7 @@ import { useMemo, useState } from 'react';
  * @typedef {import('../../data/timeline').BulletinTag} BulletinTag
  * @typedef {import('../../data/timeline').TimelineContent} TimelineContent
  */
-import { fmtMonth } from '../../lib/format';
+import { fmtMonthFull } from '../../lib/format';
 import styles from './TimelineFeed.module.css';
 
 /**
@@ -44,11 +44,20 @@ const FILTERS = [
   },
 ];
 
-/** "2026-08-14" → "14 AUG 2026"; falls back to the month when no day is known. */
-function stamp(item) {
-  if (!item.date) return fmtMonth(item.month);
-  const [, , day] = item.date.split('-');
-  return `${Number(day)} ${fmtMonth(item.month)}`;
+/** "2026-08-14" → "14"; a dash when only the month is known. */
+function day(item) {
+  return item.date ? String(Number(item.date.split('-')[2])) : '–';
+}
+
+/** Consecutive items grouped by month. The feed is already newest first. */
+function byMonth(items) {
+  const groups = [];
+  for (const item of items) {
+    const last = groups[groups.length - 1];
+    if (last?.month === item.month) last.items.push(item);
+    else groups.push({ month: item.month, items: [item] });
+  }
+  return groups;
 }
 
 export function TimelineFeed({ content, window: win }) {
@@ -78,17 +87,15 @@ export function TimelineFeed({ content, window: win }) {
   return (
     <div className={styles.root}>
       <div className={styles.feedWrap}>
-        <div className={styles.feedHead}>
-          <span className="eyebrow">Texas Works policy updates</span>
-          <a
-            className={styles.sourceLink}
-            href={SOURCE_URL}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            HHS source ↗
-          </a>
-        </div>
+        <h3 className={styles.feedTitle}>Policy updates</h3>
+        <a
+          className={styles.sourceLink}
+          href={SOURCE_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          HHSC source ↗
+        </a>
 
         {content.feed.length > 0 && (
           <div className={styles.filters} role="group" aria-label="Filter policy updates">
@@ -116,44 +123,51 @@ export function TimelineFeed({ content, window: win }) {
           <p className={styles.empty}>No bulletins match that filter.</p>
         ) : (
           <ol className={styles.feed}>
-            {shown.map((item) => {
-              const inWindow = item.month >= win[0] && item.month <= win[1];
-              const isRevision = item.source?.includes('quarterly');
-              return (
-                <li
-                  key={`${item.number ?? item.month}-${item.url ?? item.title}`}
-                  className={`${styles.item} ${inWindow ? styles.inWindow : ''}`}
-                >
-                  <span className={styles.stamp}>{stamp(item)}</span>
-                  <div className={styles.marker}>
-                    {item.url ? (
-                      <a
-                        className={styles.itemLink}
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        // The visible title is short; spell it out for screen readers.
-                        title={item.body}
+            {byMonth(shown).map((group) => (
+              <li key={group.month} className={styles.group}>
+                <h4 className={styles.groupHead}>{fmtMonthFull(group.month)}</h4>
+                <ol className={styles.groupList}>
+                  {group.items.map((item) => {
+                    const inWindow = item.month >= win[0] && item.month <= win[1];
+                    const isRevision = item.source?.includes('quarterly');
+                    return (
+                      <li
+                        key={`${item.number ?? item.month}-${item.url ?? item.title}`}
+                        className={`${styles.item} ${inWindow ? styles.inWindow : ''}`}
                       >
-                        <span className={styles.itemTitle}>
-                          {item.title}
-                          {isRevision && <span className={styles.tag}>revision</span>}
-                          <span className={styles.arrow} aria-hidden="true">
-                            ↗
-                          </span>
-                        </span>
-                        <span className={styles.itemBody}>{item.body}</span>
-                      </a>
-                    ) : (
-                      <>
-                        <span className={styles.itemTitle}>{item.title}</span>
-                        <span className={styles.itemBody}>{item.body}</span>
-                      </>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
+                        <span className={`${styles.day} tabular`}>{day(item)}</span>
+                        <div className={styles.itemMain}>
+                          {item.url ? (
+                            <a
+                              className={styles.itemLink}
+                              href={item.url}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              // The visible title is short; spell it out for screen readers.
+                              title={item.body}
+                            >
+                              <span className={styles.itemTitle}>
+                                {item.title}
+                                {isRevision && <span className={styles.tag}>revision</span>}
+                                <span className={styles.arrow} aria-hidden="true">
+                                  ↗
+                                </span>
+                              </span>
+                              <span className={styles.itemBody}>{item.body}</span>
+                            </a>
+                          ) : (
+                            <div title={item.body}>
+                              <span className={styles.itemTitle}>{item.title}</span>
+                              <span className={styles.itemBody}>{item.body}</span>
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </li>
+            ))}
           </ol>
         )}
 

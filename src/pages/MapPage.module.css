@@ -31,8 +31,22 @@
  * grid. Contrast of every foreground on this green is verified in tokens.css.
  */
 .heroBand {
+  /* The upper plane: above the story, casting a soft shadow down onto it. */
+  position: relative;
+  z-index: 2;
   background: var(--ft-green);
   color: var(--on-green);
+  box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.45);
+}
+
+/*
+ * PARALLAX, 2026-10-16. The story's stage starts 100px up under the band and
+ * slides out more slowly than the page scrolls (--under-shift, set in
+ * MapPage), arriving at zero as the stage pins. The band itself never moves
+ * or fades.
+ */
+.story > .stage {
+  transform: translate3d(0, var(--under-shift, 0px), 0);
 }
 
 /*
@@ -87,7 +101,8 @@
   grid-template-columns: minmax(0, 1fr) var(--col-side);
   column-gap: 0;
   row-gap: var(--col-gap);
-  /* start, not stretch: a stretched grid item cannot be sticky. */
+  /* start, not stretch, so the main column keeps its own height; the rail
+     stretches itself (see .rail). */
   align-items: start;
 
   max-width: 1680px;
@@ -98,8 +113,9 @@
      their own top padding, and the rail carries its own — so the grounds meet
      the band with no stripe of page colour between them.
   */
-  padding-top: 0;
-  padding-bottom: var(--space-5);
+  /* No bottom padding either: the last section's band and the rail's ground
+     both run to the foot of the page, with no strip of page colour beneath. */
+  padding-block: 0;
   padding-inline: clamp(var(--space-5), 5vw, 5rem);
   min-width: 0;
 }
@@ -123,10 +139,8 @@
 .heroNumberRow {
   display: flex;
   flex-wrap: wrap;
-  /* `last baseline` puts the phrase's FINAL line on the number's baseline, so the
-     two sit on one line at the bottom instead of aligning at the phrase's top. */
   align-items: last baseline;
-  gap: var(--space-4);
+  gap: var(--space-2) var(--space-4);
 }
 
 .heroNumber {
@@ -147,8 +161,10 @@
 }
 
 .heroPhrase {
-  /* Narrow on purpose: at 22ch this set as one long line plus an orphan. */
-  max-width: 13ch;
+  /* Its own line under the number, the column's full width (2026-10-16
+     direction) — beside the number it set as three short lines. */
+  flex: 1 1 100%;
+  max-width: none;
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.25;
@@ -162,34 +178,38 @@
   flex-wrap: wrap;
   gap: var(--space-3) var(--space-5);
   align-items: center;
-  justify-content: space-between;
+  margin-bottom: var(--space-3);
 }
 
 .heroBody {
-  flex: 1 1 34ch;
-  max-width: 66ch;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  color: var(--on-green-muted);
+  margin: 0;
+  max-width: 56ch;
+  font-size: var(--text-md);
+  line-height: 1.6;
+  color: var(--on-green);
 }
 
-/* Cream pill on the green, per the comp. Green-on-cream is 8.62:1. */
+/* Outlined pill on the green, per the 2026-10-16 comp; fills cream on hover. */
 .download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   flex: 0 0 auto;
   padding: 0.5rem 1.1rem;
   font-family: var(--font-display);
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--ft-green);
-  background: var(--on-green);
-  border: 1px solid var(--on-green);
+  color: var(--on-green);
+  background: transparent;
+  border: 1px solid var(--on-green-muted);
   border-radius: var(--radius-pill);
   cursor: pointer;
 }
 
 .download:hover {
-  background: transparent;
-  color: var(--on-green);
+  color: var(--ft-green);
+  background: var(--on-green);
+  border-color: var(--on-green);
 }
 
 .panel {
@@ -204,19 +224,31 @@
  * Map options button at its right. Set like a section title: it names what the
  * whole stage is showing.
  */
+/* Map options hangs from the top of the title's capitals, not its centre — see
+   .stageHead > :last-child. */
 .stageHead {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
   min-width: 0;
 }
 
+/* The title's capitals start ~10px below its line box at 36px with a 44px line
+   (measured, pinned and unpinned alike), so the button drops by that much to
+   share their top edge. */
+.stageHead > :last-child {
+  flex: 0 0 auto;
+  margin-top: 10px;
+}
+
+/* Same size as the section titles below it — down from the comps' 44px on
+   client direction 2026-10-16. */
 .stageTitle {
   flex: 1;
   min-width: 0;
   font-family: var(--font-figure);
-  font-size: clamp(1.75rem, 2.4vw, 2.5rem);
+  font-size: clamp(1.75rem, 2.6vw, var(--text-title));
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.025em;
@@ -226,7 +258,7 @@
 .panelCopy {
   max-width: 80ch;
   margin-bottom: var(--space-3);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   line-height: 1.4;
   color: var(--text-muted);
 }
@@ -268,7 +300,7 @@
   align-items: center;
   padding-top: var(--space-3);
   border-top: 1px solid var(--hairline);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
@@ -287,7 +319,7 @@
 /* §6.6: this line is not optional and does not shrink. */
 .presenceNote {
   width: 100%;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-faint);
   text-align: right;
 }
@@ -318,21 +350,15 @@
  * pseudo-element, because `overflow: hidden` above would clip a pseudo-element.
  * `.root` carries `overflow-x: clip`, so the overhang cannot scroll the page.
  */
+/*
+ * The rail is two boxes (2026-10-16). The aside stretches to the full height of
+ * the page grid, so its ground runs from the green band to the bottom of the
+ * page beside every section — as a sticky box it was only as tall as the
+ * viewport, and ended short of the last section with bare page below it.
+ * .railInner, inside it, is what sticks.
+ */
 .rail {
-  position: sticky;
-  /*
-     Flush to the header and flush to the bottom of the viewport.
-     There used to be a --space-4 offset here and a --space-6 deduction from the
-     height, which put a stripe of page ground above and below the rail's own
-     ground the moment the page scrolled — the column looked like it was floating
-     in the gutter rather than running the height of the page. The rail's inner
-     padding does the spacing instead.
-  */
-  top: var(--header-height);
-  max-height: calc(100vh - var(--header-height));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  align-self: stretch;
   min-width: 0;
 
   background: var(--ft-tan-alt);
@@ -345,13 +371,28 @@
      barely visible. Drop it and the columns merge on every other section.
   */
   border-left: 1px solid var(--hairline);
-  padding: var(--space-5) var(--space-4) var(--space-4);
+  padding-inline: var(--space-4);
   /* Replaces the grid gap this column used to sit behind, so the rail's ground
      starts at the main column's edge but its content does not. */
   padding-left: var(--space-6);
   /* Mirrors .page's own inline padding, so the ground reaches the viewport. */
   margin-right: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
   padding-right: clamp(var(--space-5), 5vw, 5rem);
+}
+
+/*
+ * Flush to the header and flush to the bottom of the viewport, so the feed's
+ * own scroll region takes exactly the height that is left. Vertical padding
+ * lives here rather than on the aside, so it travels with the stuck content.
+ */
+.railInner {
+  position: sticky;
+  top: var(--header-height);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--header-height));
+  overflow: hidden;
+  padding: var(--space-5) 0 var(--space-4);
 }
 
 /*
@@ -407,27 +448,27 @@
   gap: var(--space-3);
 }
 
+/* Level 2 of the shared reading order — see tokens.css. */
 .blockTitle {
-  font-family: var(--font-display);
-  font-size: 0.5625rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+  font-family: var(--font-figure);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
 }
 
 .blockNote {
   margin-top: var(--space-2);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--text-muted);
 }
 
-/* The two overlay switches, sitting under the shortlist they belong with. */
+/* The two overlay switches, in the Map options popover. Full width, because
+   the popover's rows otherwise shrink to their content. */
 .overlayRows {
-  margin-top: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--hairline);
+  align-self: stretch;
+  max-width: 300px;
 }
 
 .railCard {
@@ -440,10 +481,8 @@
 .railTitle {
   margin-bottom: var(--space-3);
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-xl);
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -463,7 +502,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: 0.1rem 0.4rem;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   background: var(--surface-warm);
   border-radius: 3px;
 }
@@ -483,11 +522,11 @@
   gap: var(--space-2);
   align-items: center;
   padding: 0.25rem 0;
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
 }
 
 .countyCount {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-faint);
 }
 
@@ -499,7 +538,7 @@
 }
 
 .selectAll {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--ja-navy);
   background: none;
   border: 0;
@@ -520,14 +559,14 @@
 }
 
 .switchLabel {
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 
 /* §6.8 M-08: the definition is the control's label, not a tooltip. */
 .switchDef {
   grid-column: 1 / -1;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
@@ -563,14 +602,14 @@
 
 .railFootnote {
   margin-top: var(--space-2);
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   line-height: 1.4;
   color: var(--text-faint);
 }
 
 .railSubhead {
   margin-bottom: var(--space-2);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--text-muted);
 }
@@ -582,47 +621,29 @@
 }
 
 /*
- * Section 03: the scatter, with its controls and readout in the column beside
- * it. The panel replaced a floating tooltip — see <ScatterPanel>.
- *
- * FIXED HEIGHT, 2026-09-11 direction. The readout below the axis pickers is
- * empty until a county is hovered, so the card used to grow by ~200px the moment
- * the pointer touched a point — which moved the chart under the pointer and
- * shoved the next section down the page. The row now stands at its tallest state
- * always and hovering only fills the space that was already reserved; see
- * .readout in ScatterPanel.module.css for the reservation itself.
- *
- * The height is the chart's: --capacity-h caps the plot, the panel reserves the
- * same, so neither side can drive the card taller than the other.
+ * Section 03: the scatter, its title and controls above it — horizontal since
+ * 2026-10-16, see <ScatterPanel>. A county's readout is a tooltip beside its
+ * point (<ScatterTooltip>), laid over the chart, so hovering never changes the
+ * card's height or moves the chart under the pointer.
  */
 .capacityRow {
-  /*
-     Sized to the TALLEST readout, not to a round number: county name, FIPS
-     line, both axis rows, the enrollment sparkline and both flags. Measured at
-     313px of readout plus the axis form above it. Reserve less and the readout
-     scrolls, which is the same problem as the card growing, just quieter.
-  */
-  --capacity-h: 540px;
+  --capacity-h: 460px;
 
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--side-panel);
-  gap: var(--space-4);
-  align-items: stretch;
-  padding: var(--space-4);
+  padding: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
 }
 
 /*
- * The scatter's slot: full width of its grid track, full height of the card.
+ * The scatter's slot: the card's full width, a fixed height.
  *
- * An explicit height rather than the grid's stretch, because <ScatterChart> is
- * authored at this element's measured pixel size — if the SVG inside could
- * influence the height, the ResizeObserver and the layout would chase each
- * other. This height is definite and set from the same token the panel uses.
+ * An explicit height because <ScatterChart> is authored at this element's
+ * measured pixel size — if the SVG inside could influence the height, the
+ * ResizeObserver and the layout would chase each other.
  */
 .capacityChart {
+  position: relative;
   min-width: 0;
   height: var(--capacity-h);
 }
@@ -633,23 +654,6 @@
   display: block;
   width: 100%;
   height: 100%;
-}
-
-/*
- * A FIXED height, not a minimum.
- *
- * `min-height` was the first attempt and it does not work: the readout's content
- * still pushes the panel past it, so hovering a point grew the card by ~127px
- * and shoved the next section down the page. A definite height is what lets
- * .readout inside resolve `flex: 1` against something and clamp.
- */
-.capacityPanel {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  height: var(--capacity-h);
-  padding-left: var(--space-4);
-  border-left: 1px solid var(--hairline);
 }
 
 /*
@@ -692,6 +696,10 @@
    for the story's fractional top — so the last stop still has the stage
    pinned rather than a fraction of a pixel into its release. */
 .storyPinned {
+  /* The shortlist beside the map gives up 48px, which the map — width-bound on
+     a laptop — takes (2026-10-16). Narrower still on tablets, below. */
+  --side-panel: 240px;
+
   height: calc(var(--stage-h) + (var(--story-steps) - 1) * var(--step-h) + 2px);
 }
 
@@ -711,6 +719,25 @@
   top: var(--header-height);
   z-index: 1;
   height: var(--stage-h);
+}
+
+/*
+ * DREAM EDGE — experimental, 2026-10-16. A faint white glow just inside the
+ * pinned stage's edges, so the story reads as a window you are looking into
+ * rather than more page. Barely there on purpose.
+ *
+ * To turn it off: set DREAM_EDGE to false at the top of MapPage.jsx. To remove
+ * it: delete this rule and the DREAM_EDGE constant and its one use.
+ */
+.dreamEdge.storyPinned .stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    inset 0 0 64px 14px rgba(255, 255, 255, 0.65);
 }
 
 .stageMain {
@@ -793,6 +820,21 @@
   padding-right: clamp(var(--space-5), 5vw, 5rem);
 }
 
+/*
+ * Flush to the header and flush to the bottom of the viewport, so the feed's
+ * own scroll region takes exactly the height that is left. Vertical padding
+ * lives here rather than on the aside, so it travels with the stuck content.
+ */
+.railInner {
+  position: sticky;
+  top: var(--header-height);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--header-height));
+  overflow: hidden;
+  padding: var(--space-5) 0 var(--space-4);
+}
+
 /* Pinned, a step whose chart runs past a short viewport scrolls the rail rather
    than being cut off. At usual heights nothing overflows and wheel events pass
    straight through to the page. */
@@ -854,22 +896,33 @@
 /* Rem, not em: the title's font shrinks to fit (useFitText) and the slot must
    not shrink with it. The ellipsis is only a backstop below the fit's floor. */
 .storyPinned .stageTitle {
-  height: 3rem;
+  height: 2.75rem;
   overflow: hidden;
-  line-height: 3rem;
+  line-height: 2.75rem;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .storyPinned .mapCol {
+  position: relative;
   height: 100%;
   min-height: 0;
 }
 
+/*
+ * The key floats in the map's empty top-right corner — east of the Panhandle,
+ * north of the Red River, where Texas has no counties — rather than taking a
+ * row above the map (2026-10-16). The map is width-bound on most laptops, so
+ * the height a row cost bought nothing there and shrank it on short screens.
+ * Still a fixed slot, so the map never moves between steps.
+ */
 .storyPinned .mapHead {
-  --legend-h: 72px;
+  --legend-h: 88px;
 
-  flex: 0 0 auto;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
   height: var(--legend-h);
 }
 
@@ -909,56 +962,25 @@
   flex-direction: column;
 }
 
-.storyExit {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin-top: auto;
-  padding-top: var(--space-3);
-}
-
-.exitButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35em;
-  padding: 0.35rem 0.8rem;
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  background: none;
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-}
-
 /*
  * Short viewports: the timeline should fit beside the open step without the
- * rail scrolling, so the rail gives up a little everywhere it can. The exits
- * shrink, and the SNAP chart drops its own title — the step title above it
- * already says what it shows.
+ * rail scrolling, so the rail gives up a little everywhere it can, and the
+ * SNAP chart drops its own title — the step title above it already says what
+ * it shows.
  */
 @media (max-height: 800px), (max-width: 899px) {
-  .storyExit {
-    padding-top: var(--space-2);
-  }
-  .exitButton {
-    padding-block: 0.2rem;
-  }
   .storySnapTrend h3 {
     display: none;
   }
   .storyPinned .storyRail {
     padding-top: var(--space-4);
-    padding-bottom: var(--space-2);
   }
 }
 
-.exitButton:hover {
-  color: var(--ja-navy);
-  border-color: var(--ja-navy);
-  background: var(--surface);
+/* Room at the foot of the pinned rail for the floating Jump to button, which
+   sits over its bottom-right corner — see <JumpMenu>. */
+.storyPinned .storyRail {
+  padding-bottom: calc(var(--space-5) + 44px);
 }
 
 /* The SNAP chart was styled as the top of the page rail; inside a step it is
@@ -985,7 +1007,7 @@
 /* The numbered markers' key, under the enrollment chart. */
 .figureKey {
   margin: var(--space-1) 0 0;
-  font-size: 0.6875rem;
+  font-size: var(--text-2xs);
   font-style: italic;
   line-height: 1.25;
   color: var(--text-muted);
@@ -997,7 +1019,7 @@
   justify-content: center;
   width: 14px;
   height: 14px;
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   color: #fff;
   background: var(--ja-ink);
   border-radius: 50%;
@@ -1021,14 +1043,6 @@
   scroll-snap-align: start;
   /* A hard flick stops at the next step rather than skipping several. */
   scroll-snap-stop: always;
-}
-
-/* A narrower control column on a narrow pinned stage, so the map keeps the
-   width it needs to read. */
-@media (max-width: 1279px) {
-  .storyPinned {
-    --side-panel: 240px;
-  }
 }
 
 /*
@@ -1105,14 +1119,14 @@
 /* Two lines, as on a portrait tablet, a size down. */
 .storyPhone .stageTitle {
   height: 3.6rem;
-  font-size: 1.5rem;
+  font-size: var(--text-xl);
   line-height: 1.8rem;
 }
 
 /* Taller than on desktop: at phone width the count key's note wraps to two
    lines, and the slot has to hold the tallest key in full. */
 .storyPhone .mapHead {
-  --legend-h: 84px;
+  --legend-h: 100px;
 }
 
 /* In the sheet, the shortlist is the sheet's content, not a column. */
@@ -1160,20 +1174,8 @@
 /* The inner splits give up first: below this the map and the scatter take the
    full main column and their panels go underneath. */
 @media (max-width: 1199px) {
-  .capacityRow {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  /* Stacked, the panel is under the chart rather than beside it, so the slot can
-     be shorter and the panel can take the height it needs. */
   .capacityChart {
-    height: 320px;
-  }
-  .capacityPanel {
-    height: auto;
-    padding-left: 0;
-    padding-top: var(--space-3);
-    border-left: 0;
-    border-top: 1px solid var(--hairline);
+    height: 360px;
   }
   .mapBody {
     grid-template-columns: minmax(0, 1fr);
@@ -1208,10 +1210,12 @@
   }
   /* No longer beside anything: it stops sticking, and the rightward bleed
      becomes a bleed to both edges with the divider on top. */
-  .rail {
+  .railInner {
     position: static;
     max-height: none;
     overflow: visible;
+  }
+  .rail {
     border-left: 0;
     border-top: 1px solid var(--hairline);
     margin-inline: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
@@ -1236,14 +1240,14 @@
      beside a number that now takes the whole width. */
   .heroPhrase {
     max-width: none;
-    font-size: 1.125rem;
+    font-size: var(--text-lg);
   }
   .heroBodyRow > .download {
     width: 100%;
-    text-align: center;
+    justify-content: center;
   }
   .capacityRow {
-    gap: var(--space-3);
+    padding: var(--space-4);
   }
 }
 

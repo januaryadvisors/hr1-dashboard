@@ -15,8 +15,19 @@
 //   vulnerability_county.parquet  build_scores.R output: d1–d4, tiers, counts,
 //                                 composite, cumulative impact, 2026 projected pop.
 //   snap_county.parquet           county_type (Metro / Micro / Rural).
-//   navigator_county.parquet      CMS navigator orgs serving each county.
-//   chw_county_presence.parquet   DSHS CHW networks naming each county (Dec 2021).
+//   foodbank_county.parquet       Feeding Texas member banks: unique households
+//                                 served per county, per bank, over the period its
+//                                 data_period names. Partial bank coverage. The
+//                                 food-bank source of truth: capacity_county's
+//                                 copy lags it (see the staleness check below).
+//
+// Plus, beside data-clean:
+//   ../tool-data/capacity_county.parquet  build_capacity_county.R: every capacity
+//                                 registry in one row per county. Read for CMS
+//                                 navigator orgs, CPP sites by level and DSHS
+//                                 certified-CHW ranges.
+//   ../data-raw/capacity/tx_foodbanks.csv  the full roster of Texas member food
+//                                 banks, the denominator of "N of M reporting".
 //   crosswalk_districts.parquet   county and tract -> TX House / TX Senate, block
 //                                 population weights (helpers/crosswalk.R).
 //   acs_tract.parquet             ACS 2020-24 by tract; low-income and total
@@ -40,12 +51,11 @@ import { parquetReadObjects } from 'hyparquet';
 import { compressors } from 'hyparquet-compressors';
 import { feature } from 'topojson-client';
 import { geoCentroid } from 'd3-geo';
-import { buildFunnel } from '../src/lib/insights.js';
+import { buildFunnel, countyTrends, excessDecline } from '../src/lib/insights.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const FT_DATA = resolve(ROOT, process.env.FT_DATA ?? '../feeding-texas-hr1/data-clean');
 const GEOMETRY = resolve(ROOT, 'public/data/geometry.json');
-const TIMELINE = resolve(ROOT, 'public/data/timeline.json');
 
 /** HR1/OBBBA signed 4 Jul 2025; July is the pre-decline baseline (spec §6.1). */
 const POLICY_START = '2025-07';
@@ -103,12 +113,12 @@ const byGeoid = (rows, label) => {
   return map;
 };
 
-const [monthly, vuln, snapCounty, navigator, chw, crosswalk, acsTract] = await Promise.all([
+const [monthly, vuln, snapCounty, capacity, foodbank, crosswalk, acsTract] = await Promise.all([
   readParquet('snap_county_monthly.parquet'),
   readParquet('vulnerability_county.parquet'),
   readParquet('snap_county.parquet'),
-  readParquet('navigator_county.parquet'),
-  readParquet('chw_county_presence.parquet'),
+  readParquet('../tool-data/capacity_county.parquet'),
+  readParquet('foodbank_county.parquet'),
   readParquet('crosswalk_districts.parquet'),
   readParquet('acs_tract.parquet'),
 ]);
@@ -129,17 +139,81 @@ if (GEOIDS.length !== 254) fail(`geometry has ${GEOIDS.length} counties, expecte
 
 const VULN = byGeoid(vuln, 'vulnerability_county');
 const TYPE = byGeoid(snapCounty, 'snap_county');
-const NAV = byGeoid(navigator, 'navigator_county');
-const CHW = byGeoid(chw, 'chw_county_presence');
+const CAPACITY = byGeoid(capacity, 'capacity_county');
+const FOODBANK = byGeoid(foodbank, 'foodbank_county');
+
+/*
+   Food-bank coverage, for every title that quotes it — derived here so no
+   period or bank count is written into the app. The R pipeline names banks by
+   slug in its unique_hh_<slug> columns; the roster gives their full names.
+*/
+const FOODBANK_NAMES = {
+  CTFB: 'Central Texas Food Bank',
+  NTFB: 'North Texas Food Bank',
+  East: 'East Texas Food Bank',
+  West: 'West Texas Food Bank',
+};
+const FOODBANK_SLUGS = Object.keys(foodbank[0])
+  .filter((k) => k.startsWith('unique_hh_') && k !== 'unique_hh_total')
+  .map((k) => k.slice('unique_hh_'.length));
+const MON = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+const foodbankCoverage = (() => {
+  const periods = [...new Set(foodbank.map((r) => r.data_period))];
+  if (periods.length !== 1) fail(`foodbank_county: expected one data_period, got ${periods.join(' | ')}`);
+  const m = /([A-Z][a-z]{2})(\d{4})\s*-\s*([A-Z][a-z]{2})(\d{4})/.exec(periods[0]);
+  if (!m || !MON[m[1]] || !MON[m[3]]) fail(`foodbank_county: cannot read data_period "${periods[0]}"`);
+  const slugs = FOODBANK_SLUGS;
+  const unknown = slugs.filter((sl) => !FOODBANK_NAMES[sl]);
+  if (unknown.length) fail(`foodbank_county: no full name for bank slug(s) ${unknown.join(', ')} — add to FOODBANK_NAMES`);
+  const rosterPath = resolve(FT_DATA, '../data-raw/capacity/tx_foodbanks.csv');
+  const total = existsSync(rosterPath)
+    ? readFileSync(rosterPath, 'utf8').trim().split('\n').length - 1
+    : null;
+  return {
+    period: [`${m[2]}-${MON[m[1]]}`, `${m[4]}-${MON[m[3]]}`],
+    banks_reporting: slugs.map((sl) => FOODBANK_NAMES[sl]),
+    banks_total: total,
+    counties_with_data: foodbank.filter((r) => r.coverage_note !== 'no_data').length,
+  };
+})();
+const banksPhrase = `${foodbankCoverage.banks_reporting.length}${
+  foodbankCoverage.banks_total ? ` of ${foodbankCoverage.banks_total}` : ''
+} member banks`;
 for (const [label, map] of [
   ['vulnerability_county', VULN],
   ['snap_county', TYPE],
-  ['navigator_county', NAV],
-  ['chw_county_presence', CHW],
+  ['capacity_county', CAPACITY],
+  ['foodbank_county', FOODBANK],
 ]) {
   const missing = GEOIDS.filter((g) => !map.has(g));
   if (missing.length) fail(`${label} is missing ${missing.length} counties (first ${missing[0]})`);
 }
+
+// capacity_county copies foodbank_county in a separate R step, so a bank that
+// reports after that step ran leaves the copy behind (East and West, 2026-10).
+// Food-bank values are read from foodbank_county itself; this only says when
+// the copy needs a rerun, so the analysis repo's own users are not misled.
+const staleFb = GEOIDS.filter(
+  (g) => (CAPACITY.get(g).fb_hh_served ?? null) !== (FOODBANK.get(g).unique_hh_total ?? null),
+).length;
+
+/*
+   DSHS 2024 certified-CHW ranges, ordered. chw_bin is a band read off the
+   report's choropleth ("11-100"), not a count — exact only for the top five.
+   The band's position is what the bar draws (1 = lowest band with any CHWs);
+   its label is what every reader-facing number says. Labels come from the data,
+   so a new report with new breaks relabels the app.
+*/
+const CHW_NONE = 'no_certified_chws';
+const CHW_BANDS = [...new Set(capacity.map((r) => r.chw_bin))]
+  .filter((b) => b != null && b !== CHW_NONE)
+  .map((b) => {
+    const m = /^(\d+)(?:-(\d+))?$/.exec(String(b));
+    if (!m) fail(`capacity_county: cannot read chw_bin "${b}"`);
+    return { bin: String(b), lo: Number(m[1]), label: String(b).replace('-', '–').replace(/\d{4,}/g, (d) => Number(d).toLocaleString('en-US')) };
+  })
+  .sort((a, b) => a.lo - b.lo);
+const chwBand = (bin) => (bin === CHW_NONE ? 0 : CHW_BANDS.findIndex((b) => b.bin === String(bin)) + 1);
 
 // -------------------------------------------------------- monthly series
 const monthsSeen = [...new Set(monthly.map((r) => monthOf(r.snap_month)))].sort();
@@ -222,8 +296,8 @@ const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const records = shapes.map((shape) => {
   const v = VULN.get(shape.geoid);
   const s = series.get(shape.geoid);
-  const nav = NAV.get(shape.geoid);
-  const chwRow = CHW.get(shape.geoid);
+  const cap = CAPACITY.get(shape.geoid);
+  const fbRow = FOODBANK.get(shape.geoid);
   const pop = v.projected_pop_2026;
   if (!(pop > 0)) fail(`${shape.name}: no projected 2026 population`);
 
@@ -254,23 +328,40 @@ const records = shapes.map((shape) => {
   rec.snap_children = s.enrolled.map((_, i) => s.bands[0][i] + s.bands[1][i]);
 
   /*
-     Only two of the four registries exist.
+     All four registries, from capacity_county. Each bar in the app has its
+     own scale, because these are four different units:
 
      cms_navigator  CMS 2025–26 navigator awardees whose "Counties Served" names
                     the county — organisations, not sites.
-     chw            DSHS CHW networks that name the county (Dec 2021, partial).
-     food_bank      Feeding Texas has not supplied its partner registry.
-     counselor      The CMS assister locator is bot-blocked; not pulled.
-
-     The two unsourced ones are null, not 0. Zero would claim "none listed" in
-     every county; null says "not measured", which is the truth.
+     cpp            HHSC Community Partner Program sites at levels 3–4, the
+                    ones that help with applications and cases (levels 1–2 are
+                    self-service computers and basic help). cpp_sites_all keeps
+                    every level.
+     chw            DSHS 2024 certified-CHW range, as a BAND POSITION (0 = no
+                    certified CHWs). chw_band is its label; chw_exact the true
+                    count where the report printed one (top five counties).
+     food_bank      Reporting Feeding Texas member banks that served at least
+                    one household in the county. Only some banks report
+                    (INFRA_TYPES.partial): a county none of them covers is null
+                    ("no data yet"), never 0. Houston and San Antonio's banks
+                    are among the missing, so those gaps sit in
+                    high-vulnerability regions.
   */
+  const fbServing = FOODBANK_SLUGS.filter((sl) => fbRow[`unique_hh_${sl}`] > 0);
+  const fbNoData = fbRow.coverage_note === 'no_data';
   rec.infra = {
-    food_bank: null,
-    cms_navigator: nav.n_navigator_orgs,
-    chw: chwRow.n_chw_networks_named,
-    counselor: null,
+    food_bank: fbNoData ? null : fbServing.length,
+    cms_navigator: num(cap.n_navigator_orgs),
+    chw: chwBand(cap.chw_bin),
+    cpp: num(cap.n_cpp_l3_l4),
   };
+  rec.cpp_sites_all = num(cap.n_cpp_total);
+  rec.chw_band = rec.infra.chw === 0 ? null : CHW_BANDS[rec.infra.chw - 1].label;
+  rec.chw_exact = num(cap.chw_exact);
+  // Unique households those banks served, summed across banks; null as above.
+  rec.foodbank_households = fbNoData ? null : num(fbRow.unique_hh_total);
+  // Which banks, by full name.
+  rec.foodbank_banks = fbServing.length ? fbServing.map((sl) => FOODBANK_NAMES[sl]) : null;
 
   rec.small_denominator = pop < SMALL_DENOMINATOR;
   rec.centroid = shape.centroid;
@@ -367,35 +458,11 @@ const typeRollup = ['Metro', 'Micro', 'Rural'].map((type) => {
 
 /*
    Excess decline — the notebook's "sharper cut" (snap-enrollment-trends.qmd).
-   Fit each county's own linear trend over TREND_WINDOW, project it to the latest
-   month, and compare actual to projected in aggregate. Recomputed here only to
-   check the hero's hand-written figure; it is not drawn.
+   Each county's own linear trend over TREND_WINDOW, projected forward. The hero
+   computes it live for the brush window (src/lib/insights.js headlineStats);
+   it is printed here as a check, and TREND_WINDOW ships in meta.
 */
-function excessDecline() {
-  const [t0, t1] = TREND_WINDOW.map((m) => MI.get(m));
-  let actual = 0;
-  let projected = 0;
-  for (const r of records) {
-    const xs = [];
-    const ys = [];
-    for (let i = t0; i <= t1; i++) {
-      xs.push(i);
-      ys.push(r.snap_enrolled[i]);
-    }
-    const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
-    const my = ys.reduce((a, b) => a + b, 0) / ys.length;
-    let sxy = 0;
-    let sxx = 0;
-    xs.forEach((x, k) => {
-      sxy += (x - mx) * (ys[k] - my);
-      sxx += (x - mx) ** 2;
-    });
-    const slope = sxy / sxx;
-    projected += my + slope * (last - mx);
-    actual += r.snap_enrolled[last];
-  }
-  return actual / projected - 1;
-}
+const trends = countyTrends(records, TREND_WINDOW.map((m) => MI.get(m)));
 
 const funnel = buildFunnel(records, p0, last);
 
@@ -407,17 +474,25 @@ const statewide = {
     latest: MONTHS[last],
     texas_population: texasPopulation,
     grid: gridDims,
+    // Pre-policy months each county's own trend is fitted over (excess decline).
+    trend_window: TREND_WINDOW,
+    foodbank: foodbankCoverage,
+    // Certified-CHW range labels, lowest first: infra.chw = i + 1 is CHW_BANDS[i].
+    chw_bands: CHW_BANDS.map((b) => b.label),
     generated_from: 'scripts/build-county-data.mjs',
     sources: [
       'Texas HHSC SNAP cases and eligible individuals by county, monthly (Excel to Aug 2025; PMAS Tableau export from Sep 2025)',
       'feeding-texas-hr1 rscripts/build_scores.R — vulnerability_county (signed off 2026-07-30)',
       'Texas Demographic Center projected 2026 population (via HHSC ArcGIS) — the participation denominator',
-      'CMS 2025–26 Navigator awardees (counties served); DSHS CHW networks directory (Dec 2021)',
+      'feeding-texas-hr1 rscripts/capacity/build_capacity_county.R — capacity_county: CMS 2025–26 Navigator awardees (counties served); HHSC Community Partner Program sites; DSHS annual report certified-CHW ranges',
+      `Feeding Texas member food banks, unique households served by county, ${foodbankCoverage.period.join(' to ')} (${foodbankCoverage.banks_reporting.join(', ')})`,
     ],
     notes: [
       'Statewide figures are the sum of the 254 counties; HHSC call-center and state-office rows are excluded.',
       'Participation holds the 2026 projected population fixed across all months.',
-      'Food-bank and certified-application-counselor registries are not sourced yet; those counts are null.',
+      'infra.chw is a band position in meta.chw_bands, not a count; ranges are read from the DSHS choropleth, exact only for the five counties in chw_exact.',
+      'infra.cpp counts Community Partner Program sites at levels 3–4; cpp_sites_all counts every level.',
+      `infra.food_bank counts the ${banksPhrase} reporting that served the county; foodbank_households is their unique households served. Both are null where no reporting bank serves the county, not zero.`,
       'Domain-score MOEs are not produced by build_scores.R yet; *_moe fields are null.',
     ],
   },
@@ -778,13 +853,6 @@ const vintageDrift = records.filter((r) => {
    editorial, so they are checked rather than overwritten — a mismatch prints
    loudly and the build carries on.
 */
-const editorial = (() => {
-  try {
-    return JSON.parse(readFileSync(TIMELINE, 'utf8')).stats.map((s) => s.value).join('  ');
-  } catch {
-    return '(timeline.json unreadable)';
-  }
-})();
 const fmtPctS = (v) => `${v < 0 ? '−' : ''}${Math.abs(v * 100).toFixed(1)}%`;
 const band1859 = ageBands.find((b) => b.band === '18–59').pct_change;
 const bigCounties = records.filter((r) => r.snap_enrolled[p0] >= 1000);
@@ -804,7 +872,7 @@ const checks = [
     `${Math.max(...sinceBreak).toLocaleString()} to ${Math.min(...sinceBreak).toLocaleString()}`,
   ],
   ['18–59 change since Jul 2025', fmtPctS(band1859)],
-  ['excess decline vs own trend', fmtPctS(excessDecline())],
+  ['excess decline vs own trend', fmtPctS(excessDecline(trends, last))],
   ['participation, latest', `${(statewide.participation_share[last] * 100).toFixed(1)}%`],
   ['participation, Jul 2025', `${(statewide.participation_share[p0] * 100).toFixed(1)}%`],
 ];
@@ -831,6 +899,7 @@ const declined = records.filter((r) => r.snap_enrolled[last] < r.snap_enrolled[p
 const cum = [0, 1, 2, 3, 4].map((n) => records.filter((r) => r.cumulative_impact === n).length);
 const withNav = records.filter((r) => r.infra.cms_navigator > 0).length;
 const withChw = records.filter((r) => r.infra.chw > 0).length;
+const withCpp = records.filter((r) => r.infra.cpp > 0).length;
 
 console.log('\nchecks');
 console.log(`  window change Jul 2025 → ${MONTHS[last]}  ${(enrolled[last] - enrolled[p0]).toLocaleString()}`);
@@ -838,7 +907,12 @@ console.log(`  counties that declined        ${declined.length} of 254`);
 console.log(`  small_denominator counties    ${records.filter((r) => r.small_denominator).length}`);
 console.log(`  cumulative impact 0–4         ${cum.join(' / ')}`);
 console.log(`  navigator counties            ${withNav} (${254 - withNav} with none)`);
-console.log(`  CHW-network counties          ${withChw}`);
+console.log(`  certified-CHW counties        ${withChw} · bands ${CHW_BANDS.map((b) => b.label).join(' / ')}`);
+if (staleFb) {
+  console.log(`  ! capacity_county's food-bank copy is stale in ${staleFb} counties — rerun rscripts/capacity/build_capacity_county.R (values here come from foodbank_county)`);
+}
+console.log(`  CPP L3–4 counties             ${withCpp} · max ${Math.max(...records.map((r) => r.infra.cpp))} sites`);
+console.log(`  food-bank counties            ${foodbankCoverage.counties_with_data} with data · ${banksPhrase} · ${foodbankCoverage.period.join(' → ')}`);
 console.log(`  gap counties (Q5, no nav)     ${records.filter((r) => r.is_gap).length}`);
 console.log(`  funnel: outside 2sd           ${funnel.points.filter((p) => p.outside).length} of ${funnel.points.length}`);
 console.log(`  unbanded months               ${unbanded.length}`);
@@ -858,6 +932,5 @@ if (vintageDrift.length) {
       `disagrees with the monthly file — rerun build_scores.R against the latest month.`,
   );
 }
-console.log('\neditorial figures (timeline.json, MapPage hero) — check by eye');
-console.log(`  timeline.json says   ${editorial}`);
+console.log('\nhero figures at the default window (computed live on the page)');
 for (const [label, value] of checks) console.log(`  ${label.padEnd(30)} ${value}`);

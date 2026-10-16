@@ -52,7 +52,7 @@ export function StepCaption({ index, step, chart, counties }) {
           </span>
           <h3 className={styles.title}>{title}</h3>
         </div>
-        <p className={styles.body}>{body}</p>
+        {body && <p className={styles.body}>{body}</p>}
         <div className={styles.actions}>
           <button
             type="button"

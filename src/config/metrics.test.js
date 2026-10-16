@@ -33,7 +33,7 @@ const county = (over = {}) =>
     vulnerability_score: 2.2,
     cumulative_impact: 1,
     newly_subject_persons: 250,
-    infra: { food_bank: 2, cms_navigator: 0, chw: 1, counselor: 1 },
+    infra: { food_bank: 2, cms_navigator: 0, chw: 1, cpp: 1 },
     is_gap: false,
     small_denominator: false,
     ...over,
@@ -78,14 +78,24 @@ describe('values', () => {
     expect(metricById('child_share').value(county(), CTX)).toBeCloseTo(300 / 800);
   });
 
-  it('sums the four registries for capacity', () => {
-    expect(metricById('sites_total').value(county(), CTX)).toBe(4);
-    expect(metricById('sites_per_10k').value(county(), CTX)).toBeCloseTo(2);
+  /*
+     Complete counts only — navigators plus community partner sites. food_bank
+     has partial coverage (INFRA_TYPES.partial) and chw is a range band
+     (INFRA_TYPES.banded), so neither adds to the count.
+  */
+  it('sums the organisation registries for capacity', () => {
+    expect(metricById('sites_total').value(county(), CTX)).toBe(1);
+    expect(metricById('sites_per_10k').value(county(), CTX)).toBeCloseTo(0.5);
+  });
+
+  it('leaves partially reported food banks out of the total', () => {
+    const fb = county({ infra: { food_bank: 2, cms_navigator: 1, chw: 3, cpp: 4 } });
+    expect(metricById('sites_total').value(fb, CTX)).toBe(5);
   });
 
   it('skips an unsourced registry rather than reading it as a count', () => {
-    const real = county({ infra: { food_bank: null, cms_navigator: 2, chw: 1, counselor: null } });
-    expect(metricById('sites_total').value(real, CTX)).toBe(3);
+    const real = county({ infra: { food_bank: null, cms_navigator: 2, chw: 1, cpp: null } });
+    expect(metricById('sites_total').value(real, CTX)).toBe(2);
   });
 
   it('splits a zero-inflated axis at none-listed, not at a median of zero', () => {

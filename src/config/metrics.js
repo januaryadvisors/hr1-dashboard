@@ -19,6 +19,7 @@
  * @typedef {import('../types').ViewKey} ViewKey
  */
 import { fmtInt, fmtPct, fmtPctDelta } from '../lib/format';
+import { SCORED_INFRA } from './layers';
 
 /**
  * @typedef {Object} MetricContext
@@ -60,12 +61,16 @@ const pctChange = (m, ctx) => {
 };
 
 /**
- * Listed assistance across the registries that exist. An unsourced registry is
- * null on every county (see INFRA_TYPES.available) and adds nothing — it is not
- * read as a zero, because it was never counted.
+ * Listed assistance ORGANISATIONS across the registries that exist. An
+ * unsourced registry is null on every county (see INFRA_TYPES.available) and
+ * adds nothing — it is not read as a zero, because it was never counted. Food
+ * banks are left out until all of them report (INFRA_TYPES.partial): with 4
+ * of 21 in, a county's total would mostly say which bank happened to report.
+ * CHW is a range, not a count (INFRA_TYPES.banded), so it cannot be summed.
+ * What is left is CMS navigator orgs plus Community Partner sites.
  */
 export const sites = (c) =>
-  Object.values(c.infra ?? {}).reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0);
+  SCORED_INFRA.reduce((s, k) => s + (typeof c.infra?.[k] === 'number' ? c.infra[k] : 0), 0);
 
 const num = (v) =>
   typeof v === 'number' && Number.isFinite(v) ? v : null;
@@ -344,11 +349,10 @@ export const METRICS = [
 
   // ---------------------------------------------------------------- capacity
   /*
-     Capacity is the thin half of the data: CMS navigator organisations serving
-     the county and DSHS CHW networks naming it. These are ORGANISATIONS, not
-     sites, and 149 counties have no navigator at all. The food-bank and
-     application-counselor registries are not sourced, so there is no metric for
-     them rather than a column of zeros.
+     Capacity is the thin half of the data. The metric sums CMS navigator
+     organisations and Community Partner Program sites (levels 3–4) — the two
+     complete counts. Certified CHWs come as ranges and food banks as a partial
+     roster, so neither is summed in.
   */
   {
     id: 'sites_per_10k',

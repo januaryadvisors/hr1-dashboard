@@ -46,7 +46,7 @@
  * @property {Copy} title - The collapsible's header.
  * @property {Copy} body
  * @property {Copy} [subhead] - What the chart shows, set between the body and the chart.
- * @property {'snapLine' | 'ageLines' | 'shortfall' | 'workStrip' | 'schoolMeals' | 'childTypes'
+ * @property {'snapLine' | 'ageLines' | 'shortfall' | 'workStrip' | 'childTypes'
  *   | 'indexRecipe' | 'indexStrip' | 'marketLine' | 'neverPaid'} [chart]
  *   A static figure MapPage renders. The rail holds figures to read, never
  *   controls — those live in Map options.
@@ -81,12 +81,9 @@ export const STORY = [
         title: (f) =>
           f.avgMonthlyK ? `Still falling, about ${f.avgMonthlyK} a month` : 'Still falling, month after month',
         body: (f) =>
-          (f.peakM
-            ? `Enrollment had recovered to ${f.peakM} million by ${f.peakMonth}, then `
-            : 'Enrollment ') +
-          (f.fellEveryMonth
-            ? 'fell every month once the new rules took effect in November.'
-            : 'has fallen since the new rules took effect in November.'),
+          f.fellEveryMonth
+            ? 'Enrollment has fallen every month since the new rules took effect.'
+            : 'Enrollment has fallen since the new rules took effect.',
         subhead: (f) =>
           `Texans enrolled in SNAP each month (people, not households), ${f.snapRange}. ` +
           'Shaded: after H.R. 1 was signed.',
@@ -98,8 +95,7 @@ export const STORY = [
         id: 'loss-who',
         title: (f) => `${f.youngShare} are children and working-age adults`,
         body: (f) =>
-          `About ${f.childrenK} children and ${f.adultsK} adults ages 18–59 have left, while ` +
-          `enrollment among Texans 65 and older barely moved (${f.seniorsPct}).`,
+          `About ${f.childrenK} children and ${f.adultsK} adults ages 18–59 have left SNAP.`,
         subhead: (f) =>
           `Percent change in SNAP enrollment since ${f.windowStartLong}, by age group. Each line is ` +
           `indexed to its own ${f.windowStartLong} level (100 = no change; 81 = down 19%).`,
@@ -116,8 +112,7 @@ export const STORY = [
         body: (f) =>
           f.shortfallM
             ? `From ${f.shortfallFrom} through ${f.shortfallTo}, payments ran $${f.shortfallM} million ` +
-              `below ${f.baseMonth} levels, and are now down $${f.monthlyDownM} million a month ` +
-              `(${f.monthlyDownPct}).`
+              `below ${f.baseMonth} levels.`
             : 'Monthly SNAP payments have fallen since the new rules took effect.',
         subhead: (f) =>
           'Total SNAP benefits paid to Texas households each month, in millions of dollars. ' +
@@ -135,9 +130,7 @@ export const STORY = [
       {
         id: 'work-subject',
         title: (f) => `${f.newlySubjectK} Texans are newly subject to work rules`,
-        body: (f) =>
-          `That is about 1 in ${f.oneIn} SNAP enrollees, in big metros and small towns alike, ` +
-          `and ${f.metroShare} of them live in metro counties.`,
+        body: (f) => `That is about 1 in ${f.oneIn} SNAP enrollees.`,
         subhead:
           'Each dot is one county, grouped by type; the black tick is the median. Showing: newly ' +
           'subject per 100 enrollees.',
@@ -153,31 +146,11 @@ export const STORY = [
     nav: 'Children',
     steps: [
       {
-        id: 'children-meals',
-        title: 'Losing SNAP can also mean losing automatic school meals',
-        body:
-          'SNAP certifies children for free school meals without an application and helps schools ' +
-          'qualify for community eligibility (CEP), so families that leave SNAP must now apply on ' +
-          'their own.',
-        subhead:
-          'Statewide shares of Texas public school students. The figures come from different ' +
-          'years; see sources.',
-        chart: 'schoolMeals',
-        sources: [
-          { label: 'FRAC CEP fact sheet', href: 'https://frac.org/news/cepfactsheetsoct2025' },
-          {
-            label: 'TEA enrollment',
-            href: 'https://tea.texas.gov/reports-and-data/school-performance/accountability-research/enrollment-trends',
-          },
-        ],
-        measure: 'rate',
-      },
-      {
         id: 'children-rural',
         title: 'Rural counties are losing children’s benefits faster',
         body: (f) =>
           `Rural counties have lost ${f.childRural} of children on SNAP, against ${f.childMetro} in ` +
-          'metro counties; the ranking leaves out the smallest caseloads, which swing widely.',
+          'metro counties.',
         subhead: (f) =>
           `Share of children on SNAP in ${f.windowStartLong} who were no longer enrolled in ` +
           `${f.windowEndLong}, by county type.`,
@@ -194,9 +167,8 @@ export const STORY = [
       {
         id: 'vuln-recipe',
         title: 'How the index is built',
-        body:
-          'Each measure is ranked across all 254 counties from 0 (least exposed) to 1 (most), each ' +
-          'domain averages its measures, and the index adds the four domains for a score of 0 to 4.',
+        // No copy: the recipe chart explains itself (2026-10-16 direction).
+        body: '',
         chart: 'indexRecipe',
         sources: [{ label: 'Feeding Texas H.R. 1 vulnerability index' }],
         measure: 'rate',
@@ -205,8 +177,7 @@ export const STORY = [
         id: 'vuln-strip',
         title: 'Where each county sits on the index',
         body: (f) =>
-          'Rural counties sit higher on the index than metro counties, with a median of ' +
-          `${f.compRural} against ${f.compMetro}.`,
+          `Rural counties sit highest on our vulnerability index, with a median score of ${f.compRural}.`,
         subhead: 'Vulnerability index, 0–4, by county type; the black tick is the median.',
         chart: 'indexStrip',
         sources: [{ label: 'Feeding Texas H.R. 1 vulnerability index' }],
@@ -225,8 +196,7 @@ export const STORY = [
         title: (f) => (f.mktDrop ? `Paid enrollment fell by ${f.mktDrop}` : 'Paid enrollment fell'),
         body: (f) =>
           f.mktDropPct
-            ? `Paid (effectuated) enrollment fell ${f.mktDropPct} between ${f.mktFrom} and ` +
-              `${f.mktTo}, after the enhanced premium tax credits expired.`
+            ? `Paid (effectuated) enrollment fell ${f.mktDropPct} between ${f.mktFrom} and ${f.mktTo}.`
             : 'Effectuated enrollment counts people who paid for an active plan.',
         subhead: (f) =>
           'Texans with a Marketplace plan they have paid for (effectuated enrollment), each month' +
@@ -241,8 +211,7 @@ export const STORY = [
         body: (f) =>
           f.neverLatest
             ? `Of the ${f.selLatestM} million Texans who picked a ${f.oepLatest} plan, ` +
-              `${f.neverLatest} never paid or kept their coverage through February, up from ` +
-              `${f.neverPrev} the year before.`
+              `${f.neverLatest} never paid for or kept their coverage through February.`
             : '',
         subhead:
           'Share of each year’s open-enrollment plan selections that were not paid for or active ' +
@@ -299,17 +268,6 @@ export function buildStory(hasMedicaid) {
   const firstStep = chapters.map((c) => steps.findIndex((s) => s.chapter === c));
   return { chapters, steps, firstStep };
 }
-
-/** The school-meals figures, from outside this dataset — see the step's sources. */
-export const SCHOOL_MEALS = [
-  { label: 'Students at CEP campuses', display: '≈49%', share: 0.49, note: '2.72M students, 2024–25' },
-  {
-    label: 'Free/reduced-price eligible',
-    display: '62.2%',
-    share: 0.622,
-    note: 'economically disadvantaged, 2023–24',
-  },
-];
 
 /** What goes into each domain of the index — rscripts/build_scores.R. */
 export const INDEX_DOMAINS = [

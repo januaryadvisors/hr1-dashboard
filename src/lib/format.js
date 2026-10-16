@@ -36,6 +36,17 @@ export function fmtMonth(month) {
   return `${MONTH_NAMES[m - 1]} ${y}`;
 }
 
+const MONTH_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/** "2025-07" → "July 2025", for headline copy. */
+export function fmtMonthFull(month) {
+  const [y, m] = month.split('-').map(Number);
+  return `${MONTH_FULL[m - 1]} ${y}`;
+}
+
 /** "2025-07" → "Jul 2025", sentence case for body copy. */
 export function fmtMonthBody(month) {
   const label = fmtMonth(month);

@@ -1,19 +1,30 @@
-/* Fills the height .capacityPanel reserves, so .readout below can take whatever
-   the form leaves over. */
+/* Title, controls, chart — top to bottom, each the card's full width. */
 .root {
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-  min-height: 0;
 }
 
+/* The preset's question, set as the chart's title. */
+.question {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+/* One row: the question picker on the left, search on the right. */
 .form {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: var(--space-5);
+  align-items: end;
+}
+
+.compare {
+  max-width: 640px;
 }
 
 .field {
@@ -25,10 +36,8 @@
 
 .fieldLabel {
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -36,9 +45,9 @@
    screen reader already working is worth more than a bespoke listbox. */
 .select {
   width: 100%;
-  padding: 0.4rem 0.5rem;
+  padding: 0.55rem 0.7rem;
   font: inherit;
-  font-size: var(--step--1);
+  font-size: var(--text-base);
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--hairline-strong);
@@ -50,97 +59,56 @@
 }
 
 /*
- * The readout takes whatever height the panel has left, filled or empty.
- *
- * That is the whole point: with `height: auto` the card grew by the height of a
- * county readout the instant the pointer touched a point, so the chart moved out
- * from under the cursor and every section below it jumped. Reserving the space
- * costs an empty column on first load — which is what the hint line is for — and
- * buys a section that never resizes.
- *
- * `overflow: auto` is the safety net for the tallest case (a long county name
- * wrapping, plus both flags) on a short panel; in practice it does not scroll.
+ * The county tooltip, beside its point. Same panel as the map's <CountyTooltip>
+ * — surface, hairline, radius, shadow — so the two read as one family. Placed
+ * absolutely inside the chart's slot by MapPage; never takes the pointer, so it
+ * cannot steal the hover from the point under it.
  */
-/* The preset's question, under its own picker. */
-.question {
-  margin-top: var(--space-2);
-  font-size: 0.6875rem;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-
-/* Which metric ended up on which axis. The preset chose them, so this is a
-   readout rather than a control — but a reader still has to be able to find out
-   what they are looking at without hovering a point. */
-.axisNote {
-  margin-top: var(--space-1);
-  font-size: 0.5625rem;
-  line-height: 1.35;
-  color: var(--text-faint);
-}
-
-.readout {
-  display: flex;
-  /* basis 0, so the readout's own content never contributes to the panel's
-     height — it takes what the form leaves and scrolls if that is not enough. */
-  flex: 1 1 0;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-height: 0;
-  overflow-y: auto;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--hairline);
-}
-
-.readoutHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
+.tooltip {
+  position: absolute;
+  z-index: 5;
+  width: 280px;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.13);
+  pointer-events: none;
 }
 
 .countyName {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: var(--text-base);
   font-weight: 600;
-}
-
-.clear {
-  padding: 0;
-  font-size: 1rem;
-  line-height: 1;
-  color: var(--text-faint);
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-
-.clear:hover {
-  color: var(--text);
+  line-height: 1.15;
 }
 
 .fips {
-  font-size: 0.625rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  font-weight: 600;
   color: var(--ja-teal);
 }
 
+/* The two axis values side by side, label over figure. */
 .rows {
-  margin: var(--space-2) 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
 }
 
 .row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--hairline);
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .rowLabel {
-  font-size: 0.6875rem;
+  font-size: var(--text-2xs);
   line-height: 1.3;
   color: var(--text-muted);
 }
@@ -148,88 +116,12 @@
 .rowValue {
   margin: 0;
   font-family: var(--font-figure);
-  font-size: 1.125rem;
+  font-size: var(--text-xl);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
 }
 
-.flags {
-  margin: var(--space-2) 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.flag,
-.flagAlert {
-  font-size: 0.6875rem;
-  line-height: 1.4;
-  color: var(--text-faint);
-}
-
-.flagAlert {
-  color: var(--ja-burgundy);
-  font-weight: 500;
-}
-
-.blockTitle {
-  font-family: var(--font-display);
-  font-size: 0.5625rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.note {
-  font-size: 0.6875rem;
-  line-height: 1.45;
-  color: var(--text-muted);
-}
-
-.note strong {
-  color: var(--text);
-}
-
-.statCallout {
-  padding: var(--space-3);
-  background: var(--surface);
-  border-radius: var(--radius);
-}
-
-.statValue {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1);
-  margin-bottom: var(--space-1);
-  font-family: var(--font-figure);
-  font-size: 1.75rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--ja-burgundy);
-}
-
-.statOf {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-faint);
-}
-
-/* Centred in the space the readout reserves, so the empty state reads as
-   "waiting for you" rather than as a stray line under the form. */
-.hint {
-  margin: auto 0;
-  font-size: 0.6875rem;
-  font-style: italic;
-  line-height: 1.5;
-  color: var(--text-faint);
-}
-
-/* The enrollment line, carried over from the tooltip this panel replaced. */
 .spark {
   margin-top: var(--space-3);
   padding-top: var(--space-3);
@@ -239,10 +131,8 @@
 .sparkHead {
   margin-bottom: var(--space-2);
   font-family: var(--font-display);
-  font-size: 0.5rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
   color: var(--text-faint);
 }
 
@@ -250,6 +140,35 @@
   display: flex;
   justify-content: space-between;
   margin-top: 2px;
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   color: var(--text-faint);
+}
+
+.flags {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flag,
+.flagAlert {
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+.flagAlert {
+  font-weight: 500;
+  color: var(--ja-burgundy);
+}
+
+/* Narrow: the form stacks. */
+@media (max-width: 899px) {
+  .form {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
 }

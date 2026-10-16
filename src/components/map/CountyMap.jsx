@@ -45,12 +45,16 @@ import { radiusScale, relax } from '../../lib/density';
  * @typedef {import('../../lib/density').Bubble} Bubble
  */
 import { INFRA_GLYPH_ORDER, InfraGlyph } from './InfraGlyph';
+import { INFRA_TYPES } from '../../config/layers';
 import { InfraTileBars, infraMax } from './InfraBars';
 import styles from './CountyMap.module.css';
 
 /**
  * @typedef {'thumb' | 'small' | 'medium' | 'hero'} MapSize
  */
+
+/** Partially reported registries, whose null draws grey rather than nothing. */
+const PARTIAL_INFRA = new Set(INFRA_TYPES.filter((t) => t.partial).map((t) => t.key));
 
 /** Stroke weights and mark visibility per size. A thumbnail cannot carry marks. */
 const SIZE_SPEC = {
@@ -302,6 +306,9 @@ function CountyMapInner(props) {
     if (county.geoid === hovered) parts.push(styles.hovered);
     // §6.5: dim small denominators in rate measure only.
     if (measure === 'rate' && county.small_denominator) parts.push(styles.smallDenominator);
+    // With an overlay on, everything it does not pick out steps back, so the
+    // outlined counties read at a glance rather than as a thin line to hunt for.
+    if (overlayOn && !isFlagged(county)) parts.push(styles.overlayDimmed);
     return parts.join(' ');
   };
 
@@ -330,6 +337,22 @@ function CountyMapInner(props) {
     );
   }, [counties, values, overlays.q5]);
 
+  const overlayOn = !!(overlays.q5 || overlays.gap);
+  const isFlagged = (c) => (overlays.q5 && q5Set.has(c.geoid)) || (overlays.gap && c.is_gap);
+
+  /** One overlay's outlines: a white halo under the coloured line, so it holds
+      its edge against dark fills as well as light ones. */
+  const outlines = (list, className) => (
+    <g>
+      {list.map((c) => (
+        <path key={`halo-${c.geoid}`} d={outlineFor(c.geoid)} className={styles.overlayHalo} />
+      ))}
+      {list.map((c) => (
+        <path key={c.geoid} d={outlineFor(c.geoid)} className={className} />
+      ))}
+    </g>
+  );
+
   return (
     <svg
       ref={svgRef}
@@ -343,7 +366,9 @@ function CountyMapInner(props) {
       onMouseMove={handleMove}
       onMouseLeave={handleLeave}
     >
-      <title>{title}</title>
+      {/* No <title>: browsers show it as a native grey tooltip over the whole
+          map, on top of the county panel. aria-label above names the map for
+          screen readers instead (2026-10-16). */}
 
       {/* ----------------------------------------------------------- GRID */}
       {tiles && (
@@ -435,28 +460,13 @@ function CountyMapInner(props) {
       {/* Overlays (§6.8 M-08). Outlines, never fills — cumulative impact and Q5
           are too lopsided to colour a state by (§11). */}
       {/* Overlays trace whichever geometry is on screen. */}
-      {overlays.q5 && (
-        <g>
-          {counties
-            .filter((c) => q5Set.has(c.geoid))
-            .map((c) => (
-              <path key={c.geoid} d={outlineFor(c.geoid)} className={styles.overlayQ5} />
-            ))}
-        </g>
-      )}
-      {overlays.gap && (
-        <g>
-          {counties
-            .filter((c) => c.is_gap)
-            .map((c) => (
-              <path key={c.geoid} d={outlineFor(c.geoid)} className={styles.overlayGap} />
-            ))}
-        </g>
-      )}
+      {overlays.q5 && outlines(counties.filter((c) => q5Set.has(c.geoid)), styles.overlayQ5)}
+      {overlays.gap && outlines(counties.filter((c) => c.is_gap), styles.overlayGap)}
 
       {/* Assistance-infrastructure marks (§6.6). On the grid they are bars
           inside each tile — the same encoding as the tooltip's column chart,
-          see <InfraBars>. Elsewhere they are glyphs at the county centroid. */}
+          see <InfraBars>. Elsewhere they are glyphs at the county centroid.
+          A partial registry (food bank) with no reporting source draws grey. */}
       {spec.marks && marks.length > 0 && tiles && (
         <g className={styles.mark}>
           {counties.map((county) => {
@@ -481,7 +491,9 @@ function CountyMapInner(props) {
             const xy = geometry.centroids.get(county.geoid);
             if (!xy) return [];
             return INFRA_GLYPH_ORDER.filter(
-              (key) => marks.includes(key) && county.infra[key] > 0,
+              (key) =>
+                marks.includes(key) &&
+                (county.infra[key] > 0 || (PARTIAL_INFRA.has(key) && county.infra[key] == null)),
             ).map((key, i, arr) => (
               <InfraGlyph
                 key={`${county.geoid}-${key}`}
@@ -489,6 +501,7 @@ function CountyMapInner(props) {
                 x={xy[0] + (i - (arr.length - 1) / 2) * 5.4}
                 y={xy[1]}
                 size={size === 'hero' ? 3 : 2.2}
+                noData={county.infra[key] == null}
               />
             ));
           })}

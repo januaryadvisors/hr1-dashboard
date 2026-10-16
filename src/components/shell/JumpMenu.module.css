@@ -1,5 +1,30 @@
+/*
+ * Floats at the bottom right of the viewport, over the foot of the story rail,
+ * which keeps that corner clear for it. Hidden outside the story with visibility as well as opacity, so the
+ * button leaves the tab order rather than sitting there invisible.
+ */
 .root {
-  position: relative;
+  position: fixed;
+  bottom: var(--space-5);
+  right: var(--space-5);
+  z-index: 35;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0s linear 180ms;
+}
+
+.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 0s;
 }
 
 .trigger {
@@ -9,10 +34,13 @@
   max-width: 340px;
   padding: 0.4rem 0.75rem 0.4rem 0.9rem;
   font-family: var(--font-display);
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   background: var(--surface);
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-pill);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 6px 20px rgba(0, 0, 0, 0.14);
   cursor: pointer;
 }
 
@@ -50,9 +78,10 @@
   transform: translateY(1px) rotate(-135deg);
 }
 
+/* Opens upward, since the button sits at the bottom of the viewport. */
 .panel {
   position: absolute;
-  top: calc(100% + 6px);
+  bottom: calc(100% + 8px);
   right: 0;
   z-index: 40;
   width: 280px;
@@ -76,9 +105,7 @@
 .heading {
   padding: var(--space-2) var(--space-2) var(--space-1);
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.625rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: var(--text-2xs);
   color: var(--text-faint);
 }
 
@@ -94,7 +121,7 @@
   gap: var(--space-2);
   width: 100%;
   padding: 0.4rem var(--space-2);
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   text-align: left;
   background: none;
   border: 0;
@@ -104,27 +131,6 @@
 
 .item:hover {
   background: var(--surface-warm);
-}
-
-/* A group laid out as a row of equal pills — the Map / Insights switch. */
-.row {
-  display: grid;
-  grid-auto-columns: minmax(0, 1fr);
-  grid-auto-flow: column;
-  gap: var(--space-1);
-  padding: var(--space-1);
-}
-
-.row .item {
-  justify-content: center;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-pill);
-}
-
-.row .itemCurrent {
-  color: var(--text-inverse);
-  background: var(--ja-navy);
-  border-color: var(--ja-navy);
 }
 
 .indent {
@@ -140,7 +146,7 @@
 .prefix {
   flex: 0 0 1.4rem;
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-faint);
 }
 
@@ -148,16 +154,17 @@
   color: var(--ja-navy);
 }
 
+/* Phones: the pinned story has its own chapter bar at the top, and the open
+   step's card fills the bottom edge where this would sit, so it stands down. */
 @media (max-width: 640px) {
-  .triggerLabel {
+  .root {
     display: none;
-  }
-  .trigger {
-    max-width: 160px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .root,
+  .visible,
   .caret {
     transition: none;
   }

@@ -6,7 +6,8 @@
  * Debounced at 120ms; 24px hit areas; arrow keys move one month per press.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fmtMillions, fmtMonth } from '../../lib/format';
+import { fmtMillions, fmtMonth, fmtMonthBody } from '../../lib/format';
+import { useElementSize } from '../../lib/useElementSize';
 import styles from './BrushChart.module.css';
 
 const DEBOUNCE_MS = 120;
@@ -41,10 +42,18 @@ export function BrushChart({
   presets,
   onChange,
   onPreview,
-  viewWidth: W = 1000,
+  viewWidth = 1000,
   height: H = 150,
 }) {
-  const M = { top: 16, right: 10, bottom: 16, left: 30 };
+  /*
+     Authored at the slot's real width (2026-10-16), so axis type renders at the
+     size it is written at. At a fixed 620-wide viewBox scaled to the card, every
+     label came out a third larger than the type around it. `viewWidth` covers
+     the first paint, before the slot is measured.
+  */
+  const [slotRef, slot] = useElementSize();
+  const W = Math.round(slot.width) || viewWidth;
+  const M = { top: 22, right: 10, bottom: 22, left: 36 };
   const svgRef = useRef(null);
   const [drag, setDrag] = useState(null);
 
@@ -150,6 +159,27 @@ export function BrushChart({
   };
 
   const [i0, i1] = range;
+
+  /*
+     Where the two handle labels sit: over their handles, but pushed apart
+     around their midpoint when the handles are close enough to collide, and
+     kept inside the plot. LABEL_W is a month label's width at 12px, plus air.
+  */
+  const LABEL_W = 64;
+  const labelX = (() => {
+    const lo = M.left + LABEL_W / 2;
+    const hi = W - M.right - LABEL_W / 2;
+    let a = x(i0);
+    let b = x(i1);
+    if (b - a < LABEL_W) {
+      const mid = (a + b) / 2;
+      a = mid - LABEL_W / 2;
+      b = mid + LABEL_W / 2;
+    }
+    b = Math.min(hi, Math.max(lo + LABEL_W, b));
+    a = Math.max(lo, Math.min(a, b - LABEL_W));
+    return { start: a, end: b };
+  })();
   const yearTicks = months
     .map((m, i) => ({ m, i }))
     .filter(({ m }) => m.endsWith('-01'));
@@ -158,13 +188,15 @@ export function BrushChart({
     <div className={styles.card}>
       <div className={styles.head}>
         <div>
-          <div className="eyebrow">Period on the map</div>
+          <div className={styles.title}>
+            Map period: {fmtMonthBody(months[i0])} – {fmtMonthBody(months[i1])}
+          </div>
           {/* §6.2: instruction text, always visible. */}
           <div className={styles.instruction}>
-            Drag either handle. Everything below follows this window.
+            Drag either handle. The map and charts below follow this window.
           </div>
         </div>
-        <div className={styles.presets}>
+        <div className={styles.presets} role="group" aria-label="Preset periods">
           {presets.map((p) => {
             const [a, b] = p.resolve(months);
             const active = a === i0 && b === i1;
@@ -172,21 +204,12 @@ export function BrushChart({
               <button
                 key={p.label}
                 type="button"
+                className={`${styles.preset} ${active ? styles.presetOn : ''}`}
+                aria-pressed={active}
                 onClick={() => {
                   setRange([a, b]);
                   onPreview?.(null);
                   onChange([months[a], months[b]]);
-                }}
-                style={{
-                  padding: '0.2rem 0.55rem',
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '0.6875rem',
-                  fontWeight: 600,
-                  color: active ? '#fff' : 'var(--text-muted)',
-                  background: active ? 'var(--ja-navy)' : 'var(--surface)',
-                  border: '1px solid var(--hairline-strong)',
-                  borderRadius: 'var(--radius-pill)',
-                  cursor: 'pointer',
                 }}
               >
                 {p.label}
@@ -196,7 +219,8 @@ export function BrushChart({
         </div>
       </div>
 
-      <svg ref={svgRef} className={styles.svg} viewBox={`0 0 ${W} ${H}`}>
+      <div ref={slotRef} className={styles.slot}>
+      <svg ref={svgRef} className={styles.svg} viewBox={`0 0 ${W} ${H}`} style={{ height: H }}>
         {yTicks.map((v) => {
           // Label the round millions only; the 200k gridlines stay unlabelled so
           // a short chart does not turn into a wall of numbers.
@@ -214,12 +238,12 @@ export function BrushChart({
         })}
 
         {yearTicks.map(({ m, i }) => (
-          <text key={m} x={x(i)} y={H - 4} textAnchor="middle" className={styles.axis}>
+          <text key={m} x={x(i)} y={H - 5} textAnchor="middle" className={styles.axis}>
             {m.slice(0, 4)}
           </text>
         ))}
 
-        {/* Selected window: tinted band, burgundy line inside, muted navy outside. */}
+        {/* Selected window: lifted band, gold line inside, faded cream outside. */}
         <rect
           x={x(i0)}
           y={M.top}
@@ -233,6 +257,15 @@ export function BrushChart({
         {([['start', i0], ['end', i1]]).map(([which, i]) => (
           <g key={which}>
             <line x1={x(i)} x2={x(i)} y1={M.top} y2={H - M.bottom} className={styles.handle} />
+            {/* The grip: a pill on the line, so it reads as something to drag. */}
+            <rect
+              x={x(i) - 4}
+              y={(M.top + H - M.bottom) / 2 - 11}
+              width={8}
+              height={22}
+              rx={3}
+              className={styles.grip}
+            />
             {/* 24px hit area (§6.2), keyboard-reachable, one month per arrow press. */}
             <rect
               x={x(i) - HIT / 2}
@@ -259,16 +292,17 @@ export function BrushChart({
               }}
             />
             <text
-              x={Math.min(W - M.right, Math.max(M.left + 2, x(i) + (which === 'start' ? 2 : -2)))}
-              y={M.top - 5}
-              textAnchor={which === 'start' ? 'start' : 'end'}
+              x={labelX[which]}
+              y={M.top - 7}
+              textAnchor="middle"
               className={styles.endpointLabel}
             >
-              {fmtMonth(months[i])}
+              {fmtMonthBody(months[i])}
             </text>
           </g>
         ))}
       </svg>
+      </div>
     </div>
   );
 }
@@ -280,8 +314,8 @@ export function buildPresets(policyStart) {
       label: 'Since H.R. 1',
       resolve: (months) => [months.indexOf(policyStart), months.length - 1],
     },
-    { label: 'Last 6 months', resolve: (months) => [months.length - 7, months.length - 1] },
-    { label: 'Last 12 months', resolve: (months) => [months.length - 13, months.length - 1] },
-    { label: 'Full history', resolve: (months) => [0, months.length - 1] },
+    { label: '6 months', resolve: (months) => [months.length - 7, months.length - 1] },
+    { label: '12 months', resolve: (months) => [months.length - 13, months.length - 1] },
+    { label: 'All', resolve: (months) => [0, months.length - 1] },
   ];
 }

@@ -238,12 +238,6 @@ export function ScopeBar({
             {fmtPctDelta(change.pct, 1)}
           </dd>
         </div>
-        <div className={styles.stat}>
-          <dt className={styles.statLabel}>Participation rate</dt>
-          <dd className={`${styles.statValue} tabular`}>
-            {scope.population > 0 ? fmtPct(change.end / scope.population, 1) : '—'}
-          </dd>
-        </div>
       </dl>
 
       {/*

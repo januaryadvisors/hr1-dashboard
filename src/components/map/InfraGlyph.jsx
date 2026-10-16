@@ -13,21 +13,28 @@
  * @typedef {import('../../types').InfraKey} InfraKey
  */
 
-export const INFRA_GLYPH_ORDER = ['food_bank', 'cms_navigator', 'chw', 'counselor'];
+export const INFRA_GLYPH_ORDER = ['food_bank', 'cms_navigator', 'chw', 'cpp'];
 
 /** Hues chosen for separation from each other, not from the ramps — hence the halo. */
 export const INFRA_COLOR = {
   food_bank: '#F57C1F', // orange
   cms_navigator: '#2E9E4F', // green
   chw: '#C8377E', // magenta
-  counselor: '#6B4FBB', // violet
+  cpp: '#6B4FBB', // violet
 };
+
+/**
+ * "No data" grey — a partially reported registry's county that no reporting source covers
+ * (food bank, 2026-10-16). Drawn rather than left blank, so a missing mark is
+ * never read as a confirmed "none".
+ */
+export const NO_DATA_COLOR = '#B9B5B2';
 
 export const INFRA_SHAPE = {
   food_bank: 'square',
   cms_navigator: 'triangle',
   chw: 'circle',
-  counselor: 'diamond',
+  cpp: 'diamond',
 };
 
 /**
@@ -37,10 +44,11 @@ export const INFRA_SHAPE = {
  * @property {number} y
  * @property {number} size - Nominal radius. Shapes are area-matched to it so none reads as bigger.
  * @property {boolean} [legend] - Standalone use in a legend needs a slightly heavier halo.
+ * @property {boolean} [noData] - Grey: the county is not covered by any reporting source.
  */
 
-export function InfraGlyph({ type, x, y, size, legend = false }) {
-  const fill = INFRA_COLOR[type];
+export function InfraGlyph({ type, x, y, size, legend = false, noData = false }) {
+  const fill = noData ? NO_DATA_COLOR : INFRA_COLOR[type];
   const halo = legend ? size * 0.5 : size * 0.42;
   const common = { fill, stroke: '#ffffff', strokeWidth: halo, paintOrder: 'stroke' };
 
@@ -63,7 +71,7 @@ export function InfraGlyph({ type, x, y, size, legend = false }) {
     }
     case 'chw':
       return <circle cx={x} cy={y} r={size} {...common} />;
-    case 'counselor': {
+    case 'cpp': {
       const r = size * 1.25;
       return (
         <path d={`M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`} {...common} />

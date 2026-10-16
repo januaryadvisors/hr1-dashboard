@@ -4,13 +4,16 @@ import {
   buildFunnel,
   buildScope,
   childPace,
+  countyTrends,
+  excessDecline,
   fitFunnel,
-  peersFor,
   funnelBand,
+  headlineStats,
   indexTo,
   lossRank,
   monthlyChange,
   participationShare,
+  peersFor,
   windowChange,
 } from './insights';
 /**
@@ -36,7 +39,7 @@ const county = (
     vulnerability_score: 2,
     cumulative_impact: 0,
     newly_subject_persons: 100,
-    infra: { food_bank: 0, cms_navigator: 0, chw: 0, counselor: 0 },
+    infra: { food_bank: 0, cms_navigator: 0, chw: 0, cpp: 0 },
     is_gap: false,
     small_denominator: pop < 10_000,
   });
@@ -348,5 +351,37 @@ describe('district scope', () => {
     expect(childPace(same, 0, 2)).toBe('same'); // −0.75% against −1%
     const slower = { children: [100, 99, 98], enrolled: [100, 90, 80] };
     expect(childPace(slower, 0, 2)).toBe('slower');
+  });
+});
+
+describe('headline figures', () => {
+  // Two counties on straight lines: one keeps its trend, one drops 100 off it.
+  const months = ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05'];
+  const counties = [
+    { snap_enrolled: [100, 110, 120, 130, 140] },
+    { snap_enrolled: [500, 500, 500, 500, 400] },
+  ];
+  const trends = countyTrends(counties, [0, 2]);
+
+  it('projects each county on its own trend', () => {
+    // Projected at month 4: 140 + 500 = 640; actual 540.
+    expect(excessDecline(trends, 4)).toBeCloseTo(540 / 640 - 1);
+    expect(excessDecline(trends, 2)).toBeCloseTo(0);
+  });
+
+  it('writes the three figures for the window given', () => {
+    const statewide = {
+      meta: { months },
+      enrolled: [600, 610, 620, 630, 540],
+      participation_share: [0.12, 0.12, 0.12, 0.12, 0.1],
+      age_bands: [{ band: '18–59' }, { band: '65+' }],
+      age_series: { '18–59': [100, 100, 100, 100, 80], '65+': [50, 50, 50, 50, 50] },
+    };
+    const [age, excess, share] = headlineStats(statewide, trends, 0, 4);
+    expect(age.value).toBe('−20.0%');
+    expect(age.label).toBe('Adults 18–59');
+    expect(age.body).toBe('The steepest drop of any age group since Jan 2025. Ages 65+ are flat.');
+    expect(excess.value).toBe('−15.6%');
+    expect(share.body).toBe('In May 2025, down from 12.0% in Jan 2025.');
   });
 });

@@ -9,14 +9,33 @@
   padding: 0 var(--space-5);
   background: var(--surface);
   border-bottom: 1px solid var(--hairline);
+  /* Colour only. The height snaps, because the pinned story positions itself
+     from the same variable and an animated header would part from it. */
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
 }
 
-/* Where the page switch sits on other pages: the right-hand end. */
-.slot {
-  display: flex;
-  justify-content: flex-end;
-  min-width: 0;
-  padding-left: var(--space-4);
+/* At the top of the Map page: the hero's green, no rule, so header and band
+   read as one surface. */
+.green {
+  color: var(--on-green);
+  background: var(--ft-green);
+  border-bottom-color: transparent;
+}
+
+.green .logo {
+  background: var(--on-green);
+}
+
+/* Scrolled, on desktop: a slimmer light bar, so the pinned story gets the room. */
+.slim .title {
+  font-size: var(--text-base);
+}
+
+.slim .logo {
+  width: 18px;
+  height: 18px;
 }
 
 .brand {
@@ -28,26 +47,44 @@
 .logo {
   width: 22px;
   height: 22px;
-  background: var(--ja-navy);
-  border-radius: 2px;
+  background: var(--ja-ink);
+  border-radius: 3px;
+  transition:
+    width 200ms ease,
+    height 200ms ease,
+    background-color 200ms ease;
+}
+
+.end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: 0;
 }
 
 .title {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: var(--text-md);
   font-weight: 600;
   white-space: nowrap;
 }
 
-/* Phones: the Jump to menu shares the bar, so the name steps down a size
+/* Phones: the page switch shares the bar, so the name steps down a size
    rather than wrapping onto two lines. */
 @media (max-width: 480px) {
   .header {
     padding: 0 var(--space-4);
   }
   .title {
-    font-size: 0.875rem;
+    font-size: var(--text-base);
   }
 }
 
 
+
+@media (prefers-reduced-motion: reduce) {
+  .header,
+  .logo {
+    transition: none;
+  }
+}

@@ -3,8 +3,6 @@
  * every number recomputes from the brush window (§6.2).
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import { scaleLinear } from 'd3-scale';
 import { useApp } from '../state/AppContext';
 import { activeGeoid, ALL_INFRA } from '../state/appState';
@@ -22,7 +20,6 @@ import { buildLayerStats, CountyTooltip } from '../components/map/CountyTooltip'
 import { CountySearch } from '../components/map/CountySearch';
 import { SegmentedControl } from '../components/shell/SegmentedControl';
 import { MapOption, MapOptions } from '../components/map/MapOptions';
-import { HEADER_SLOT_ID } from '../components/shell/AppHeader';
 import { JumpMenu } from '../components/shell/JumpMenu';
 import { Section } from '../components/shell/Section';
 import { RampLegend } from '../components/map/RampLegend';
@@ -40,14 +37,13 @@ import { ChapterNav } from '../components/story/ChapterNav';
 import { StoryRail } from '../components/story/StoryRail';
 import { StoryProgress } from '../components/story/StoryProgress';
 import { StepCaption } from '../components/story/StepCaption';
-import { buildStory, INDEX_DOMAINS, resolveChapters, SCHOOL_MEALS } from '../config/story';
+import { buildStory, INDEX_DOMAINS, resolveChapters } from '../config/story';
 import {
   GroupBarsFigure,
   IndexRecipe,
   LineFigure,
   LineLegend,
   ShortfallFigure,
-  StatBarsFigure,
   StripFigure,
   YearBarsFigure,
 } from '../components/story/StoryCharts';
@@ -57,7 +53,7 @@ import { useFitText } from '../lib/useFitText';
 /**
  * @typedef {import('../components/charts/ScatterChart').ScatterPoint} ScatterPoint
  */
-import { ScatterPanel } from '../components/charts/ScatterPanel';
+import { ScatterPanel, ScatterTooltip } from '../components/charts/ScatterPanel';
 import {
   metricById,
   presetById,
@@ -65,7 +61,7 @@ import {
   SCATTER_PRESETS,
 } from '../config/metrics';
 import { INFRA_COLOR, InfraGlyph } from '../components/map/InfraGlyph';
-import { INFRA_BAR_ORDER, infraMax } from '../components/map/InfraBars';
+import { INFRA_BAR_ORDER } from '../components/map/InfraBars';
 import { downloadSelection } from '../lib/download';
 import { loadTimeline } from '../data/timeline';
 import { loadSnapObserved } from '../data/snap';
@@ -76,9 +72,9 @@ import { loadMarketplace } from '../data/marketplace';
 import { buildGeometry } from '../lib/mapGeometry';
 import { useElementSize } from '../lib/useElementSize';
 import { buildLayerValues, countBinsFor, formatLayerValue, fractionOf } from '../lib/layerValues';
-import { indexTo } from '../lib/insights';
+import { countyTrends, headlineStats, indexTo } from '../lib/insights';
 import { binIndex, binsFor } from '../lib/scales';
-import { fmtDelta, fmtInt, fmtMonthBody, fmtPct } from '../lib/format';
+import { fmtDelta, fmtInt, fmtMonthBody, fmtMonthFull, fmtPct } from '../lib/format';
 /**
  * @typedef {import('../types').InfraKey} InfraKey
  * @typedef {import('../types').LayerKey} LayerKey
@@ -163,6 +159,12 @@ function medianByType(counties, read) {
   return out;
 }
 
+/**
+ * Experimental: a faint white glow inside the pinned story's edges. false turns
+ * it off; see .dreamEdge in MapPage.module.css to remove it outright.
+ */
+const DREAM_EDGE = true;
+
 /** Anchor for the section after the story — the Jump to menu's last stop. */
 const CAPACITY_ID = 'need-meets-capacity';
 
@@ -235,14 +237,30 @@ export default function MapPage() {
     return a >= 0 && b >= 0 ? statewide.enrolled[b] - statewide.enrolled[a] : windowChange;
   }, [months, shownWindow, statewide.enrolled, windowChange]);
 
+  /*
+     The hero band's three figures, recomputed for the window on screen —
+     including mid-drag, like the headline — rather than typed into
+     timeline.json. The county trends are fitted once; each window only
+     projects them.
+  */
+  const trends = useMemo(() => {
+    const tw = statewide.meta.trend_window;
+    if (!tw) return [];
+    return countyTrends(counties, [months.indexOf(tw[0]), months.indexOf(tw[1])]);
+  }, [counties, months, statewide.meta.trend_window]);
+  const heroStats = useMemo(() => {
+    const a = months.indexOf(shownWindow[0]);
+    const b = months.indexOf(shownWindow[1]);
+    return a >= 0 && b >= 0 ? headlineStats(statewide, trends, a, b) : [];
+  }, [months, shownWindow, statewide, trends]);
+
   // §6.8 "Where need meets capacity".
   // ------------------------------------------------- scatter axes and focus
   /**
    * The scatter's own focus, deliberately NOT the global `hovered`.
    *
-   * Its readout is the panel beside the chart rather than the floating tooltip,
-   * so sharing state with the map would pop a tooltip over a chart that is
-   * already explaining itself.
+   * The scatter has its own tooltip beside the point (<ScatterTooltip>), so
+   * sharing state with the map would also pop the map's tooltip over it.
    */
   const [scatterFocus, setScatterFocus] = useState(null);
 
@@ -490,11 +508,10 @@ export default function MapPage() {
       ),
     [counties],
   );
-  /** Top of the bars' shared count scale, for the grid key. */
-  const infraBarMax = useMemo(() => infraMax(counties), [counties]);
 
-  /** Registries with no source yet: listed under the picker, never as a zero count. */
+  /** Registries with no source yet: named in the bars key, never as a zero count. */
   const unsourcedInfra = INFRA_TYPES.filter((t) => !t.available);
+  const fbMarksOn = state.infra.includes('food_bank');
 
   // C-03: count measure with no count basis replaces the map, and the toggle is
   // NOT greyed out.
@@ -521,7 +538,6 @@ export default function MapPage() {
     const f = {};
     const k = (v) => (Number.isFinite(v) ? fmtInt(Math.round(v / 1000) * 1000) : null);
     const pctOf = (v, digits = 1) => `${(Math.abs(v) * 100).toFixed(digits)}%`;
-    const signed = (v) => `${v < 0 ? '−' : '+'}${pctOf(v)}`;
     const policy = statewide.meta.policy_start;
 
     f.windowStartLong = monthLong(state.window[0]);
@@ -538,31 +554,24 @@ export default function MapPage() {
     f.childrenK = k(childLost);
     f.adultsK = k(adultLost);
     f.youngShare = lost > 0 ? `${Math.round(((childLost + adultLost) / lost) * 100)}%` : null;
-    const s65 = band('65+');
-    f.seniorsPct = s65 && s65[i0] ? signed((s65[i1] - s65[i0]) / s65[i0]) : null;
 
-    // Work rules: counts and the metro share, over the window's starting caseload.
+    // Work rules: the count, over the window's starting caseload.
     const subject = counties.reduce((sum, c) => sum + (c.newly_subject_persons ?? 0), 0);
-    const metroSubject = counties
-      .filter((c) => c.county_type === 'Metro')
-      .reduce((sum, c) => sum + (c.newly_subject_persons ?? 0), 0);
     const enrolledAtStart = statewide.enrolled[i0];
     f.newlySubjectK = k(subject);
     f.oneIn = enrolledAtStart > 0 && subject > 0 ? String(Math.round(enrolledAtStart / subject)) : null;
-    f.metroShare = subject > 0 ? `${Math.round((metroSubject / subject) * 100)}%` : null;
 
-    // Children by county type, and the index's medians by type.
+    // Children by county type, and the index's rural median.
     const byType = childLossByType(counties, i0, i1);
     f.childRural = byType.Rural == null ? null : pctOf(byType.Rural);
     f.childMetro = byType.Metro == null ? null : pctOf(byType.Metro);
     const med = medianByType(counties, (c) => c.vulnerability_score);
     f.compRural = med.Rural?.toFixed(2) ?? null;
-    f.compMetro = med.Metro?.toFixed(2) ?? null;
 
     /*
        Observed SNAP (optional file). Not windowed: these describe the series
-       as published — the peak before the rules, the pace since they took
-       effect, and payments against the month H.R. 1 was signed.
+       as published — the pace since the rules took effect, and payments
+       against the month H.R. 1 was signed.
     */
     if (snap) {
       const sm = snap.months;
@@ -575,11 +584,6 @@ export default function MapPage() {
       f.snapRange = `${fmtMonthBody(sm[0])} – ${fmtMonthBody(sm[last])}`;
       if (r > 0 && last > r) {
         f.avgMonthlyK = k((ind[r] - ind[last]) / (last - r));
-        // The recovery high: the peak between signing and the rules taking effect.
-        let peak = Math.max(0, p0);
-        for (let i = peak; i < r; i++) if (ind[i] > ind[peak]) peak = i;
-        f.peakM = (ind[peak] / 1e6).toFixed(2);
-        f.peakMonth = monthLong(sm[peak]);
         // "It fell every month" is only claimed while it is true.
         f.fellEveryMonth = ind.slice(r, last + 1).every((v, i, a) => i === 0 || v < a[i - 1])
           ? 'yes'
@@ -590,8 +594,6 @@ export default function MapPage() {
         let short = 0;
         for (let i = r; i <= last; i++) short += Math.max(0, base - pay[i]);
         f.shortfallM = fmtInt(Math.round(short / 1e6));
-        f.monthlyDownM = fmtInt(Math.round((base - pay[last]) / 1e6));
-        f.monthlyDownPct = signed((pay[last] - base) / base);
         f.shortfallFrom = monthName(RULES_MONTH);
         f.shortfallTo = monthName(sm[last]);
         f.baseMonth = monthName(policy);
@@ -619,7 +621,6 @@ export default function MapPage() {
       const prev = oep[oep.length - 2];
       if (lo && prev) {
         f.neverLatest = pctOf(lo.not_effectuated_share);
-        f.neverPrev = pctOf(prev.not_effectuated_share);
         f.neverOneIn = String(Math.round(1 / lo.not_effectuated_share));
         f.selLatestM = (lo.plan_selections / 1e6).toFixed(2);
         f.selGrew = lo.plan_selections > prev.plan_selections ? 'yes' : null;
@@ -709,23 +710,68 @@ export default function MapPage() {
             </span>
           </label>
         ))}
-        {unsourcedInfra.length > 0 && (
-          <p className={styles.blockNote}>
-            Not yet sourced: {unsourcedInfra.map((t) => t.label.toLowerCase()).join(' and ')}.
-            Counts are organizations serving a county, not sites or capacity.
-          </p>
-        )}
     </div>
   );
 
+  // ------------------------------------------------------------ parallax
+  /**
+   * The green band is the upper plane and scrolls away at full speed, whole and
+   * unfaded; the story is the lower plane and moves slower, so the band reads
+   * as lifting off the map (2026-10-16).
+   *
+   * At the top of the page the story starts SHIFT_PX tucked up under the band,
+   * and slides out at a constant lag as the band leaves, reaching its true
+   * place exactly when the stage pins — so the pinned story is never offset,
+   * and there is never a gap of bare page between the two planes. Written
+   * straight to a CSS variable, no re-render per scroll frame. Desktop only,
+   * and never under reduced motion.
+   */
+  const heroRef = useRef(null);
+  useEffect(() => {
+    const band = heroRef.current;
+    const story = storyRef.current;
+    if (!band || !story) return undefined;
+    const SHIFT_PX = 100;
+    const wide = window.matchMedia('(min-width: 900px)');
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (!wide.matches || still.matches) {
+        story.style.setProperty('--under-shift', '0px');
+        return;
+      }
+      // The scroll position at which the stage pins under the header.
+      const header =
+        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 0;
+      // The story's own top, less the shift already applied to its stage.
+      const end = story.getBoundingClientRect().top + window.scrollY - header;
+      const t = Math.min(1, Math.max(0, window.scrollY / Math.max(1, end)));
+      // Linear, so the lag is one steady speed — the plane, not an animation.
+      const shift = -SHIFT_PX * (1 - t);
+      story.style.setProperty('--under-shift', `${shift.toFixed(1)}px`);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
+
   // ------------------------------------------------------------- jumping
   /**
-   * The header's Jump to menu, and the rail's exits. Every jump that leaves the
+   * The floating Jump to menu — the story's one way out, either end, and the
+   * way between its chapters (2026-10-16: it replaced the rail's separate Back
+   * to top and Skip the story buttons). Every jump that leaves the
    * story goes through scrollToY, which settles the step before the trip so
    * the map is not redrawn for every chapter scrolled past on the way.
    */
-  const [headerSlot, setHeaderSlot] = useState(null);
-  useEffect(() => setHeaderSlot(document.getElementById(HEADER_SLOT_ID)), []);
 
   const pageTopOf = (el) => {
     const header =
@@ -744,26 +790,9 @@ export default function MapPage() {
     if (!storyPinned && storyRef.current) scrollToY(pageTopOf(storyRef.current));
   }
 
-  const navigate = useNavigate();
   const jumpGroups = [
-    // The Map / Insights switch, moved in from the header — see AppHeader.
     {
-      layout: 'row',
-      items: [
-        { key: 'page-map', label: 'Map', current: true, onSelect: () => scrollToY(0) },
-        {
-          key: 'page-insights',
-          label: 'Insights',
-          onSelect: () =>
-            navigate({ pathname: '/insights/decline', search: window.location.search }),
-        },
-      ],
-    },
-    {
-      heading: 'On this page',
-      items: [
-        { key: 'top', label: 'Overview', current: region === 'before', onSelect: () => scrollToY(0) },
-      ],
+      items: [{ key: 'top', label: 'Back to top', onSelect: () => scrollToY(0) }],
     },
     {
       heading: 'The story',
@@ -778,21 +807,12 @@ export default function MapPage() {
     },
     {
       items: [
-        {
-          key: 'capacity',
-          label: 'Where need meets capacity',
-          current: region === 'after',
-          onSelect: jumpPastStory,
-        },
+        { key: 'capacity', label: 'Skip the story', onSelect: jumpPastStory },
       ],
     },
   ];
-  const jumpCurrent =
-    region === 'before'
-      ? 'Overview'
-      : region === 'after'
-        ? 'Where need meets capacity'
-        : `${step.chapterIndex + 1} · ${step.chapter.nav}`;
+  // The button only shows inside the story, so it always names a chapter.
+  const jumpCurrent = `${step.chapterIndex + 1} · ${step.chapter.nav}`;
 
   /**
    * The chart slots a story step can name (StoryStep.chart). Only the open
@@ -923,8 +943,6 @@ export default function MapPage() {
         );
 
       // 3a — school meals, figures from outside this dataset.
-      case 'schoolMeals':
-        return <StatBarsFigure rows={SCHOOL_MEALS} />;
 
       // 3b — share of the child caseload lost, by county type.
       case 'childTypes': {
@@ -1076,51 +1094,6 @@ export default function MapPage() {
           />
           </div>
 
-          {/*
-            M-08's overlays live with the shortlist on client direction:
-            both of them mark a subset of counties on the map, which is the
-            same job the list is doing in text.
-          */}
-          <div className={styles.overlayRows}>
-            <div className={styles.switchRow}>
-              <span className={styles.switchLabel}>Highlight top quintile</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={state.overlayQ5}
-                aria-label="Highlight top quintile"
-                className={`${styles.switch} ${state.overlayQ5 ? styles.switchOn : ''}`}
-                onClick={() => dispatch({ type: 'toggleOverlayQ5' })}
-              >
-                <span className={styles.switchKnob} />
-              </button>
-              <span className={styles.switchDef}>
-                Outlines the worst fifth on the metric showing.
-              </span>
-            </div>
-
-            {/* Hidden, not disabled, off the Vulnerability index:
-                its definition is a vulnerability quintile, so on the
-                other views it is a control for something not on screen. */}
-            {showCapacity && (
-              <div className={styles.switchRow}>
-                <span className={styles.switchLabel}>Gap counties</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={state.overlayGap}
-                  aria-label="Gap counties"
-                  className={`${styles.switch} ${state.overlayGap ? styles.switchOn : ''}`}
-                  onClick={() => dispatch({ type: 'toggleOverlayGap' })}
-                >
-                  <span className={styles.switchKnob} />
-                </button>
-                <span className={styles.switchDef}>
-                  Top-quintile need with no CMS navigator listed.
-                </span>
-              </div>
-            )}
-          </div>
         </div>
         </div>
         </div>
@@ -1139,7 +1112,7 @@ export default function MapPage() {
         bleed past .page's max-width and gutters without negative-margin tricks
         that break inside its grid.
       */}
-      <section className={styles.heroBand}>
+      <section className={styles.heroBand} ref={heroRef}>
         <div className={styles.heroInner}>
         <div className={styles.heroMain}>
         {/* The window used to be restated in an eyebrow above the number.
@@ -1149,7 +1122,8 @@ export default function MapPage() {
         <div className={styles.heroNumberRow}>
           <span className={`${styles.heroNumber} tabular`}>{fmtDelta(shownChange)}</span>
           <span className={styles.heroPhrase}>
-            fewer Texans on SNAP than {fmtMonthBody(shownWindow[0])}
+            fewer Texans on SNAP than in {fmtMonthFull(shownWindow[0])}
+            {shownWindow[0] === statewide.meta.policy_start && ', when H.R. 1 was signed'}
           </span>
         </div>
 
@@ -1159,18 +1133,26 @@ export default function MapPage() {
             Download sits alongside it rather than under the brush: it is the one
             thing on this page a reader might come for and leave with, and it was
             previously the last element before the fold. */}
+        <p className={styles.heroBody}>
+          Losses began three months after signing, broke sharply in November, and have run
+          roughly 70,000–80,000 a month since.
+        </p>
         <div className={styles.heroBodyRow}>
-          <p className={styles.heroBody}>
-            Losses began three months after signing, broke sharply in November, and have run
-            roughly 70,000–80,000 a month since, with no floor in sight yet. Every county with
-            more than 1,000 enrollees has lost people. This is observed enrollment change, not a
-            modelled estimate of who H.R. 1 affected.
-          </p>
           <button
             type="button"
             className={styles.download}
             onClick={() => downloadSelection(data, state)}
           >
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path
+                d="M8 2v8m0 0L4.5 6.5M8 10l3.5-3.5M3 13.5h10"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
             Download data
           </button>
         </div>
@@ -1184,12 +1166,13 @@ export default function MapPage() {
           onChange={(w) => dispatch({ type: 'setWindow', window: w })}
           onPreview={setPreview}
           viewWidth={BRUSH_VIEW_WIDTH}
-          height={116}
+          height={150}
         />
         </div>
 
         {/*
-          §6.3's three statewide facts, back in the green band.
+          §6.3's three statewide facts, back in the green band. Computed for
+          the brush window since 2026-10-16 — see headlineStats().
 
           They went to the sticky rail for one round to keep them fixed; the
           client's call is that being in the band matters more. A sticky element
@@ -1197,7 +1180,7 @@ export default function MapPage() {
           they scroll away with it — that is the trade.
         */}
         <div className={styles.heroStats}>
-          <HeadlineStats stats={timeline.stats} />
+          <HeadlineStats stats={heroStats} />
         </div>
         </div>
       </section>
@@ -1216,7 +1199,7 @@ export default function MapPage() {
         ref={storyRef}
         className={`${styles.story} ${storyPinned ? styles.storyPinned : ''} ${
           phoneStory ? styles.storyPhone : ''
-        }`}
+        } ${DREAM_EDGE ? styles.dreamEdge : ''}`}
         style={{ '--story-steps': story.steps.length }}
         aria-label="The story, one map at a time"
       >
@@ -1302,6 +1285,51 @@ export default function MapPage() {
               />
             </MapOption>
             )}
+            {/* M-08's overlays, moved here from under the shortlist on client
+                direction 2026-10-16: they change what the map draws, which is
+                what every other control in this popover does. */}
+            <MapOption label="Highlight">
+              <div className={styles.overlayRows}>
+                <div className={styles.switchRow}>
+                  <span className={styles.switchLabel}>Highlight top quintile</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={state.overlayQ5}
+                    aria-label="Highlight top quintile"
+                    className={`${styles.switch} ${state.overlayQ5 ? styles.switchOn : ''}`}
+                    onClick={() => dispatch({ type: 'toggleOverlayQ5' })}
+                  >
+                    <span className={styles.switchKnob} />
+                  </button>
+                  <span className={styles.switchDef}>
+                    Outlines the worst fifth on the metric showing.
+                  </span>
+                </div>
+
+                {/* Hidden, not disabled, off the Vulnerability index: its
+                    definition is a vulnerability quintile, so on the other
+                    views it is a control for something not on screen. */}
+                {showCapacity && (
+                  <div className={styles.switchRow}>
+                    <span className={styles.switchLabel}>Gap counties</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={state.overlayGap}
+                      aria-label="Gap counties"
+                      className={`${styles.switch} ${state.overlayGap ? styles.switchOn : ''}`}
+                      onClick={() => dispatch({ type: 'toggleOverlayGap' })}
+                    >
+                      <span className={styles.switchKnob} />
+                    </button>
+                    <span className={styles.switchDef}>
+                      Top-quintile need with no CMS navigator listed.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </MapOption>
           </MapOptions>
         </div>
 
@@ -1433,11 +1461,19 @@ export default function MapPage() {
                     {t.label}
                   </span>
                 ))}
+                {fbMarksOn && (
+                  <span className={styles.markKey}>
+                    <svg width="12" height="12" aria-hidden="true">
+                      <InfraGlyph type="food_bank" x={6} y={6} size={3.5} legend noData />
+                    </svg>
+                    No reporting food bank
+                  </span>
+                )}
               </>
             )}
             {/* On the grid the marks are bars inside each tile, so the key is
-                a bar too, with the shared scale's top stated — and the
-                unsourced registries named, so no bar never reads as none. */}
+                a bar too, named by registry — and the unsourced registries
+                named, so no bar never reads as none. */}
             {showCapacity && drawStyle === 'grid' && (
               <>
                 <span className="eyebrow">Bars</span>
@@ -1448,12 +1484,15 @@ export default function MapPage() {
                       <svg width="6" height="12" aria-hidden="true">
                         <rect x={1} y={2} width={4} height={10} fill={INFRA_COLOR[t.key]} />
                       </svg>
-                      {t.label}s, 0–{infraBarMax}
+                      {t.plural}
                     </span>
                   ))}
-                <span className={styles.markKey}>
-                  {unsourcedInfra.map((t) => t.shortLabel).join(', ')}: not yet sourced
-                </span>
+
+                {unsourcedInfra.length > 0 && (
+                  <span className={styles.markKey}>
+                    {unsourcedInfra.map((t) => t.shortLabel).join(', ')}: not yet sourced
+                  </span>
+                )}
                 {state.overlayGap && (
                   <span className={styles.markKey}>
                     <svg width="12" height="12" aria-hidden="true">
@@ -1502,16 +1541,6 @@ export default function MapPage() {
           renderChart={renderStoryChart}
           onSelect={(ci, si) => goTo(story.firstStep[ci] + si)}
         />
-        {/* The quick way out of the story, either end. The header's Jump to
-            menu does the same from anywhere on the page. */}
-        <div className={styles.storyExit}>
-          <button type="button" className={styles.exitButton} onClick={() => scrollToY(0)}>
-            <span aria-hidden="true">↑</span> Back to top
-          </button>
-          <button type="button" className={styles.exitButton} onClick={jumpPastStory}>
-            Skip the story <span aria-hidden="true">↓</span>
-          </button>
-        </div>
       </aside>
       )}
       </div>
@@ -1540,43 +1569,64 @@ export default function MapPage() {
           time-series charts that sat under it moved into the story's first
           chapter, where the month-over-month columns and the age bands now
           open as steps beside the map. */}
-      <Section title="Where need meets capacity" tone="alt" id={CAPACITY_ID}>
+      <Section
+        title="Where need meets capacity"
+        subtitle="Each dot is a county, sized by enrollment. Pick a comparison, then hover a dot or search for a county."
+        tone="alt"
+        id={CAPACITY_ID}
+      >
         <div className={styles.capacityRow}>
-          <div className={styles.capacityChart} ref={capacityRef}>
-            <ScatterChart
-              points={scatterPoints}
-              /* Real pixels, so the viewBox is 1:1 with the slot. The floors
-                 cover the first paint, before the observer has measured. */
-              viewWidth={Math.max(360, Math.round(capacityBox.width) || SUMMARY_VIEW_WIDTH)}
-              height={Math.max(260, Math.round(capacityBox.height) || 320)}
-              hovered={scatterFocus}
-              /* Local state, not the global hover: this chart's readout is the
-                 panel beside it, and driving global hover would also pop the
-                 map's floating tooltip. */
-              onHover={setScatterFocus}
-              xLabel={`${xMetric.axis} →`}
-              yLabel={yMetric.axis}
-              /* All four corners, named by the preset; the chart counts them. */
-              quadrants={preset.quadrants}
-              ySplit={preset.ySplit}
-            />
-          </div>
-
-          <div className={styles.capacityPanel}>
-            <ScatterPanel
-              counties={counties}
-              presets={SCATTER_PRESETS}
-              preset={preset}
-              onChangePreset={setPresetId}
-              x={xMetric}
-              y={yMetric}
-              ctx={metricCtx}
-              focus={scatterFocus ? byGeoid.get(scatterFocus) ?? null : null}
-              onFocus={setScatterFocus}
-              window={state.window}
-              childSeries={layerDef.seriesField === 'snap_children'}
-            />
-          </div>
+          <ScatterPanel
+            counties={counties}
+            presets={SCATTER_PRESETS}
+            preset={preset}
+            onChangePreset={setPresetId}
+            x={xMetric}
+            ctx={metricCtx}
+            onFocus={setScatterFocus}
+            chart={
+              <div className={styles.capacityChart} ref={capacityRef}>
+                <ScatterChart
+                  points={scatterPoints}
+                  /* Real pixels, so the viewBox is 1:1 with the slot. The floors
+                     cover the first paint, before the observer has measured. */
+                  viewWidth={Math.max(360, Math.round(capacityBox.width) || SUMMARY_VIEW_WIDTH)}
+                  height={Math.max(260, Math.round(capacityBox.height) || 320)}
+                  hovered={scatterFocus}
+                  /* Local state, not the global hover: this chart has its own
+                     tooltip, and driving global hover would also pop the map's. */
+                  onHover={setScatterFocus}
+                  xLabel={`${xMetric.axis} →`}
+                  yLabel={yMetric.axis}
+                  xFormat={xMetric.format}
+                  yFormat={yMetric.format}
+                  /* All four corners, named by the preset; the chart counts them. */
+                  quadrants={preset.quadrants}
+                  ySplit={preset.ySplit}
+                  renderOverlay={({ geoid, x, y, r, width, height }) => {
+                    const county = byGeoid.get(geoid);
+                    if (!county) return null;
+                    // Right of the point, or left of it near the right edge;
+                    // kept inside the slot top and bottom.
+                    const TIP_W = 280;
+                    const left = x + r + 12 + TIP_W > width ? x - r - 12 - TIP_W : x + r + 12;
+                    const top = Math.max(0, Math.min(y - 32, height - 250));
+                    return (
+                      <ScatterTooltip
+                        county={county}
+                        x={xMetric}
+                        y={yMetric}
+                        ctx={metricCtx}
+                        window={state.window}
+                        childSeries={layerDef.seriesField === 'snap_children'}
+                        style={{ left, top }}
+                      />
+                    );
+                  }}
+                />
+              </div>
+            }
+          />
         </div>
       </Section>
 
@@ -1591,15 +1641,14 @@ export default function MapPage() {
         step, directly above.
       */}
       <aside className={styles.rail}>
-        <TimelineFeed content={timeline} window={shownWindow} />
+        <div className={styles.railInner}>
+          <TimelineFeed content={timeline} window={shownWindow} />
+        </div>
       </aside>
       </div>
 
-      {headerSlot &&
-        createPortal(
-          <JumpMenu groups={jumpGroups} currentLabel={jumpCurrent} />,
-          headerSlot,
-        )}
+      {/* Over the story only — see JumpMenu. */}
+      <JumpMenu groups={jumpGroups} currentLabel={jumpCurrent} visible={region === 'in'} />
 
       <CountyTooltip
         county={activeCounty}
@@ -1610,6 +1659,7 @@ export default function MapPage() {
         window={state.window}
         measure={state.measure}
         tooltipStats={view.tooltip.stats}
+        foodbank={statewide.meta.foodbank}
         origin={state.hoverOrigin}
       />
     </div>

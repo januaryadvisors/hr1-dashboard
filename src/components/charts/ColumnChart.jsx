@@ -31,7 +31,7 @@ export function ColumnChart({
   labelEveryMonth = false,
   viewWidth: W = 1000,
 }) {
-  const M = { top: 18, right: 10, bottom: 20, left: 44 };
+  const M = { top: 18, right: 10, bottom: 20, left: 62 };
   const finite = values.filter((v) => v != null);
   const extent = Math.max(1, ...finite.map(Math.abs));
 

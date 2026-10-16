@@ -1,58 +1,105 @@
+/*
+ * The period card, set on the green band — 2026-10-16 comps. A darker green
+ * panel rather than a white card, so the band reads as one piece: cream for the
+ * history, gold for the window on the map, cream grips to drag.
+ */
 .card {
-  padding: var(--space-3);
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
+  padding: var(--space-5);
+  background: rgba(0, 0, 0, 0.16);
+  border-radius: 10px;
 }
 
 .head {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  align-items: baseline;
+  gap: var(--space-3);
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--on-green);
 }
 
 .instruction {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--on-green-muted);
 }
 
+/* One segmented track, cream thumb on the selected preset. */
 .presets {
-  display: flex;
-  gap: var(--space-1);
+  display: inline-flex;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-pill);
+}
+
+.preset {
+  padding: 0.3rem 0.85rem;
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--on-green-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.preset:hover:not(.presetOn) {
+  color: var(--on-green);
+}
+
+.presetOn {
+  color: var(--ja-ink);
+  background: var(--on-green);
+}
+
+.slot {
+  min-width: 0;
 }
 
 .svg {
   display: block;
   width: 100%;
-  height: auto;
   touch-action: none;
 }
 
 .line {
   fill: none;
-  stroke: #8fa6c4;
-  stroke-width: 1.2;
+  stroke: var(--on-green);
+  stroke-opacity: 0.5;
+  stroke-width: 1.4;
 }
-
 
 .lineIn {
   fill: none;
-  stroke: var(--ja-burgundy);
-  stroke-width: 1.8;
+  stroke: var(--on-green-accent);
+  stroke-width: 2.25;
 }
 
 .band {
-  fill: var(--ja-burgundy);
-  fill-opacity: 0.06;
+  fill: var(--on-green);
+  fill-opacity: 0.08;
 }
 
 .handle {
-  stroke: var(--ja-burgundy);
+  stroke: var(--on-green);
   stroke-width: 1.5;
   cursor: ew-resize;
+}
+
+.grip {
+  fill: var(--on-green);
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 0.5;
+  pointer-events: none;
 }
 
 .handleHit {
@@ -60,19 +107,31 @@
   cursor: ew-resize;
 }
 
+.handleHit:focus-visible {
+  outline: none;
+  stroke: var(--on-green-accent);
+  stroke-width: 2;
+}
+
 .axis {
-  font-size: 9px;
-  fill: var(--text-faint);
+  font-size: var(--text-2xs);
+  fill: var(--on-green-muted);
 }
 
 .gridline {
-  stroke: var(--hairline);
-  stroke-width: 0.5;
+  stroke: var(--on-green-rule);
+  stroke-width: 1;
 }
 
 .endpointLabel {
   font-family: var(--font-display);
-  font-size: 9px;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  fill: var(--ja-burgundy);
+  fill: var(--on-green);
+}
+
+@media (max-width: 640px) {
+  .card {
+    padding: var(--space-4);
+  }
 }

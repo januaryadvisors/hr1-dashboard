@@ -448,34 +448,6 @@ export function GroupBarsFigure({ rows }) {
 }
 
 /**
- * Labelled figures, each with an optional share bar and a note on where and
- * when the number comes from — for figures from different sources and years
- * that should not be drawn on one axis.
- *
- * @param {{ rows: { label: string, display: string, share?: number, note: string }[] }} props
- */
-export function StatBarsFigure({ rows }) {
-  return (
-    <div className={styles.statBars}>
-      {rows.map((r) => (
-        <div key={r.label} className={styles.statRow}>
-          <div className={styles.statHead}>
-            <span className={styles.statLabel}>{r.label}</span>
-            <span className={`${styles.statValue} tabular`}>{r.display}</span>
-          </div>
-          {r.share != null && (
-            <span className={styles.statTrack}>
-              <span className={styles.statBar} style={{ width: `${r.share * 100}%` }} />
-            </span>
-          )}
-          <span className={styles.statNote}>{r.note}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
  * Columns by year with the value printed on each, the recent years toned so
  * the change reads before the numbers do.
  *

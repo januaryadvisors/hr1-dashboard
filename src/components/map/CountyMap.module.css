@@ -33,21 +33,40 @@
   opacity: 0.4;
 }
 
-/* Red border, per client direction 2026-09-01 (was ink). Kept a touch brighter
-   and thinner than the gap outline so the two overlays stay distinguishable
+/* Overlay on: the counties it does not pick out fade back (2026-10-16), so
+   the outlined ones carry the map. Opacity rather than a grey fill, so the
+   choropleth is still readable underneath. */
+.overlayDimmed {
+  opacity: 0.28;
+}
+
+/* White under every overlay line, wider than the line itself, so the outline
+   separates from its neighbours on dark fills too. */
+.overlayHalo {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 4.5;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* Red border, per client direction 2026-09-01 (was ink). Solid and brighter
+   than the gap outline's dashes, so the two overlays stay distinguishable
    when both are on. */
 .overlayQ5 {
   fill: none;
   stroke: var(--overlay-q5);
-  stroke-width: 1.25;
+  stroke-width: 2.25;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 
 .overlayGap {
   fill: none;
   stroke: var(--ja-burgundy);
-  stroke-width: 2;
-  stroke-dasharray: 3 2;
+  stroke-width: 2.75;
+  stroke-dasharray: 4 2;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 

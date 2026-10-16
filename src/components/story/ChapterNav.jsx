@@ -45,7 +45,6 @@ export function ChapterNav({ items, activeChapter, activeStep, onSelect }) {
         {items.map((item, i) => {
           const current = i === activeChapter;
           const done = i < activeChapter;
-          const num = String(i + 1).padStart(2, '0');
           return (
             <li key={item.key} className={`${styles.card} ${current ? styles.current : ''}`}>
               <button
@@ -53,7 +52,7 @@ export function ChapterNav({ items, activeChapter, activeStep, onSelect }) {
                 className={styles.main}
                 /* The label hides on narrow cards (see .label), so the name
                    is also the button's own. */
-                aria-label={`${num} ${item.label}`}
+                aria-label={item.label}
                 title={item.label}
                 aria-current={current ? 'step' : undefined}
                 onClick={() => onSelect(i, 0)}
@@ -61,7 +60,6 @@ export function ChapterNav({ items, activeChapter, activeStep, onSelect }) {
                 <span className={styles.thumb} aria-hidden="true">
                   {item.thumb}
                 </span>
-                <span className={`${styles.num} tabular`}>{num}</span>
                 <span className={styles.label}>{item.label}</span>
               </button>
               <span className={styles.progress}>

@@ -3,7 +3,10 @@
  *
  * Two sources, deliberately separate:
  *
- *   timeline.json   the three topline figures. Editorial, hand-edited.
+ *   timeline.json   editorial notes. The three topline figures it used to hold
+ *                   are computed for the brush window since 2026-10-16
+ *                   (src/lib/insights.js headlineStats); `stats` is read only
+ *                   for an older file that still carries them.
  *   bulletins.json  the dated feed. GENERATED from Texas HHS "Texas Works"
  *                   policy bulletins and quarterly revisions by
  *                   scripts/fetch-texas-works.mjs, refreshed on a schedule by
@@ -25,6 +28,7 @@
 
 /**
  * @typedef {Object} TimelineStat
+ * @property {string} [label] - What the figure is of, set above it.
  * @property {string} value
  * @property {string} body
  * @property {'negative'} [tone]

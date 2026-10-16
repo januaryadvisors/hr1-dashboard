@@ -17,6 +17,7 @@
  * @typedef {import('../types').LayerKey} LayerKey
  * @typedef {import('../types').ViewKey} ViewKey
  */
+import { fmtMonthBody } from '../lib/format';
 
 /**
  * How a layer gets its value.
@@ -384,45 +385,106 @@ export function viewForLayer(layer) {
 export const defaultLayerFor = (key) => viewByKey(key).metrics[0];
 
 /**
- * The four assistance registries §6.6 names. Only two are sourced.
+ * The four assistance registries, all sourced from capacity_county (2026-10-16).
+ * §6.6's fourth, certified application counselors, was never pulled; HHSC's
+ * Community Partner Program — sites that help people apply for SNAP and
+ * Medicaid — took its slot as the closer fit for this dashboard.
  *
  * `available: false` means the registry has not been acquired and every county
  * carries null for it — not zero. Those types draw no marks, have no checkbox and
  * are named as "not yet sourced" wherever capacity is shown, so an absent mark
  * never reads as a confirmed absence. Flip the flag when the export fills the
  * column.
+ *
+ * `partial: true` (food bank, 2026-10-16) means only some of the registry's
+ * sources report — 4 of Texas's 21 member food banks so far. The value is
+ * still an organisation count (reporting banks serving the county), so it
+ * draws as a bar like the others, but a county none of them covers is null
+ * and draws GREY, never as zero. It stays out of the organisations-per-10k
+ * metric until coverage is complete, as the R pipeline asks.
+ *
+ * `banded: true` (CHW) means the value is a POSITION in statewide
+ * meta.chw_bands (1 = lowest range), not a count: DSHS publishes ranges.
+ * Readers see the range label (county.chw_band); the bar height is the band.
+ * It stays out of the per-10k metric, because a band cannot be summed.
+ *
+ * `plural` names the registry in keys ("CMS-funded navigators, 0–3").
+ * `scaleMax`, where present, fixes the top of that registry's bar scale; the
+ * busiest county still wins if it is higher, so no bar is ever clipped.
+ * `longLabel`, where present, is the full name a column's hover text gives
+ * when `shortLabel` has to fit a narrow bar-chart column.
+ *
+ * Sources carry no counts or dates that the data already knows: those come
+ * from statewide.meta at render time (see foodbankCoverage below).
  */
 export const INFRA_TYPES = [
   {
     key: 'food_bank',
-    shortLabel: 'Food bank',
-    label: 'Food bank enrollment site',
+    shortLabel: 'Food banks serving county',
+    longLabel: 'Number of food banks serving county residents',
+    label: 'Food bank',
+    plural: 'Food banks',
     glyph: 'square',
-    source: 'Feeding Texas partner registry — not yet supplied',
-    available: false,
+    source: 'Feeding Texas member food banks that served at least one household in the county',
+    available: true,
+    partial: true,
+    // Fixed top, not the busiest county's 2 (client direction 2026-10-16): with
+    // 4 of 21 banks reporting, today's maximum would read as "full" when more
+    // banks are still to come.
+    scaleMax: 5,
   },
   {
     key: 'cms_navigator',
-    shortLabel: 'CMS navigator',
+    shortLabel: 'CMS navigators',
     label: 'CMS-funded navigator',
+    plural: 'CMS-funded navigators',
     glyph: 'circle',
-    source: 'CMS 2025–26 awardees, counties served · 149 counties have none',
+    source: 'CMS 2025–26 awardees, counties served',
     available: true,
   },
   {
     key: 'chw',
-    shortLabel: 'CHW / promotor',
-    label: 'CHW / promotor network',
+    shortLabel: 'Certified CHWs',
+    label: 'Certified community health workers',
+    plural: 'Certified CHWs',
     glyph: 'diamond',
-    source: 'DSHS networks directory, Dec 2021 · partial county coverage',
+    source: 'DSHS annual report, certified CHWs by county — a range read from its map, exact for the top five',
     available: true,
+    banded: true,
   },
   {
-    key: 'counselor',
-    shortLabel: 'App. counselor',
-    label: 'Certified application counselor',
+    key: 'cpp',
+    shortLabel: 'Community Partner Program sites',
+    label: 'Community partner site',
+    plural: 'Community Partner Program sites',
     glyph: 'plus',
-    source: 'CMS assister locator — bot-blocked, not pulled',
-    available: false,
+    source: 'HHSC Community Partner Program sites offering application help and case management (levels 3–4)',
+    available: true,
   },
 ];
+
+/** The sourced registries: what the bars draw, each on its own scale. */
+export const COUNT_INFRA = INFRA_TYPES.filter((t) => t.available).map((t) => t.key);
+
+/** Complete counts of organisations or sites: what the capacity metric sums. */
+export const SCORED_INFRA = INFRA_TYPES.filter((t) => t.available && !t.partial && !t.banded).map(
+  (t) => t.key,
+);
+
+/**
+ * Food-bank coverage as the titles quote it, from statewide.meta.foodbank —
+ * so a new reporting period or another bank reporting changes the copy with
+ * the data, not by hand.
+ *
+ * @param {{ period: [string, string]; banks_reporting: string[]; banks_total: number | null; counties_with_data: number } | undefined} fb
+ * @returns {{ period: string; banks: string; counties: number | null }}
+ */
+export function foodbankCoverage(fb) {
+  if (!fb) return { period: '', banks: '', counties: null };
+  const n = fb.banks_reporting.length;
+  return {
+    period: `${fmtMonthBody(fb.period[0])} – ${fmtMonthBody(fb.period[1])}`,
+    banks: `${n}${fb.banks_total ? ` of ${fb.banks_total}` : ''} food bank${n === 1 && !fb.banks_total ? '' : 's'} reporting`,
+    counties: fb.counties_with_data,
+  };
+}

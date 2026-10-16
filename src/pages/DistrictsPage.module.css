@@ -9,7 +9,7 @@
 }
 
 .status {
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -23,16 +23,16 @@
 
 .emptyTitle {
   margin-bottom: var(--space-3);
-  font-size: 1.125rem;
+  font-size: var(--text-lg);
 }
 
 .empty p {
   margin: 0 0 var(--space-3);
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
 .emptyMeta {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-faint);
 }

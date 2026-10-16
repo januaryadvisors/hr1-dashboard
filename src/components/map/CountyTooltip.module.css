@@ -29,7 +29,7 @@
 .countyName {
   display: block;
   font-family: var(--font-display);
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   font-weight: 600;
   line-height: 1.15;
 }
@@ -38,7 +38,7 @@
   display: block;
   margin-top: 1px;
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -58,7 +58,7 @@
   gap: 3px;
   padding: 2px 6px;
   font-family: var(--font-display);
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -91,18 +91,18 @@
 }
 
 .domainLabel {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
 .domainValue {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   white-space: nowrap;
 }
 
 .domainUnavailable {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   color: var(--text-faint);
 }
 
@@ -144,7 +144,7 @@
 }
 
 .indexLabel {
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
@@ -154,7 +154,7 @@
 
 .indexValue {
   margin-top: 1px;
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   color: var(--text-muted);
 }
 
@@ -177,21 +177,60 @@
   padding: var(--space-3) 0;
 }
 
+/* Line heights set here, not inherited from the body's 1.5: these labels wrap
+   to two lines in a third of the panel, and at 1.5 they read as loose. */
 .statLabel {
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  line-height: 1.2;
   color: var(--text-faint);
 }
 
 .statValue {
   margin-top: 2px;
   font-family: var(--font-figure);
-  font-size: 1.125rem;
+  font-size: var(--text-lg);
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1;
+}
+
+/* The index view's four figures, two by two: four columns at this width would
+   squeeze a seven-digit caseload against its neighbour. Light hairlines
+   between the cells, so each figure reads with its own label and unit. */
+.statsQuad {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  /* Tighter than the three-up row (2026-10-16): four figures should read as
+     one block, not take the panel over. */
+  padding: var(--space-1) 0;
+}
+
+.statsQuad > div {
+  padding: 6px var(--space-3);
+}
+
+.statsQuad > div:nth-child(odd) {
+  padding-left: 0;
+  border-right: 1px solid var(--hairline);
+}
+
+.statsQuad > div:nth-child(-n + 2) {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.statUnit {
+  margin-top: 0;
+  font-size: var(--text-2xs);
+  line-height: 1.2;
+  color: var(--text-faint);
+}
+
+/* "No data yet" is a statement, not a figure — set it smaller and faint. */
+.statMissing {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-faint);
 }
 
 .negative {
@@ -199,24 +238,24 @@
 }
 
 /* ------------------------------------------------------------- resources */
+.capacity {
+  border-top: 1px solid var(--hairline);
+}
+
 .resourcesHead {
   padding-top: var(--space-2);
   border-top: 1px solid var(--hairline);
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--text-faint);
 }
 
 /* -------------------------------------------------------------- sparkline */
 .sparkHead {
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--text-faint);
   padding-top: var(--space-2);
   border-top: 1px solid var(--hairline);
@@ -235,10 +274,8 @@
   justify-content: space-between;
   margin-top: var(--space-2);
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--text-faint);
 }
 
@@ -253,15 +290,13 @@
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 2px var(--space-3);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
 }
 
 .detailHead {
   font-family: var(--font-display);
-  font-size: 0.5625rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--text-faint);
   padding-bottom: 2px;
 }
@@ -272,14 +307,14 @@
 
 .flags {
   margin-top: var(--space-3);
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--ja-burgundy);
 }
 
 .hint {
   margin-top: var(--space-2);
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   color: var(--text-faint);
 }
 
@@ -294,10 +329,8 @@
 .bivariateHead {
   margin-bottom: var(--space-2);
   font-family: var(--font-display);
-  font-size: 0.5rem;
+  font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--text-faint);
 }
 
@@ -310,13 +343,13 @@
 }
 
 .bivariateLabel {
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   line-height: 1.2;
   color: var(--text-muted);
 }
 
 .bivariateValue {
-  font-size: 0.6875rem;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 

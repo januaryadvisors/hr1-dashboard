@@ -16,7 +16,7 @@
   gap: var(--space-2);
   align-items: center;
   padding: 0.3rem 0;
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   background: none;
   border: 0;
   border-bottom: 1px solid var(--hairline);
@@ -33,15 +33,18 @@
   background: var(--surface-warm);
 }
 
+/* Level 4: the rank is a pointer, not a reading. */
 .rank {
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   color: var(--text-faint);
   text-align: right;
 }
 
 /* Gives way to the value column when a count is long. */
+/* Level 3: county and figure both in ink — they are the data. */
 .name {
   font-weight: 500;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -98,8 +101,8 @@
 }
 
 .value {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
+  font-size: var(--text-sm);
+  color: var(--text);
   text-align: right;
   white-space: nowrap;
 }

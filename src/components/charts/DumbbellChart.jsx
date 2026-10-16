@@ -1,7 +1,9 @@
 /**
  * <DumbbellChart> — §7 / §6.8 "Who is falling off".
- * Dot at the window start, arrowhead at the latest month, percent change
- * right-aligned.
+ * A rounded arrow from the window's start to its latest month, with a faint
+ * tick where it began; percent change right-aligned. Redrawn 2026-10-16: the
+ * blue start dot is gone (the tick says the same without a second colour), and
+ * the arrow is a thicker rounded shaft with an open chevron head.
  */
 import { fmtInt, fmtPctDelta } from '../../lib/format';
 import styles from './charts.module.css';
@@ -20,8 +22,8 @@ export function DumbbellChart({
   height,
   viewWidth: W = 1000,
 }) {
-  const M = { top: 14, right: 74, bottom: 22, left: 62 };
-  const rowH = 26;
+  const M = { top: 14, right: 84, bottom: 22, left: 72 };
+  const rowH = 32;
   const h = height ?? M.top + rows.length * rowH + M.bottom;
 
   const x = (v) => M.left + (v / xMax) * (W - M.left - M.right);
@@ -30,13 +32,6 @@ export function DumbbellChart({
   return (
     <svg className={styles.svg} viewBox={`0 0 ${W} ${h}`} role="img"
       aria-label="Change in enrolled individuals by age band">
-      <defs>
-        <marker id="dumbbell-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7"
-          markerHeight="7" orient="auto">
-          <path d="M0 0 L8 4 L0 8 z" fill="var(--ja-burgundy)" />
-        </marker>
-      </defs>
-
       {[0, xMax / 2, xMax].map((v) => (
         <g key={v}>
           <line x1={x(v)} x2={x(v)} y1={M.top} y2={h - M.bottom} className={styles.gridline} />
@@ -46,30 +41,65 @@ export function DumbbellChart({
         </g>
       ))}
 
-      {rows.map((r, i) => (
-        <g key={r.label}>
-          <text x={M.left - 8} y={y(i) + 3} textAnchor="end" className={styles.axis}
-            style={{ fontSize: 10, fill: 'var(--text)' }}>
-            {r.label}
-          </text>
-          <line x1={x(0)} x2={x(Math.max(r.from, r.to))} y1={y(i)} y2={y(i)}
-            stroke="var(--hairline)" strokeWidth={3} strokeLinecap="round" />
-          <line
-            x1={x(r.from)}
-            x2={x(r.to)}
-            y1={y(i)}
-            y2={y(i)}
-            stroke="var(--ja-burgundy)"
-            strokeWidth={2}
-            markerEnd="url(#dumbbell-arrow)"
-          />
-          <circle cx={x(r.from)} cy={y(i)} r={3.5} fill="#4d8bb0" />
-          <text x={W - M.right + 62} y={y(i) + 3} textAnchor="end"
-            className={`${styles.annotation} tabular`}>
-            {fmtPctDelta(r.pctChange)}
-          </text>
-        </g>
-      ))}
+      {rows.map((r, i) => {
+        const x0 = x(r.from);
+        const x1 = x(r.to);
+        const dir = x1 < x0 ? -1 : 1;
+        const len = Math.abs(x1 - x0);
+        // The chevron's depth, shortened for a tiny change so it never overshoots.
+        const head = Math.min(7, Math.max(3, len * 0.6));
+        const tone = r.pctChange < 0 ? 'var(--ja-burgundy)' : 'var(--ja-navy)';
+        return (
+          <g key={r.label}>
+            <text x={M.left - 10} y={y(i) + 4} textAnchor="end" className={styles.dumbbellLabel}>
+              {r.label}
+            </text>
+            {/* The band's size as a soft track, so the arrow reads against it. */}
+            <line
+              x1={x(0)}
+              x2={x(Math.max(r.from, r.to))}
+              y1={y(i)}
+              y2={y(i)}
+              stroke="var(--hairline)"
+              strokeWidth={6}
+              strokeLinecap="round"
+              opacity={0.6}
+            />
+            {/* Where it started. */}
+            <line x1={x0} x2={x0} y1={y(i) - 6} y2={y(i) + 6} stroke="var(--text-faint)" strokeWidth={1.5} strokeLinecap="round" />
+            {len > 1 && (
+              <>
+                <line
+                  x1={x0}
+                  x2={x1 - dir * 1.5}
+                  y1={y(i)}
+                  y2={y(i)}
+                  stroke={tone}
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                />
+                <path
+                  d={`M${x1 - dir * head} ${y(i) - head} L${x1} ${y(i)} L${x1 - dir * head} ${y(i) + head}`}
+                  fill="none"
+                  stroke={tone}
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </>
+            )}
+            <text
+              x={W - M.right + 62}
+              y={y(i) + 4}
+              textAnchor="end"
+              className={`${styles.dumbbellValue} tabular`}
+              fill={tone}
+            >
+              {fmtPctDelta(r.pctChange)}
+            </text>
+          </g>
+        );
+      })}
     </svg>
   );
 }

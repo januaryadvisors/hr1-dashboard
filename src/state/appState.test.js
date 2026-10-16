@@ -40,19 +40,19 @@ describe('initial state matches the spec defaults', () => {
 describe('reducer', () => {
   it('toggles infrastructure keys while preserving canonical order', () => {
     let s = reducer(defaults, { type: 'toggleInfra', key: 'cms_navigator' });
-    expect(s.infra).toEqual(['chw']);
+    expect(s.infra).toEqual(['food_bank', 'chw', 'cpp']);
     s = reducer(s, { type: 'toggleInfra', key: 'cms_navigator' });
     expect(s.infra).toEqual(ALL_INFRA);
   });
 
   /**
-   * Food-bank and counselor registries are not sourced: every county carries
-   * null. A mark type with no data behind it must not be switchable on, or the
-   * map would draw "none listed" everywhere by omission.
+   * Only sourced registries can be switched on — a mark type with no data
+   * behind it would draw "none listed" everywhere by omission. All four are
+   * sourced since 2026-10-16; an unknown key must still be ignored.
    */
   it('offers only the sourced registries', () => {
-    expect(ALL_INFRA).toEqual(['cms_navigator', 'chw']);
-    const s = reducer(defaults, { type: 'toggleInfra', key: 'food_bank' });
+    expect(ALL_INFRA).toEqual(['food_bank', 'cms_navigator', 'chw', 'cpp']);
+    const s = reducer(defaults, { type: 'toggleInfra', key: 'counselor' });
     expect(s.infra).toEqual(ALL_INFRA);
   });
 

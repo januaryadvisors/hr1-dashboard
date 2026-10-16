@@ -26,6 +26,7 @@
  * @typedef {import('../types').County} County
  * @typedef {import('../types').Statewide} Statewide
  */
+import { fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
 
 /**
  * @typedef {Object} Scope
@@ -439,4 +440,132 @@ export function funnelBand(
     const sd = sdAt(caseload);
     return { caseload, lo: data.center - 2 * sd, hi: data.center + 2 * sd };
   });
+}
+
+// ------------------------------------------------------- headline figures
+
+/**
+ * @typedef {Object} CountyTrend
+ * @property {number[]} enrolled - The county's monthly series.
+ * @property {number} mx - Mean month index over the trend window.
+ * @property {number} my - Mean enrolled over the trend window.
+ * @property {number} slope - Enrolled per month, least squares over the trend window.
+ */
+
+/**
+ * Each county's own pre-policy linear trend — the notebook's "sharper cut"
+ * (snap-enrollment-trends.qmd). Fitted once; excessDecline() then projects it to
+ * any month without refitting, so the hero can follow the brush.
+ *
+ * @param {{ snap_enrolled: number[] }[]} counties
+ * @param {[number, number]} trend - First and last month index of the fit.
+ * @returns {CountyTrend[]}
+ */
+export function countyTrends(counties, [t0, t1]) {
+  return counties.map((c) => {
+    const n = t1 - t0 + 1;
+    let mx = 0;
+    let my = 0;
+    for (let i = t0; i <= t1; i++) {
+      mx += i;
+      my += c.snap_enrolled[i];
+    }
+    mx /= n;
+    my /= n;
+    let sxy = 0;
+    let sxx = 0;
+    for (let i = t0; i <= t1; i++) {
+      sxy += (i - mx) * (c.snap_enrolled[i] - my);
+      sxx += (i - mx) ** 2;
+    }
+    return { enrolled: c.snap_enrolled, mx, my, slope: sxx > 0 ? sxy / sxx : 0 };
+  });
+}
+
+/**
+ * Statewide enrollment at month `i` against the sum of every county's own
+ * trend projected to `i`: −0.284 means 28.4% below where the counties were
+ * heading. Summed before dividing, so the metros weigh what they weigh.
+ */
+export function excessDecline(trends, i) {
+  let actual = 0;
+  let projected = 0;
+  for (const t of trends) {
+    actual += t.enrolled[i];
+    projected += t.my + t.slope * (i - t.mx);
+  }
+  return projected > 0 ? actual / projected - 1 : null;
+}
+
+/** How a band reads in a sentence: "18–59" → "adults 18–59". */
+function bandPhrase(band) {
+  if (band === 'Under 5') return 'children under 5';
+  if (band === '5–17') return 'children 5–17';
+  return `adults ${band}`;
+}
+
+/**
+ * The hero band's three statewide figures, for the brush window [i0, i1].
+ * Computed, not hand-written (client direction 2026-10-16): drag the window
+ * and all three follow, in the same sentence shapes the editorial copy used.
+ *
+ * @param {import('../types').Statewide} statewide
+ * @param {CountyTrend[]} trends - countyTrends() over statewide.meta.trend_window.
+ * @returns {{ value: string; body: string; tone?: 'negative' }[]}
+ */
+export function headlineStats(statewide, trends, i0, i1) {
+  const months = statewide.meta.months;
+  const from = fmtMonthBody(months[i0]);
+  const to = fmtMonthBody(months[i1]);
+  const out = [];
+
+  // 1. The steepest age band, and the oldest band for contrast.
+  const rows = ageBandRows(statewide, i0, i1);
+  if (rows.length) {
+    const steep = rows[0];
+    const old = rows.find((r) => r.label === '65+');
+    const band = bandPhrase(steep.label);
+    let body = `The steepest drop of any age group since ${from}.`;
+    if (old && old !== steep) {
+      const p = old.pctChange;
+      body +=
+        Math.abs(p) < 0.0005
+          ? ' Ages 65+ are flat.'
+          : Math.abs(p) < 0.005
+            ? ` Ages 65+ are flat at ${fmtPctDelta(p)}.`
+            : ` Ages 65+ are ${p < 0 ? 'down' : 'up'} ${fmtPct(Math.abs(p))}.`;
+    }
+    out.push({
+      label: band.charAt(0).toUpperCase() + band.slice(1),
+      value: fmtPctDelta(steep.pctChange),
+      body,
+      tone: steep.pctChange < 0 ? 'negative' : undefined,
+    });
+  }
+
+  // 2. Excess decline at the window's end, against each county's own trend.
+  const ex = trends.length ? excessDecline(trends, i1) : null;
+  if (ex != null) {
+    out.push({
+      label: "Against each county's own trend",
+      value: fmtPctDelta(ex),
+      body: `${ex < 0 ? 'Below' : 'Above'} where each county's pre-policy trend pointed, by ${to}.`,
+      tone: ex < 0 ? 'negative' : undefined,
+    });
+  }
+
+  // 3. Participation at the window's end, against its start.
+  const share = statewide.participation_share;
+  if (share?.[i1] != null && share?.[i0] != null) {
+    const dir = share[i1] < share[i0] ? 'down' : share[i1] > share[i0] ? 'up' : 'unchanged';
+    out.push({
+      label: 'Texans enrolled',
+      value: fmtPct(share[i1]),
+      body:
+        dir === 'unchanged'
+          ? `In ${to}, the same as in ${from}.`
+          : `In ${to}, ${dir} from ${fmtPct(share[i0])} in ${from}.`,
+    });
+  }
+  return out;
 }

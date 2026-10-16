@@ -61,18 +61,25 @@
 
 .title {
   font-family: var(--font-figure);
-  /* Between --step-2 and --step-3: bumped up, then back down a notch, both on
-     client direction 2026-09-11. */
-  font-size: 2rem;
+  /* Back down a notch from the comps' 44px, client direction 2026-10-16. */
+  font-size: var(--text-title);
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.025em;
 }
 
+/* Smaller than the comps' ~18px on client direction 2026-10-16. */
+.subtitle {
+  max-width: 70ch;
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
 
 @media (max-width: 900px) {
   .title {
-    font-size: var(--step-2);
+    font-size: var(--text-2xl);
   }
 }
 
@@ -85,6 +92,6 @@
     right: -100vw;
   }
   .title {
-    font-size: var(--step-1);
+    font-size: var(--text-xl);
   }
 }

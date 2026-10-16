@@ -11,7 +11,7 @@
   padding: 0.35rem 0.8rem;
   white-space: nowrap;
   font-family: var(--font-display);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   background: transparent;
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-pill);
@@ -73,9 +73,7 @@
 
 .rowLabel {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 0.625rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: var(--text-2xs);
   color: var(--text-faint);
 }
 
