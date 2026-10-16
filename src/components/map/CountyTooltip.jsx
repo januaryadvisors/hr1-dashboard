@@ -8,11 +8,15 @@
  * looking at. `ViewDef.tooltip` now decides, and the sections are:
  *
  *   head      county, FIPS, population        always
- *   focus     the active layer's own band      score layers only
- *   domains   the other domains, two-up        Vulnerability index only
- *   stats     newly subject / of caseload / change   always
- *   capacity  the four listed registries       Vulnerability index only
+ *   focus     the active layer's own band      score layers, except the index
+ *   index     all five indexes, one row each   Vulnerability index only
+ *   stats     the three facts, per ViewDef     always
+ *   capacity  the four registries as columns   Vulnerability index only
  *   chart     caseload line, or exposure bars  per view
+ *
+ * The index table (2026-10-16) replaced a focused band over a two-up grid of
+ * compact ones: every index now gets the same full-size scale in one column,
+ * so the five read against each other rather than one against four thumbnails.
  *
  * The domain spread is the Vulnerability index's whole argument — that the four
  * domains disagree (§8 tab 3) — so it stays there and only there.
@@ -26,7 +30,6 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import {
-  INFRA_TYPES,
   layerBasis,
   layerByKey,
   SCORE_LAYERS,
@@ -40,8 +43,8 @@ import { formatLayerValue } from '../../lib/layerValues';
  * @typedef {import('../../lib/layerValues').LayerValues} LayerValues
  */
 import { DomainScale } from '../charts/DomainScale';
+import { InfraColumnChart, infraMax } from './InfraBars';
 import { ExposureBars } from '../charts/ExposureBars';
-import { InfraGlyph } from './InfraGlyph';
 import { Sparkline } from '../charts/Sparkline';
 /**
  * @typedef {import('../../types').County} County
@@ -70,6 +73,8 @@ const WIDTH = 340;
  * @property {Record<string, number>} median
  * @property {Record<string, Map<string, number>>} rank
  * @property {number} total
+ * @property {number} infraMax - Top of the assistance bars' shared count scale, so the tooltip's columns
+ *   are drawn to the same scale as the bars in the grid tiles.
  */
 
 export function buildLayerStats(counties) {
@@ -90,7 +95,7 @@ export function buildLayerStats(counties) {
     rank[layer.key] = new Map(byDesc.map((r, i) => [r.geoid, i + 1]));
   }
 
-  return { median, rank, total: counties.length };
+  return { median, rank, total: counties.length, infraMax: infraMax(counties) };
 }
 
 /**
@@ -104,7 +109,7 @@ export function buildLayerStats(counties) {
  * @property {string[]} months
  * @property {[string, string]} window
  * @property {Measure} [measure] - Rate or count. Decides the unit of the three facts at the top.
- * @property {'enrollment' | 'work'} [tooltipStats] - Which three facts to show. From the view's TooltipSpec.
+ * @property {'enrollment' | 'work' | 'index'} [tooltipStats] - Which three facts to show. From the view's TooltipSpec.
  * @property {'pointer' | 'external'} origin - 'pointer' anchors the panel to the cursor. 'external' (search, rank list)
  *   anchors it beside the county's own shape on the hero map.
  */
@@ -179,7 +184,8 @@ export function CountyTooltip({
   // Flip at the viewport edge rather than letting the panel clip.
   const flipX = anchor.x + OFFSET + WIDTH > window.innerWidth;
   const left = Math.max(8, flipX ? anchor.x - OFFSET - WIDTH : anchor.x + OFFSET);
-  const estHeight = 430;
+  // The index view carries five scale rows and the assistance chart.
+  const estHeight = spec.domains ? 500 : 430;
   const top = Math.max(
     8,
     anchor.y + OFFSET + estHeight > window.innerHeight
@@ -207,6 +213,9 @@ export function CountyTooltip({
   */
   const counting = measure === 'count';
   const workStats = tooltipStats === 'work';
+  const indexStats = tooltipStats === 'index';
+  // Signed headcount change over the window; a gain is shown, not floored to 0.
+  const netLost = start - end;
   const enrolledLabel = isMedicaid
     ? 'On Medicaid'
     : isChildLayer
@@ -242,6 +251,7 @@ export function CountyTooltip({
         four domains still show in the grid so the framework is not hidden.
       */}
       {layerBasis(layer) === 'score' &&
+        !spec.domains &&
         (() => {
         const l = layerByKey(layer);
         const value = county[scoreField(l.key)];
@@ -273,36 +283,47 @@ export function CountyTooltip({
         );
       })()}
 
-      {/* The rest, two-up: only the band each county falls in is coloured.
-          Vulnerability index only — see ViewDef.tooltip.domains. */}
+      {/*
+        All five indexes, one per row: name and reading on the left, the scale
+        on the right, every scale the same width. Composite first and tinted,
+        because it is what the map is coloured by; the domains follow in
+        framework order. Vulnerability index only — see ViewDef.tooltip.domains.
+      */}
       {spec.domains && (
-      <div className={styles.otherGrid}>
-        {SCORE_LAYERS.filter((l) => l.key !== layer).map((l) => {
-          const value = county[scoreField(l.key)];
-          const num = typeof value === 'number' ? value : null;
-          const rank = stats.rank[l.key]?.get(county.geoid);
-          const isComposite = l.key === 'composite';
-          return (
-            <div key={l.key} className={styles.other}>
-              <div className={styles.otherLabel}>{l.label}</div>
-              <div className={`${styles.otherValue} tabular`}>
-                {num == null
-                  ? '—'
-                  : `${isComposite ? num.toFixed(2) : fmtPercentile(num)}${
-                      rank ? ` · ${ordinal(rank)}` : ''
-                    }`}
+        <div className={styles.indexTable}>
+          {[
+            ...SCORE_LAYERS.filter((l) => l.key === 'composite'),
+            ...SCORE_LAYERS.filter((l) => l.key !== 'composite'),
+          ].map((l) => {
+            const value = county[scoreField(l.key)];
+            const num = typeof value === 'number' ? value : null;
+            const rank = stats.rank[l.key]?.get(county.geoid);
+            const isComposite = l.key === 'composite';
+            return (
+              <div
+                key={l.key}
+                className={`${styles.indexRow} ${l.key === layer ? styles.indexRowActive : ''}`}
+              >
+                <div className={styles.indexText}>
+                  <div className={styles.indexLabel}>{l.label}</div>
+                  <div className={`${styles.indexValue} tabular`}>
+                    {num == null
+                      ? 'no data'
+                      : `${isComposite ? num.toFixed(2) : fmtPercentile(num)}${
+                          rank ? ` · ${ordinal(rank)} of ${stats.total}` : ''
+                        }`}
+                  </div>
+                </div>
+                <DomainScale
+                  layer={l.key}
+                  value={num}
+                  median={stats.median[l.key] ?? 0}
+                  domain={isComposite ? [0, 4] : [0, 1]}
+                />
               </div>
-              <DomainScale
-                layer={l.key}
-                value={num}
-                median={stats.median[l.key] ?? 0}
-                domain={isComposite ? [0, 4] : [0, 1]}
-                variant="compact"
-              />
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       )}
 
       {/*
@@ -371,7 +392,38 @@ export function CountyTooltip({
         panel rather than the same one restated.
       */}
       <div className={styles.stats}>
-        {workStats ? (
+        {indexStats ? (
+          <>
+            {/* Raw headcounts on client direction 2026-10-16, whatever the
+                Rate/Count toggle says: the index is already the rate. */}
+            <div>
+              <div className={styles.statLabel}>Newly subject</div>
+              <div className={`${styles.statValue} tabular`}>
+                {fmtInt(county.newly_subject_persons)}
+              </div>
+            </div>
+            <div>
+              <div className={styles.statLabel} title={`Enrolled, ${fmtMonth(win[1])}`}>
+                On SNAP
+              </div>
+              <div className={`${styles.statValue} tabular`}>
+                {published.length ? fmtInt(end) : '—'}
+              </div>
+            </div>
+            <div>
+              <div className={styles.statLabel}>Since {fmtMonth(win[0])}</div>
+              <div
+                className={`${styles.statValue} ${netLost > 0 ? styles.negative : ''} tabular`}
+              >
+                {!published.length
+                  ? '—'
+                  : netLost > 0
+                    ? `−${fmtInt(netLost)}`
+                    : `+${fmtInt(-netLost)}`}
+              </div>
+            </div>
+          </>
+        ) : workStats ? (
           <>
             <div>
               {/* The D1 count basis: a fact about the county, not about the layer
@@ -434,35 +486,12 @@ export function CountyTooltip({
       </div>
 
       {/* Capacity is the index view's story — see ViewDef.tooltip.capacity.
-          §L7 still applies where it does show: absent registries are stated,
-          not omitted. */}
+          The same bars as the grid tiles, on the same scale. §L7 still
+          applies: unsourced registries show as n/a, never as a zero. */}
       {spec.capacity && (
         <>
           <div className={styles.resourcesHead}>Listed assistance</div>
-          <div className={styles.resources}>
-            {/* Sourced registries only. An unsourced one would render "—", which
-                reads as "none listed" — a claim nobody has checked. */}
-            {INFRA_TYPES.filter((t) => t.available).map((t) => {
-              const count = county.infra[t.key];
-              const present = count > 0;
-              return (
-                <div
-                  key={t.key}
-                  className={`${styles.resource} ${present ? '' : styles.resourceAbsent}`}
-                >
-                  <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true">
-                    <g className={present ? undefined : styles.glyphAbsent}>
-                      <InfraGlyph type={t.key} x={6.5} y={6.5} size={3.6} legend />
-                    </g>
-                  </svg>
-                  <span className={styles.resourceLabel}>{t.label}</span>
-                  <span className={`${styles.resourceCount} tabular`}>
-                    {present ? count : '—'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          <InfraColumnChart county={county} max={stats.infraMax} />
         </>
       )}
 

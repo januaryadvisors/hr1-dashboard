@@ -115,21 +115,36 @@
   border-radius: var(--radius);
 }
 
-/* Unfocused domains, two-up. Halves the tooltip's height. */
-.otherGrid {
+/* All five indexes, one per row. The text column is fixed so every scale on
+   the right starts and ends at the same x — they are meant to be compared. */
+.indexTable {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2) var(--space-3);
-  padding-bottom: var(--space-3);
+  gap: 2px;
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--hairline);
 }
 
-.other {
+.indexRow {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+  margin: 0 calc(var(--space-2) * -1);
+  padding: 4px var(--space-2);
+  border-radius: var(--radius);
+}
+
+/* The index the map is coloured by, so the map and the table agree. */
+.indexRowActive {
+  background: var(--surface-warm);
+}
+
+.indexText {
   min-width: 0;
 }
 
-.otherLabel {
-  font-size: 0.6875rem;
+.indexLabel {
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
@@ -137,10 +152,15 @@
   text-overflow: ellipsis;
 }
 
-.otherValue {
-  margin-bottom: 3px;
+.indexValue {
+  margin-top: 1px;
   font-size: 0.625rem;
   color: var(--text-muted);
+}
+
+.indexRowActive .indexLabel,
+.indexRowActive .indexValue {
+  color: var(--ja-navy);
 }
 
 .active .domainLabel,
@@ -188,45 +208,6 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-faint);
-}
-
-.resources {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1px var(--space-3);
-  padding: var(--space-2) 0 var(--space-3);
-}
-
-.resource {
-  display: grid;
-  grid-template-columns: 15px 1fr auto;
-  gap: var(--space-2);
-  align-items: center;
-  font-size: 0.6875rem;
-}
-
-.resourceLabel {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.resourceCount {
-  font-weight: 600;
-}
-
-/* Absent is stated, not omitted — an empty row would read as "not measured". */
-.resourceAbsent {
-  color: var(--text-faint);
-}
-
-.resourceAbsent .resourceCount {
-  font-weight: 400;
-}
-
-.glyphAbsent {
-  filter: grayscale(1) opacity(0.45);
 }
 
 /* -------------------------------------------------------------- sparkline */

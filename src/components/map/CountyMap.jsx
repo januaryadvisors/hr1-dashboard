@@ -5,15 +5,18 @@
  * §13 step 2: "This is the whole risk of the project; get it right before any
  * chrome." Both render styles read the same data (§6.5):
  *
+ *   grid     one equal square per county on the precomputed lattice
  *   geo      true county polygons, Texas Albers, ramp fill at percentile
  *   density  centroid bubbles, sqrt-scaled, over a light county outline
  *
- * NOTE: §6.5 specified a THIRD style, Grid — first an equal-size lattice, then a
- * population-weighted area cartogram on the client's 2026-09-01 direction.
- * Removed entirely on 2026-09-11: three ways to draw one number was one too
- * many, and the cartogram was the one readers had to be taught to read. The
- * lattice is still precomputed in the data (`grid: {r, c}`) because it still
- * drives keyboard navigation order. See docs/SPEC-DEVIATIONS.md.
+ * GRID HISTORY. §6.5's Grid began as this equal-size lattice, became a
+ * population-weighted area cartogram on 2026-09-01, and was removed on
+ * 2026-09-11. It returned on 2026-10-16 as the equal-size lattice again, for
+ * ONE story step only (the index chapter's second step, see config/story.js) —
+ * it is not a reader-selectable style. Every county is one tile with room
+ * inside it for the listed-assistance bars (<InfraTileBars>). Equal tiles are the honest reading
+ * of a percentile: Loving and Harris are one square each. The lattice is drawn
+ * inside the shared viewBox, so panels keep their size when the style changes.
  *
  * Both measures draw the SAME kind of map — a choropleth. Rate colours by the
  * layer's own share or percentile; count colours by the raw headcount on
@@ -42,6 +45,7 @@ import { radiusScale, relax } from '../../lib/density';
  * @typedef {import('../../lib/density').Bubble} Bubble
  */
 import { INFRA_GLYPH_ORDER, InfraGlyph } from './InfraGlyph';
+import { InfraTileBars, infraMax } from './InfraBars';
 import styles from './CountyMap.module.css';
 
 /**
@@ -67,7 +71,7 @@ const SIZE_SPEC = {
  * @property {LayerValues} values - The numbers to draw, precomputed by the page (src/lib/layerValues.ts).
  *   Passed in rather than derived here because the loss layers recompute from
  *   the brush window — the map would otherwise need to know about months.
- * @property {MapStyle} style
+ * @property {MapStyle | 'grid'} style - 'grid' is set by a story step, never by the reader.
  * @property {Measure} measure
  * @property {MapSize} size
  * @property {InfraKey[]} [marks] - Infrastructure types whose marks should draw (§6.6).
@@ -162,6 +166,41 @@ function CountyMapInner(props) {
     () => [...geometry.paths].map(([geoid, d]) => ({ geoid, d })),
     [geometry.paths],
   );
+
+  // ------------------------------------------------------------ grid tiles
+  /**
+   * The lattice, fitted and centred inside the shared viewBox. `size` is the
+   * cell pitch; tiles draw inset from it so the gaps separate them without a
+   * stroke competing with the fill.
+   */
+  const tiles = useMemo(() => {
+    if (style !== 'grid') return null;
+    const [, , W, H] = viewBox.split(/\s+/).map(Number);
+    const size = Math.min(W / grid.cols, H / grid.rows);
+    const x0 = (W - size * grid.cols) / 2;
+    const y0 = (H - size * grid.rows) / 2;
+    const inset = size * 0.04;
+    const rects = new Map(
+      counties.map((c) => [
+        c.geoid,
+        {
+          x: x0 + c.grid.c * size + inset,
+          y: y0 + c.grid.r * size + inset,
+          size: size - inset * 2,
+        },
+      ]),
+    );
+    return { rects, max: infraMax(counties) };
+  }, [style, viewBox, grid.cols, grid.rows, counties]);
+
+  /** Outline paths for the overlays, in whichever geometry is on screen. */
+  const outlineFor = (geoid) => {
+    if (tiles) {
+      const t = tiles.rects.get(geoid);
+      return t ? `M${t.x} ${t.y}h${t.size}v${t.size}h${-t.size}Z` : null;
+    }
+    return geometry.paths.get(geoid) ?? null;
+  };
 
   // --------------------------------------------------------------- bubbles
   const bubbles = useMemo(() => {
@@ -306,8 +345,33 @@ function CountyMapInner(props) {
     >
       <title>{title}</title>
 
+      {/* ----------------------------------------------------------- GRID */}
+      {tiles && (
+        <g>
+          {counties.map((county) => {
+            const t = tiles.rects.get(county.geoid);
+            return (
+              <rect
+                key={county.geoid}
+                data-geoid={county.geoid}
+                x={t.x}
+                y={t.y}
+                width={t.size}
+                height={t.size}
+                rx={t.size * 0.04}
+                className={classFor(county)}
+                fill={colorOf(county, fillValue(county))}
+                strokeWidth={0}
+                onMouseEnter={() => handleEnter(county.geoid)}
+                aria-label={label(county)}
+              />
+            );
+          })}
+        </g>
+      )}
+
       {/* ------------------------------------------------------------ GEO */}
-      {style !== 'density' && (
+      {style === 'geo' && (
         <g>
           {paths.map(({ geoid, d }) => {
             const county = byGeoid.get(geoid);
@@ -337,8 +401,11 @@ function CountyMapInner(props) {
         </g>
       )}
 
-      {/* State hairline sits above the fills, below the marks. */}
-      <path d={geometry.statePath} className={styles.stateOutline} strokeWidth={spec.state} />
+      {/* State hairline sits above the fills, below the marks. The grid has no
+          true outline to trace — its edge is the tiles themselves. */}
+      {!tiles && (
+        <path d={geometry.statePath} className={styles.stateOutline} strokeWidth={spec.state} />
+      )}
 
       {/* Bubbles are the density style only, now that count is a choropleth. */}
       {style === 'density' && (
@@ -370,28 +437,45 @@ function CountyMapInner(props) {
       {/* Overlays trace whichever geometry is on screen. */}
       {overlays.q5 && (
         <g>
-          {paths
-            .filter(({ geoid }) => q5Set.has(geoid))
-            .map(({ geoid, d }) => (
-              <path key={geoid} d={d} className={styles.overlayQ5} />
+          {counties
+            .filter((c) => q5Set.has(c.geoid))
+            .map((c) => (
+              <path key={c.geoid} d={outlineFor(c.geoid)} className={styles.overlayQ5} />
             ))}
         </g>
       )}
       {overlays.gap && (
         <g>
-          {paths
-            .filter(({ geoid }) => byGeoid.get(geoid)?.is_gap)
-            .map(({ geoid, d }) => (
-              <path key={geoid} d={d} className={styles.overlayGap} />
+          {counties
+            .filter((c) => c.is_gap)
+            .map((c) => (
+              <path key={c.geoid} d={outlineFor(c.geoid)} className={styles.overlayGap} />
             ))}
         </g>
       )}
 
-      {/* Assistance-infrastructure marks (§6.6). Presence, not capacity. */}
-      {/* Marks draw in every style. They follow geometry.centroids, which is
-          recomputed from the shapes actually on screen, so on the cartogram they
-          move with the county rather than pointing at where it used to be. */}
-      {spec.marks && marks.length > 0 && (
+      {/* Assistance-infrastructure marks (§6.6). On the grid they are bars
+          inside each tile — the same encoding as the tooltip's column chart,
+          see <InfraBars>. Elsewhere they are glyphs at the county centroid. */}
+      {spec.marks && marks.length > 0 && tiles && (
+        <g className={styles.mark}>
+          {counties.map((county) => {
+            const t = tiles.rects.get(county.geoid);
+            return (
+              <InfraTileBars
+                key={county.geoid}
+                county={county}
+                types={marks}
+                x={t.x}
+                y={t.y}
+                size={t.size}
+                max={tiles.max}
+              />
+            );
+          })}
+        </g>
+      )}
+      {spec.marks && marks.length > 0 && !tiles && (
         <g className={styles.mark}>
           {counties.flatMap((county) => {
             const xy = geometry.centroids.get(county.geoid);

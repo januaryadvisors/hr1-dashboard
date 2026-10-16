@@ -64,7 +64,8 @@ import {
   PRESET_FOR_VIEW,
   SCATTER_PRESETS,
 } from '../config/metrics';
-import { InfraGlyph } from '../components/map/InfraGlyph';
+import { INFRA_COLOR, InfraGlyph } from '../components/map/InfraGlyph';
+import { INFRA_BAR_ORDER, infraMax } from '../components/map/InfraBars';
 import { downloadSelection } from '../lib/download';
 import { loadTimeline } from '../data/timeline';
 import { loadSnapObserved } from '../data/snap';
@@ -489,6 +490,9 @@ export default function MapPage() {
       ),
     [counties],
   );
+  /** Top of the bars' shared count scale, for the grid key. */
+  const infraBarMax = useMemo(() => infraMax(counties), [counties]);
+
   /** Registries with no source yet: listed under the picker, never as a zero count. */
   const unsourcedInfra = INFRA_TYPES.filter((t) => !t.available);
 
@@ -499,6 +503,15 @@ export default function MapPage() {
 
   /** Capacity is a reading of the index, so its marks draw on one view only. */
   const showCapacity = view.showCapacity;
+
+  /**
+   * The hero map's render style. The reader's Geo/Density choice everywhere
+   * except a story step that declares its own — today only the index's second
+   * step, which draws the equal-size tile grid. Read off the step rather than
+   * dispatched into state, so the grid never leaks into the URL, the
+   * thumbnails, or the next step.
+   */
+  const drawStyle = storyPinned && step.mapStyle ? step.mapStyle : state.style;
 
   /**
    * The figures the story's copy quotes, from the data and the brush window —
@@ -1273,7 +1286,9 @@ export default function MapPage() {
             </MapOption>
             {showCapacity && <MapOption label="Marks">{infraPicker}</MapOption>}
             {/* Cartogram removed 2026-09-11 on client direction — two styles,
-                not three. See the note on MapStyle in src/types.js. */}
+                not three. See the note on MapStyle in src/types.js. Hidden on
+                the one step that forces the tile grid, where it would be inert. */}
+            {drawStyle !== 'grid' && (
             <MapOption label="Style">
               <SegmentedControl
                 label="Render style"
@@ -1286,6 +1301,7 @@ export default function MapPage() {
                 onChange={(v) => dispatch({ type: 'setStyle', style: v })}
               />
             </MapOption>
+            )}
           </MapOptions>
         </div>
 
@@ -1380,7 +1396,7 @@ export default function MapPage() {
                     {...mapProps}
                     layer={state.layer}
                     values={layerValues}
-                    style={state.style}
+                    style={drawStyle}
                     measure={noCount ? 'rate' : state.measure}
                     size="hero"
                     interactive={!noCount}
@@ -1390,7 +1406,7 @@ export default function MapPage() {
                     overlays={{ q5: state.overlayQ5, gap: showCapacity && state.overlayGap }}
                     hovered={noCount ? null : state.hovered}
                     onHover={noCount ? undefined : (geoid) => dispatch({ type: 'hover', geoid })}
-                    title={`${layerDef.formalName}, ${state.style} view`}
+                    title={`${layerDef.formalName}, ${drawStyle} view`}
                   />
                   {noCount && <div className={styles.mapCallout}>{callout}</div>}
                 </>
@@ -1406,7 +1422,7 @@ export default function MapPage() {
             {/* The band-anchoring and small-denominator notes were removed on
                 2026-09-11 — they are going into a methodology page instead.
                 The mark key stays, and only where the marks draw. */}
-            {showCapacity && (
+            {showCapacity && drawStyle !== 'grid' && (
               <>
                 <span className="eyebrow">Marks</span>
                 {INFRA_TYPES.filter((t) => t.available).map((t) => (
@@ -1417,6 +1433,44 @@ export default function MapPage() {
                     {t.label}
                   </span>
                 ))}
+              </>
+            )}
+            {/* On the grid the marks are bars inside each tile, so the key is
+                a bar too, with the shared scale's top stated — and the
+                unsourced registries named, so no bar never reads as none. */}
+            {showCapacity && drawStyle === 'grid' && (
+              <>
+                <span className="eyebrow">Bars</span>
+                {INFRA_BAR_ORDER.map((key) => INFRA_TYPES.find((t) => t.key === key))
+                  .filter((t) => t.available)
+                  .map((t) => (
+                    <span key={t.key} className={styles.markKey}>
+                      <svg width="6" height="12" aria-hidden="true">
+                        <rect x={1} y={2} width={4} height={10} fill={INFRA_COLOR[t.key]} />
+                      </svg>
+                      {t.label}s, 0–{infraBarMax}
+                    </span>
+                  ))}
+                <span className={styles.markKey}>
+                  {unsourcedInfra.map((t) => t.shortLabel).join(', ')}: not yet sourced
+                </span>
+                {state.overlayGap && (
+                  <span className={styles.markKey}>
+                    <svg width="12" height="12" aria-hidden="true">
+                      <rect
+                        x={1.5}
+                        y={1.5}
+                        width={9}
+                        height={9}
+                        fill="none"
+                        stroke="var(--ja-burgundy)"
+                        strokeWidth={1.5}
+                        strokeDasharray="2 1.5"
+                      />
+                    </svg>
+                    Gap county
+                  </span>
+                )}
               </>
             )}
           </div>

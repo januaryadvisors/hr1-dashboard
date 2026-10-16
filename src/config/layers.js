@@ -286,15 +286,18 @@ export function countLabelFor(key) {
  *   True on the Vulnerability index only. That view's whole argument is that
  *   the four domains disagree, so the spread IS the content there; on the other
  *   three it is four extra percentiles nobody asked for.
- * @property {boolean} capacity - The four listed-assistance registries. Capacity is the index view's story.
+ * @property {boolean} capacity - The four listed-assistance registries, as a column chart that matches the
+ *   bars on the grid map. Capacity is the index view's story.
  * @property {'enrollment' | 'exposure' | 'none'} chart - The chart at the foot of the panel.
  *   'enrollment'  the caseload sparkline across the window
  *   'exposure'    caseload against newly-subject against who actually left
  *   'none'        no chart
- * @property {'enrollment' | 'work'} stats - Which three facts head the tooltip.
+ * @property {'enrollment' | 'work' | 'index'} stats - Which three facts head the tooltip.
  *   'enrollment'  residents, on SNAP, lost since the window start
  *   'work'        newly subject, share of caseload, change over the window
- *   Both follow the Rate/Count toggle — see <CountyTooltip>.
+ *   'index'       newly subject, on SNAP, change since the window start — all
+ *                 headcounts, whatever the Rate/Count toggle says
+ *   The first two follow the Rate/Count toggle — see <CountyTooltip>.
  */
 
 /**
@@ -338,10 +341,10 @@ export const VIEWS = [
     blurb: 'The composite, with the assistance capacity on top',
     metrics: ['composite'],
     showCapacity: true,
-    // No chart: this panel already carries five domain bands and four capacity
-    // rows, and the caseload line was the one thing on it that said nothing
-    // about the index.
-    tooltip: { domains: true, capacity: true, chart: 'none', stats: 'work' },
+    // No chart: this panel already carries five index rows and the capacity
+    // bars, and the caseload line was the one thing on it that said nothing
+    // about the index. Stats are raw headcounts on client direction 2026-10-16.
+    tooltip: { domains: true, capacity: true, chart: 'none', stats: 'index' },
   },
   {
     key: 'medicaid',
@@ -392,6 +395,7 @@ export const defaultLayerFor = (key) => viewByKey(key).metrics[0];
 export const INFRA_TYPES = [
   {
     key: 'food_bank',
+    shortLabel: 'Food bank',
     label: 'Food bank enrollment site',
     glyph: 'square',
     source: 'Feeding Texas partner registry — not yet supplied',
@@ -399,6 +403,7 @@ export const INFRA_TYPES = [
   },
   {
     key: 'cms_navigator',
+    shortLabel: 'CMS navigator',
     label: 'CMS-funded navigator',
     glyph: 'circle',
     source: 'CMS 2025–26 awardees, counties served · 149 counties have none',
@@ -406,6 +411,7 @@ export const INFRA_TYPES = [
   },
   {
     key: 'chw',
+    shortLabel: 'CHW / promotor',
     label: 'CHW / promotor network',
     glyph: 'diamond',
     source: 'DSHS networks directory, Dec 2021 · partial county coverage',
@@ -413,6 +419,7 @@ export const INFRA_TYPES = [
   },
   {
     key: 'counselor',
+    shortLabel: 'App. counselor',
     label: 'Certified application counselor',
     glyph: 'plus',
     source: 'CMS assister locator — bot-blocked, not pulled',

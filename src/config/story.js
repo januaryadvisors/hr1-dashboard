@@ -55,6 +55,9 @@
  * @property {LayerKey} [layer] - Defaults to the chapter view's first metric.
  * @property {Measure} [measure] - Omitted: keep the reader's choice, falling back to rate where the
  *   layer has no count basis (C-03) so a step never opens on the "no count" callout.
+ * @property {'grid'} [mapStyle] - Draws the hero map as the equal-size tile grid for this step only,
+ *   whatever the reader's Geo/Density choice. Grid is not a reader-selectable style — it exists
+ *   for the one step that needs a square per county (client direction 2026-10-16).
  */
 
 /**
@@ -208,6 +211,8 @@ export const STORY = [
         chart: 'indexStrip',
         sources: [{ label: 'Feeding Texas H.R. 1 vulnerability index' }],
         measure: 'rate',
+        // One square per county, with the listed-assistance bars inside each.
+        mapStyle: 'grid',
       },
     ],
   },
