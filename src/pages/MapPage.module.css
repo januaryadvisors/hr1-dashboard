@@ -68,6 +68,9 @@
 }
 
 .heroMain {
+  /* A size container, so the hero number can scale with the column — see
+     .heroNumber. */
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -136,11 +139,16 @@
  * to fit-content and centre it), which left the hero number indented 136px and
  * the brush card short of the column.
  */
+/*
+ * Number and phrase on ONE ROW on desktop (2026-10-16), never wrapping: the
+ * number scales with the column (cqi, below) so there is always room for the
+ * phrase beside it. Phones stack them — see the 640px rule.
+ */
 .heroNumberRow {
   display: flex;
-  flex-wrap: wrap;
-  align-items: last baseline;
-  gap: var(--space-2) var(--space-4);
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-5);
 }
 
 .heroNumber {
@@ -152,7 +160,10 @@
      rendered narrower than the viewport with a gap down the side. The vw term is
      what keeps it inside the gutter; the rem floor keeps it a hero number.
   */
-  font-size: clamp(2.5rem, 18vw, var(--step-hero));
+  /* 12.5% of the hero column: the full 6.75rem on a wide screen, smaller on a
+     laptop, so the phrase keeps ~22ch beside it at every desktop width. */
+  flex: 0 0 auto;
+  font-size: clamp(2.5rem, 12.5cqi, var(--step-hero));
   font-weight: 800;
   line-height: 0.86;
   letter-spacing: -0.035em;
@@ -161,10 +172,9 @@
 }
 
 .heroPhrase {
-  /* Its own line under the number, the column's full width (2026-10-16
-     direction) — beside the number it set as three short lines. */
-  flex: 1 1 100%;
-  max-width: none;
+  /* Beside the number, about three balanced lines. */
+  flex: 0 1 22ch;
+  max-width: 22ch;
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.25;
@@ -1105,10 +1115,22 @@
   padding-inline: var(--space-4);
 }
 
+/* No bottom padding: the step caption is the bottom edge (see StepCaption). */
 .storyPhone .stageMain {
   position: relative;
   gap: var(--space-2);
-  padding: var(--space-2) 0 var(--space-3);
+  padding: var(--space-2) 0 0;
+}
+
+/*
+ * dvh on phones, not svh: svh is the height with the browser's toolbars
+ * showing, so once they slid away a strip of page opened up under the caption.
+ * dvh follows the toolbars, keeping the caption on the bottom edge either way.
+ */
+@supports (height: 100dvh) {
+  .storyPhone {
+    --stage-h: calc(100dvh - var(--header-height));
+  }
 }
 
 .storyPhone .mapBody {
@@ -1208,6 +1230,20 @@
   .heroInner {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* Phones: the number takes the width (vw, as before the cqi sizing) and the
+     phrase goes under it, full width. */
+  .heroNumberRow {
+    flex-wrap: wrap;
+    align-items: last baseline;
+    gap: var(--space-2) var(--space-4);
+  }
+  .heroNumber {
+    font-size: clamp(2.5rem, 18vw, var(--step-hero));
+  }
+  .heroPhrase {
+    flex-basis: 100%;
+    max-width: none;
+  }
   /* No longer beside anything: it stops sticking, and the rightward bleed
      becomes a bleed to both edges with the divider on top. */
   .railInner {
@@ -1236,10 +1272,7 @@
   .heroInner {
     padding-block: var(--space-5);
   }
-  /* Let the phrase have the full line rather than sitting in a 13ch column
-     beside a number that now takes the whole width. */
   .heroPhrase {
-    max-width: none;
     font-size: var(--text-lg);
   }
   .heroBodyRow > .download {

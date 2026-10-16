@@ -25,9 +25,12 @@ import styles from './StepCaption.module.css';
  *   step: { title: string, body: string, subhead?: string | null, sources?: { label: string, href?: string }[], sourceNote?: string },
  *   chart: ReactNode | null,
  *   counties: ReactNode,
- * }} props
+ *   onPrev?: (() => void) | null,
+ *   onNext?: (() => void) | null,
+ * }} props - onPrev / onNext step back and forward through the whole story;
+ *   null at either end, which disables that arrow.
  */
-export function StepCaption({ index, step, chart, counties }) {
+export function StepCaption({ index, step, chart, counties, onPrev = null, onNext = null }) {
   const { title, body } = step;
   /** Which sheet is open, if any. */
   const [sheet, setSheet] = useState(null);
@@ -70,6 +73,31 @@ export function StepCaption({ index, step, chart, counties }) {
           >
             Top 10 counties
           </button>
+          {/* Previous / next step, for tapping through without scrolling. */}
+          <div className={styles.arrows}>
+            <button
+              type="button"
+              className={styles.arrow}
+              aria-label="Previous step"
+              disabled={!onPrev}
+              onClick={() => onPrev?.()}
+            >
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={styles.arrow}
+              aria-label="Next step"
+              disabled={!onNext}
+              onClick={() => onNext?.()}
+            >
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 

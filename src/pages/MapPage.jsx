@@ -461,6 +461,8 @@ export default function MapPage() {
   const sideInnerRef = useRef(null);
   const rankWrapRef = useRef(null);
   const [fitRows, setFitRows] = useState(10);
+  /** The count before the last change — see the oscillation guard below. */
+  const fitPrevRef = useRef(null);
 
   useLayoutEffect(() => {
     const avail = sideBox.height;
@@ -468,9 +470,24 @@ export default function MapPage() {
     const shown = Math.min(fitRows, rankRows.length);
     const rowH = shown ? (rankWrapRef.current?.offsetHeight ?? 0) / shown : 0;
     if (!storyPinned || phoneStory || !avail || !rowH) return;
-    // floor(), so a few pixels of slack never adds a row that would then not fit.
-    const next = Math.max(3, Math.min(10, shown + Math.floor((avail - content) / rowH)));
-    if (next !== fitRows) setFitRows(next);
+    /*
+       From the panel's FIXED part — everything but the rows — rather than from
+       the current count, so the answer does not depend on itself. Stepping from
+       the current count could flip between two values forever when rows were
+       not exact multiples of rowH (borders, rounding), which crashed the page
+       at 800×900 (2026-10-16).
+    */
+    const fixed = content - shown * rowH;
+    // +2px of tolerance: row heights are fractional, and a list 0.4px over its
+    // slot read as one row too many, then one too few, forever.
+    let next = Math.max(3, Math.min(10, Math.floor((avail - fixed + 2) / rowH)));
+    // Belt and braces: if it would go back to the count it just left, settle
+    // on the smaller of the two instead of flipping.
+    if (next === fitPrevRef.current) next = Math.min(next, fitRows);
+    if (next !== fitRows) {
+      fitPrevRef.current = fitRows;
+      setFitRows(next);
+    }
   }, [storyPinned, phoneStory, sideBox.height, fitRows, rankRows.length, state.layer, state.measure]);
 
   /**
@@ -1216,6 +1233,7 @@ export default function MapPage() {
             activeChapter={step.chapterIndex}
             activeStep={step.stepInChapter}
             onSelect={(ci, si) => goTo(story.firstStep[ci] + si)}
+            aside={<JumpMenu groups={jumpGroups} currentLabel={jumpCurrent} inline />}
           />
         )}
 
@@ -1524,6 +1542,8 @@ export default function MapPage() {
             step={stepCopy}
             chart={step.chart ? renderStoryChart(step) : null}
             counties={sidePanel}
+            onPrev={activeStep > 0 ? () => goTo(activeStep - 1) : null}
+            onNext={activeStep < story.steps.length - 1 ? () => goTo(activeStep + 1) : null}
           />
         )}
       </div>
@@ -1648,7 +1668,8 @@ export default function MapPage() {
       </div>
 
       {/* Over the story only — see JumpMenu. */}
-      <JumpMenu groups={jumpGroups} currentLabel={jumpCurrent} visible={region === 'in'} />
+      {/* Phones carry it in the progress bar instead — see <StoryProgress aside>. */}
+      <JumpMenu groups={jumpGroups} currentLabel={jumpCurrent} visible={region === 'in' && !phoneStory} />
 
       <CountyTooltip
         county={activeCounty}

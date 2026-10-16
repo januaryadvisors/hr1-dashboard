@@ -1,14 +1,22 @@
-/* Fixed height: the map above takes whatever is left, so this must not vary. */
+/*
+ * Fixed height: the map above takes whatever is left, so this must not vary.
+ *
+ * A bar on the bottom edge of the screen (2026-10-16): full bleed past the
+ * stage's gutters, square at the bottom, with the device's home-indicator inset
+ * added underneath — so nothing shows below it.
+ */
 .caption {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  height: 8.75rem;
-  padding: var(--space-3);
+  height: calc(8.75rem + env(safe-area-inset-bottom, 0px));
+  margin-inline: calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   background: var(--ft-tan-alt);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
+  border-top: 1px solid var(--hairline);
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.06);
   animation: caption-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
@@ -68,8 +76,37 @@
 
 .actions {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
   margin-top: auto;
+}
+
+/* Previous / next, pushed to the right end of the actions row. */
+.arrows {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--text-inverse);
+  background: var(--ja-navy);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.arrow:disabled {
+  color: var(--text-faint);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  cursor: default;
 }
 
 .action {

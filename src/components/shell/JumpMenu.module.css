@@ -154,12 +154,36 @@
   color: var(--ja-navy);
 }
 
-/* Phones: the pinned story has its own chapter bar at the top, and the open
-   step's card fills the bottom edge where this would sit, so it stands down. */
-@media (max-width: 640px) {
-  .root {
-    display: none;
-  }
+/*
+ * The phone version, in the story's progress bar: in the flow rather than
+ * floating, a smaller pill, and the list drops down from it rather than up.
+ */
+.inline {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  z-index: 25;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.inline .trigger {
+  padding: 0.2rem 0.55rem 0.2rem 0.7rem;
+  font-size: var(--text-xs);
+  box-shadow: none;
+}
+
+.inline .triggerLabel {
+  color: var(--text);
+}
+
+.inline .panel {
+  top: calc(100% + 6px);
+  bottom: auto;
+  right: 0;
+  max-width: calc(100vw - 2 * var(--space-4));
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -32,9 +32,13 @@ import styles from './JumpMenu.module.css';
  */
 
 /**
- * @param {{ groups: JumpGroup[], currentLabel: string, visible?: boolean }} props
+ * `inline` (2026-10-16) is the phone version: it sits in the story's progress
+ * bar instead of floating, always shown, as a compact "Jump to" whose list
+ * drops down — the progress bar already names the chapter on screen.
+ *
+ * @param {{ groups: JumpGroup[], currentLabel: string, visible?: boolean, inline?: boolean }} props
  */
-export function JumpMenu({ groups, currentLabel, visible = true }) {
+export function JumpMenu({ groups, currentLabel, visible = true, inline = false }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const listId = useId();
@@ -65,7 +69,7 @@ export function JumpMenu({ groups, currentLabel, visible = true }) {
 
   return (
     <div
-      className={`${styles.root} ${visible ? styles.visible : ''}`}
+      className={`${styles.root} ${inline ? styles.inline : ''} ${visible ? styles.visible : ''}`}
       ref={rootRef}
       aria-hidden={visible ? undefined : true}
     >
@@ -77,7 +81,7 @@ export function JumpMenu({ groups, currentLabel, visible = true }) {
         onClick={() => setOpen((v) => !v)}
       >
         <span className={styles.triggerLabel}>Jump to</span>
-        <span className={styles.triggerCurrent}>{currentLabel}</span>
+        {!inline && <span className={styles.triggerCurrent}>{currentLabel}</span>}
         <span className={styles.caret} aria-hidden="true" />
       </button>
 

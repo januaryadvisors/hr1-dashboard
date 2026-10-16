@@ -17,9 +17,12 @@ import styles from './StoryProgress.module.css';
  *   activeChapter: number,
  *   activeStep: number,
  *   onSelect: (chapter: number, step: number) => void,
- * }} props
+ *   aside?: import('react').ReactNode,
+ * }} props - `aside` takes the place of the step count at the right of the
+ *   label row — the phone's Jump to menu (2026-10-16). The bar below already
+ *   shows where in the story the reader is.
  */
-export function StoryProgress({ chapters, activeChapter, activeStep, onSelect }) {
+export function StoryProgress({ chapters, activeChapter, activeStep, onSelect, aside }) {
   const chapter = chapters[activeChapter];
   return (
     <nav className={styles.root} aria-label="Story progress">
@@ -28,12 +31,14 @@ export function StoryProgress({ chapters, activeChapter, activeStep, onSelect })
           {String(activeChapter + 1).padStart(2, '0')}
         </span>
         <span className={styles.label}>{chapter.label}</span>
-        <span className={styles.where}>
-          Step {stepLetter(activeStep)} of {stepLetter(chapter.steps.length - 1)} ·{' '}
-          <span className="tabular">
-            {activeChapter + 1}/{chapters.length}
+        {aside ?? (
+          <span className={styles.where}>
+            Step {stepLetter(activeStep)} of {stepLetter(chapter.steps.length - 1)} ·{' '}
+            <span className="tabular">
+              {activeChapter + 1}/{chapters.length}
+            </span>
           </span>
-        </span>
+        )}
       </div>
       <div className={styles.bar}>
         {chapters.map((c, ci) => (
