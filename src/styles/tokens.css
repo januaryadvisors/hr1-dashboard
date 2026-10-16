@@ -51,7 +51,11 @@
   /* Text */
   --text: var(--ja-ink);
   --text-muted: #5f5a5a;
-  --text-faint: #8b8585;
+  /* 4.8:1 on the darker tan, 5.3:1 on the lighter and 5.7:1 on white — the
+     old #8b8585 was 3.0–3.6:1 and failed AA for the 12–13px meta text it sets.
+     The old value lives on as --rule-faint, for strokes only. */
+  --text-faint: #6b6565;
+  --rule-faint: #8b8585;
   --text-inverse: #ffffff;
 
   /* Semantic */
@@ -113,12 +117,18 @@
   --space-6: 2rem;
   --space-7: 3rem;
 
+  /*
+   * Breakpoints, by convention (custom properties cannot be used in media
+   * queries): "narrow" rules are max-width: 899px and "desktop" checks in JS are
+   * min-width: 900px, so no width matches both. The same pairing holds for the
+   * phone story (max-width: 699px). Do not write max-width: 900px.
+   */
+
   --radius: 6px;
   --radius-pill: 999px;
   --header-height: 64px;
 
   --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.08);
-  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--ja-teal);
 
   /* §12 dark-mode domain ramps. Declared now, applied when the theme ships:
      D1 #5B85C4, D2 #5FB4BD, D4 #4FAE6E; D3's amber survives unchanged. */

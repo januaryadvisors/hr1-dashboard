@@ -1,9 +1,9 @@
 /**
  * Randomised parity check against real R. Skips automatically when R is not on
  * PATH, so CI stays green on a machine without it; run it locally whenever
- * colorRamp.ts changes.
+ * colorRamp.js changes.
  *
- * The pinned expectations in colorRamp.test.ts cover the five palettes that
+ * The pinned expectations in colorRamp.test.js cover the five palettes that
  * actually ship. This covers the port itself across anchor counts and lengths.
  */
 import { execFileSync } from 'node:child_process';

@@ -19,7 +19,7 @@ import styles from './charts.module.css';
 /**
  * @typedef {Object} IndexedSeries
  * @property {string} label
- * @property {(number | null)[]} values - Already indexed — see indexTo() in src/lib/insights.ts.
+ * @property {(number | null)[]} values - Already indexed — see indexTo() in src/lib/insights.js.
  * @property {string} [color]
  * @property {boolean} [emphasis] - Thicker, drawn last: the series the chart is about.
  * @property {boolean} [dashed]
@@ -30,6 +30,9 @@ import styles from './charts.module.css';
  * @property {string[]} months
  * @property {IndexedSeries[]} series
  * @property {number} refIndex - Index of the month everything is rebased to; gets the 100 marker.
+ * @property {boolean} [refLabelRight] - Put the "JUL 2025 = 100" label at the right end of the 100
+ *   line instead of the left, where a full-history chart's lines cross it. The printed Children
+ *   chart uses it (2026-10-16).
  * @property {number} [height]
  * @property {number} [viewWidth]
  * @property {string} title
@@ -47,6 +50,7 @@ export function IndexedLines({
   months,
   series,
   refIndex,
+  refLabelRight = false,
   height = 250,
   viewWidth: W = 1000,
   title,
@@ -131,7 +135,14 @@ export function IndexedLines({
       <text x={M.left - 5} y={y(100) + 3} textAnchor="end" className={styles.axis}>
         100
       </text>
-      <text x={M.left + 4} y={y(100) - 5} className={styles.axisLabel}>
+      <text
+        x={refLabelRight ? W - M.right - 4 : M.left + 4}
+        // Right: up in the plot's top corner, clear of the lines, which have
+        // fallen well below 100 by the end of a full-history chart.
+        y={refLabelRight ? M.top + 8 : y(100) - 5}
+        textAnchor={refLabelRight ? 'end' : 'start'}
+        className={styles.axisLabel}
+      >
         {fmtMonth(months[refIndex] ?? months[0])} = 100
       </text>
 

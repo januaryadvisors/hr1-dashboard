@@ -25,6 +25,20 @@ export const fmtPctDelta = (v, digits = 1) => {
 export const fmtPercentile = (v) =>
   v == null || !Number.isFinite(v) ? '—' : `p${Math.round(v * 100)}`;
 
+/**
+ * Dollars, abbreviated for a headline figure: 936_412_000 → "$936M",
+ * 1_240_000_000 → "$1.24B", 89_359 → "$89.4K", 950 → "$950".
+ */
+export function fmtDollars(v) {
+  if (v == null || !Number.isFinite(v)) return '—';
+  const a = Math.abs(v);
+  const sign = v < 0 ? '−' : '';
+  if (a >= 1e9) return `${sign}$${(a / 1e9).toFixed(2)}B`;
+  if (a >= 1e6) return `${sign}$${a >= 1e8 ? Math.round(a / 1e6) : (a / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `${sign}$${(a / 1e3).toFixed(1)}K`;
+  return `${sign}$${Math.round(a)}`;
+}
+
 /** Millions, for axis labels: 3518649 → "3.5M". */
 export const fmtMillions = (v) => `${(v / 1e6).toFixed(1)}M`;
 

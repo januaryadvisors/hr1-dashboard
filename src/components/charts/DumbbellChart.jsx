@@ -21,9 +21,9 @@ export function DumbbellChart({
   xMax = 1.6e6,
   height,
   viewWidth: W = 1000,
+  rowH = 32,
 }) {
   const M = { top: 14, right: 84, bottom: 22, left: 72 };
-  const rowH = 32;
   const h = height ?? M.top + rows.length * rowH + M.bottom;
 
   const x = (v) => M.left + (v / xMax) * (W - M.left - M.right);
@@ -66,7 +66,7 @@ export function DumbbellChart({
               opacity={0.6}
             />
             {/* Where it started. */}
-            <line x1={x0} x2={x0} y1={y(i) - 6} y2={y(i) + 6} stroke="var(--text-faint)" strokeWidth={1.5} strokeLinecap="round" />
+            <line x1={x0} x2={x0} y1={y(i) - 6} y2={y(i) + 6} stroke="var(--rule-faint)" strokeWidth={1.5} strokeLinecap="round" />
             {len > 1 && (
               <>
                 <line

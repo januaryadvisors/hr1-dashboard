@@ -23,6 +23,7 @@
  * @typedef {import('../../config/story').StoryStep} StoryStep
  */
 import { useEffect, useRef } from 'react';
+import { safeHref } from '../../lib/safeHref';
 import styles from './StoryRail.module.css';
 
 /**
@@ -44,8 +45,8 @@ export function StepSources({ sources = [], note, className = '' }) {
       {sources.map((src, i) => (
         <span key={src.label}>
           {i > 0 && ' · '}
-          {src.href ? (
-            <a href={src.href} target="_blank" rel="noreferrer">
+          {safeHref(src.href) ? (
+            <a href={safeHref(src.href)} target="_blank" rel="noopener noreferrer">
               {src.label} <span aria-hidden="true">↗</span>
             </a>
           ) : (
@@ -103,70 +104,6 @@ export function StoryRail({ chapters, activeChapter, activeStep, renderChart, on
     return () => clearTimeout(t);
   }, [activeChapter, activeStep]);
 
-  /*
-     FOCUS FADE, 2026-10-16. By chapter: the open chapter and every one of its
-     steps are at full strength, the chapters either side keep the ordinary
-     muted styling, chapters two away are a faint haze, and chapters three or
-     more away are invisible. Hovering or focusing the rail lifts the haze (opacity and
-     blur only, so nothing moves).
-  */
-  /*
-     FOG, lifted by the pointer (2026-10-16). Over the rail, each faded chapter
-     clears in proportion to how close the pointer is to it — fully within the
-     chapter's own box, gone by REACH px away — so the haze parts around the
-     cursor and closes behind it, like fog of war.
-
-     Cheap by construction: at most one update per frame; it reads the rects of
-     the five chapter rows, then writes one CSS variable on each, so layout is
-     never read after a write. The fade itself is opacity and a small blur.
-     The listener is on the aside (this list's parent), so the empty lower half
-     of the rail counts as "over the rail" too.
-  */
-  useEffect(() => {
-    const list = rootRef.current;
-    const rail = list?.parentElement;
-    if (!list || !rail) return undefined;
-    const REACH = 140;
-    let frame = 0;
-    let py = null;
-
-    const paint = () => {
-      frame = 0;
-      const rows = [...list.children];
-      const tops = rows.map((row) => row.getBoundingClientRect());
-      rows.forEach((row, i) => {
-        let r = 0;
-        if (py != null) {
-          const { top, bottom } = tops[i];
-          const d = Math.max(0, top - py, py - bottom);
-          const t = Math.max(0, 1 - d / REACH);
-          r = t * t * (3 - 2 * t); // smoothstep, so the edge of the clearing is soft
-        }
-        row.style.setProperty('--reveal', r.toFixed(3));
-      });
-    };
-    const onMove = (e) => {
-      py = e.clientY;
-      if (!frame) frame = requestAnimationFrame(paint);
-    };
-    const onLeave = () => {
-      py = null;
-      if (!frame) frame = requestAnimationFrame(paint);
-    };
-    rail.addEventListener('pointermove', onMove, { passive: true });
-    rail.addEventListener('pointerleave', onLeave);
-    return () => {
-      cancelAnimationFrame(frame);
-      rail.removeEventListener('pointermove', onMove);
-      rail.removeEventListener('pointerleave', onLeave);
-    };
-  }, []);
-
-  const fade = (ci) => {
-    const d = Math.abs(ci - activeChapter);
-    return d >= 3 ? styles.fadeFar : d === 2 ? styles.fadeMid : '';
-  };
-
   return (
     <ol className={styles.root} aria-label="Story timeline" ref={rootRef}>
       {chapters.map((chapter, ci) => {
@@ -175,7 +112,7 @@ export function StoryRail({ chapters, activeChapter, activeStep, renderChart, on
         return (
           <li
             key={chapter.key}
-            className={`${styles.chapter} ${current ? styles.current : ''} ${done ? styles.done : ''} ${fade(ci)}`}
+            className={`${styles.chapter} ${current ? styles.current : ''} ${done ? styles.done : ''}`}
           >
             {/* One line per chapter; the open chapter's is its section title. */}
             <button

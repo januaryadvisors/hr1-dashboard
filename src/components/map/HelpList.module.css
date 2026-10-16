@@ -1,0 +1,23 @@
+/* One line per registry, its map-key symbol first. */
+.list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* None listed: kept, so an absence reads as a finding, but receded. */
+.absent {
+  color: var(--text-faint);
+}
+
+.absent svg {
+  opacity: 0.45;
+}

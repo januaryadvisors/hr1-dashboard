@@ -14,8 +14,7 @@
  * COMPUTED: titles, bodies and subheads are functions of
  * `StoryFacts` (built in MapPage from the loaded data and the brush window), so
  * the words and the chart beside them cannot disagree and neither goes stale
- * when a month lands. The one exception is the school-meals step, whose figures
- * come from outside this dataset; they are typed below with their sources.
+ * when a month lands.
  *
  * @typedef {import('../types').LayerKey} LayerKey
  * @typedef {import('../types').Measure} Measure
@@ -55,6 +54,9 @@
  * @property {LayerKey} [layer] - Defaults to the chapter view's first metric.
  * @property {Measure} [measure] - Omitted: keep the reader's choice, falling back to rate where the
  *   layer has no count basis (C-03) so a step never opens on the "no count" callout.
+ * @property {boolean} [capacity] - On the index view, whether the assistance marks (or the grid's
+ *   bars) draw on arrival. Default off: the index reads first on its own (2026-10-16), and the
+ *   reader turns the assistance on with the map's "Index + assistance" switch.
  * @property {'grid'} [mapStyle] - Draws the hero map as the equal-size tile grid for this step only,
  *   whatever the reader's Geo/Density choice. Grid is not a reader-selectable style — it exists
  *   for the one step that needs a square per county (client direction 2026-10-16).
@@ -166,6 +168,7 @@ export const STORY = [
     steps: [
       {
         id: 'vuln-recipe',
+        capacity: false,
         title: 'How the index is built',
         // No copy: the recipe chart explains itself (2026-10-16 direction).
         body: '',
@@ -184,6 +187,7 @@ export const STORY = [
         measure: 'rate',
         // One square per county, with the listed-assistance bars inside each.
         mapStyle: 'grid',
+        capacity: true,
       },
     ],
   },

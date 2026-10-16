@@ -326,14 +326,6 @@
   gap: var(--space-2);
 }
 
-/* §6.6: this line is not optional and does not shrink. */
-.presenceNote {
-  width: 100%;
-  font-size: var(--text-xs);
-  color: var(--text-faint);
-  text-align: right;
-}
-
 /*
  * Page-level rail: the three statewide facts and the Texas Works feed.
  *
@@ -451,13 +443,6 @@
   border-top: 1px solid var(--hairline);
 }
 
-.blockHeadRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
 /* Level 2 of the shared reading order — see tokens.css. */
 .blockTitle {
   margin-bottom: var(--space-1);
@@ -479,51 +464,6 @@
 .overlayRows {
   align-self: stretch;
   max-width: 300px;
-}
-
-.railCard {
-  padding: var(--space-3);
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-}
-
-.railTitle {
-  margin-bottom: var(--space-3);
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  margin-bottom: var(--space-3);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius);
-  min-height: 34px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0.1rem 0.4rem;
-  font-size: var(--text-xs);
-  background: var(--surface-warm);
-  border-radius: 3px;
-}
-
-.chipRemove {
-  background: none;
-  border: 0;
-  color: var(--text-faint);
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
 }
 
 .checkRow {
@@ -608,20 +548,6 @@
 
 .switchOn .switchKnob {
   transform: translateX(16px);
-}
-
-.railFootnote {
-  margin-top: var(--space-2);
-  font-size: var(--text-2xs);
-  line-height: 1.4;
-  color: var(--text-faint);
-}
-
-.railSubhead {
-  margin-bottom: var(--space-2);
-  font-size: var(--text-xs);
-  line-height: 1.4;
-  color: var(--text-muted);
 }
 
 /* A disabled overlay switch still has to read as a switch, not as a hairline. */
@@ -830,21 +756,6 @@
   padding-right: clamp(var(--space-5), 5vw, 5rem);
 }
 
-/*
- * Flush to the header and flush to the bottom of the viewport, so the feed's
- * own scroll region takes exactly the height that is left. Vertical padding
- * lives here rather than on the aside, so it travels with the stuck content.
- */
-.railInner {
-  position: sticky;
-  top: var(--header-height);
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - var(--header-height));
-  overflow: hidden;
-  padding: var(--space-5) 0 var(--space-4);
-}
-
 /* Pinned, a step whose chart runs past a short viewport scrolls the rail rather
    than being cut off. At usual heights nothing overflows and wheel events pass
    straight through to the page. */
@@ -936,10 +847,10 @@
   height: var(--legend-h);
 }
 
+/* Not clipped: a key swatch's range tooltip rises above the slot. */
 .storyPinned .panelLegend {
   height: var(--legend-h);
   margin-top: 0;
-  overflow: hidden;
 }
 
 .storyPinned .sidePanel {
@@ -974,14 +885,9 @@
 
 /*
  * Short viewports: the timeline should fit beside the open step without the
- * rail scrolling, so the rail gives up a little everywhere it can, and the
- * SNAP chart drops its own title — the step title above it already says what
- * it shows.
+ * rail scrolling, so the rail gives up a little top padding.
  */
 @media (max-height: 800px), (max-width: 899px) {
-  .storySnapTrend h3 {
-    display: none;
-  }
   .storyPinned .storyRail {
     padding-top: var(--space-4);
   }
@@ -991,14 +897,6 @@
    sits over its bottom-right corner — see <JumpMenu>. */
 .storyPinned .storyRail {
   padding-bottom: calc(var(--space-5) + 44px);
-}
-
-/* The SNAP chart was styled as the top of the page rail; inside a step it is
-   the step's own content, so its closing rule goes. */
-.storySnapTrend {
-  padding-bottom: 0;
-  margin-bottom: 0;
-  border-bottom: 0;
 }
 
 /* The infrastructure picker, set on the rail's ground inside its step. The
@@ -1158,7 +1056,7 @@
 }
 
 /* Unpinned and narrow: map card, then the rail under it as an accordion. */
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .story:not(.storyPinned) .stage {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1213,7 +1111,7 @@
 }
 
 /* Narrower still, and the rail gives up some padding rather than the column. */
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .rail {
     padding-left: var(--space-4);
   }
@@ -1292,7 +1190,9 @@
  * itself it stretched the whole map column and read as a decorative band rather
  * than a key.
  */
+/* 200px, down from 260 (2026-10-16): at 260 the key's left end, and its
+   wrapping note, reached over the top of the Panhandle on every view. */
 .panelLegend {
   width: 100%;
-  max-width: 260px;
+  max-width: 200px;
 }

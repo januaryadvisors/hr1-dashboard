@@ -12,15 +12,77 @@
   text-align: right;
 }
 
+/* No overflow clip, so a swatch's tooltip can rise above the bar; the end
+   swatches carry the rounding instead. */
 .bar {
   display: flex;
   height: 9px;
-  overflow: hidden;
-  border-radius: 2px;
 }
 
 .swatch {
+  position: relative;
   flex: 1;
+  outline-offset: 1px;
+}
+
+.swatch:first-child {
+  border-radius: 2px 0 0 2px;
+}
+
+.swatch:last-child {
+  border-radius: 0 2px 2px 0;
+}
+
+.swatch[tabindex]:hover,
+.swatch[tabindex]:focus-visible {
+  z-index: 1;
+  box-shadow: 0 0 0 1.5px var(--surface), 0 0 0 2.5px var(--ja-ink);
+}
+
+/* The range, in a small dark tip above the swatch. */
+.tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 5;
+  padding: 3px 7px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--text-inverse);
+  background: var(--ja-ink);
+  border-radius: 4px;
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+/* The end swatches anchor their tip to the bar's edge so it never clips. */
+.swatch:first-child .tip {
+  left: 0;
+  transform: none;
+}
+
+.swatch:last-child .tip {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
+.swatch:hover .tip,
+.swatch:focus-visible .tip {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tip {
+    transition: none;
+  }
 }
 
 .ends {
@@ -31,26 +93,3 @@
   color: var(--text-muted);
 }
 
-.circles {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-3);
-}
-
-.circleItem {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  font-size: var(--text-2xs);
-  color: var(--text-muted);
-}
-
-/* Only on the count key: says the bands are quantiles, because a reader would
-   otherwise read the midpoint colour as the midpoint headcount. */
-.note {
-  margin-top: var(--space-1);
-  font-size: var(--text-2xs);
-  line-height: 1.3;
-  color: var(--text-faint);
-}

@@ -57,10 +57,12 @@ button {
   border: 0;
 }
 
+/* An outline, not a box-shadow: a component's own shadow (the Jump to pill's
+   drop shadow, for one) used to replace the ring entirely, and an outline also
+   survives Windows high-contrast mode, where box-shadows are dropped. */
 :focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: 3px;
+  outline: 2px solid var(--ja-teal);
+  outline-offset: 2px;
 }
 
 /* Eyebrow: a small semibold label. Sentence case since the 2026-10-16 comps (was tracked caps, §6.1). */
@@ -81,4 +83,18 @@ button {
 html.story-snap {
   scroll-snap-type: y proximity;
   scroll-padding-top: var(--header-height);
+}
+
+/* Printing: keep the chart colours and fills (browsers drop backgrounds by
+   default), on a white page. */
+@media print {
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body {
+    background: #fff;
+  }
 }

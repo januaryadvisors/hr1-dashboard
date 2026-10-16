@@ -10,8 +10,8 @@
  * reading one set of values and cannot disagree.
  */
 import { layerBasis, layerByKey, scoreFieldOrNull } from '../config/layers';
-import { binsFor, binsForLoss, BIVARIATE_STEPS, quantileBins, rampFor } from './scales';
-import { fmtInt, fmtPct, fmtPercentile } from './format';
+import { binsFor, BIVARIATE_STEPS, equalShareBins, quantileBins, roundedQuantileBins } from './scales';
+import { fmtPct, fmtPercentile } from './format';
 /**
  * @typedef {import('../types').County} County
  * @typedef {import('../types').LayerKey} LayerKey
@@ -106,7 +106,8 @@ function windowLoss(
 
   const statewideShare = stateStart > 0 ? Math.max(0, stateStart - stateEnd) / stateStart : 0;
 
-  return { fill, count, maxCount, bins: binsForLoss(statewideShare), statewideShare };
+  const bins = equalShareBins([...fill.values()].filter((v) => v != null));
+  return { fill, count, maxCount, bins, statewideShare };
 }
 
 /**
@@ -220,16 +221,15 @@ export function fractionOf(layer, value, values) {
   return value;
 }
 
-/** Right-hand label under a count legend, e.g. "12,400 people". */
-export const fmtCount = fmtInt;
-
 /**
- * Class breaks for a COUNT choropleth: equal-count (quantile), not equal-interval.
+ * Class breaks for a COUNT choropleth: five quintile classes, their edges
+ * rounded to nice numbers (roundedQuantileBins), not equal-interval.
  *
  * County headcounts are heavily skewed — Harris carries more SNAP recipients
  * than the smallest hundred counties combined — so equal-interval breaks put
- * essentially every county in the bottom band and the map says nothing. Quantile
- * breaks put the same number of counties in each colour instead.
+ * essentially every county in the bottom band and the map says nothing. Quintile
+ * breaks put about the same number of counties in each colour instead, and the
+ * rounding keeps the key's numbers ones a reader can quote.
  *
  * Shared by <CountyMap>, which colours with them, and <RampLegend>, which prints
  * their edges. The two must not compute this separately: a legend whose numbers
@@ -241,5 +241,8 @@ export const fmtCount = fmtInt;
  */
 export function countBinsFor(values, layer) {
   if (!values.count || values.count.size === 0) return null;
-  return quantileBins([...values.count.values()], rampFor(layer).length);
+  // A layer with fixed breaks keeps them; the top class runs to the largest county.
+  const fixed = layerByKey(layer).countBins;
+  if (fixed) return [...fixed, Math.max(values.maxCount ?? 0, fixed[fixed.length - 1] + 1)];
+  return roundedQuantileBins([...values.count.values()], 5);
 }

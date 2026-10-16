@@ -185,12 +185,65 @@
  * pages. Not a full print design — enough that Cmd-P produces something a
  * legislative aide can read.
  */
+/*
+ * Zero page margin, so the browser prints no header or footer of its own (the
+ * document title and URL it otherwise adds top and bottom); the report's own
+ * padding supplies the margin instead.
+ */
+@page {
+  size: letter;
+  margin: 0;
+}
+
 @media print {
   .page {
     display: block;
     max-width: none;
-    padding: 0;
+    padding: 0.4in;
     background: #fff;
+  }
+  /*
+   * ONE PAGE, TWO CARDS A ROW (2026-10-16). The report is one grid on paper:
+   * the sections and their grids dissolve (display: contents) so all seven
+   * cards pack two to a row, every card half the page wide — including the
+   * ones that span both columns on screen. The section headings come off: each
+   * card names itself, and a heading spanning a row would leave half-empty
+   * rows behind it. The charts redraw at print sizes (InsightsPage.jsx).
+   */
+  .content {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 10px;
+    align-items: start;
+  }
+  .content > * {
+    grid-column: 1 / -1;
+  }
+  .content .section,
+  .content .chartGrid {
+    display: contents;
+  }
+  .content .chartBlock,
+  .content .wide {
+    grid-column: auto;
+  }
+  .sectionTitle,
+  .headline {
+    display: none;
+  }
+  .section > * {
+    grid-column: 1 / -1;
+  }
+  .chartBlock {
+    padding: 6px 8px 4px;
+  }
+  .chartTitle {
+    font-size: 11px;
+  }
+  .chartSubhead {
+    margin: 1px 0 3px;
+    font-size: 9px;
+    line-height: 1.3;
   }
   .tabs {
     display: none;
@@ -200,17 +253,17 @@
     page-break-inside: avoid;
     border-color: #ccc;
   }
-  .chartBlock {
-    margin-bottom: var(--space-4);
-  }
-  /* Amber on a mono printer has to survive as something; a heavy rule does. */
+  /* Amber on a mono printer has to survive as something; a heavy rule does.
+     Small, so the badge does not crowd a half-width card's title. */
   .badge {
-    border-width: 2px;
+    padding: 0 4px;
+    font-size: 7px;
+    border-width: 1.5px;
   }
 }
 
 /* Two charts side by side stop being readable below about 360px each. */
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .chartGrid {
     grid-template-columns: minmax(0, 1fr);
   }

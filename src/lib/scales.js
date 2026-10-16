@@ -37,61 +37,93 @@ export const RAMP_ANCHORS = {
   composite: ['#F2F0EE', '#D9A29A', '#B44A3F', '#5A1D18'],
   // d5 (Children) has no source column — see spec §3 warning. No ramp assigned.
   /*
-   * Plum, and NOT the burgundy of the hero number, which is what these layers
-   * were first drawn in.
-   *
-   * Two reasons. The composite already owns burgundy, traceable to
-   * build_scores.R's cumulative-impact ramp, and at thumbnail size a burgundy
-   * loss map and a burgundy composite map are the same picture — three of the
-   * four view cards became indistinguishable. And a grey or ink ramp, the other
-   * obvious way to say "observed, not modelled", would collide with NO_DATA:
-   * a pale county and an absent county have to stay tellable apart.
-   *
-   * Both loss layers share it, so the all-persons and children maps are read on
-   * one scale.
+   * Burnt orange to brown, on client direction 2026-10-16 (was plum, then
+   * briefly the composite's red). The two loss layers share it, so the
+   * all-persons and children maps are read on one scale. Distinct from D3's
+   * amber, which is yellower and never reaches brown, and from the composite's
+   * red, which the index keeps.
    */
-  loss: ['#F5F1F7', '#C2A7CF', '#7B4A96', '#3E1B4D'],
-  child_loss: ['#F5F1F7', '#C2A7CF', '#7B4A96', '#3E1B4D'],
+  loss: ['#F6EFE7', '#E6B88C', '#C0682B', '#5C2C10'],
+  child_loss: ['#F6EFE7', '#E6B88C', '#C0682B', '#5C2C10'],
   /*
    * Teal, the one brand hue not already carrying a meaning on this page: navy
-   * is D1, amber D3, green D4, burgundy the composite, plum the SNAP loss.
+   * is D1, amber D3, green D4, burgundy the composite, burnt orange the SNAP loss.
    * Medicaid is a separate programme on separate data, so it reads separately.
    */
   medicaid_loss: ['#EAF6F7', '#8FCDD3', '#3F8E96', '#18454A'],
 };
 
-/**
- * Bands for a loss layer, as multiples of the STATEWIDE loss over the same
- * window.
- *
- * A fixed absolute scale cannot work here, because the brush is a first-class
- * control and loss grows with the length of the window: bands tuned to the full
- * policy window leave a six-month window uniformly pale, and bands tuned to six
- * months leave the full window uniformly black. Both are the same failure — the
- * reader loses all contrast between counties, which is the only thing the map is
- * for.
- *
- * Anchoring to the statewide rate makes the midpoint of the ramp "losing at the
- * same pace as Texas" at every window length, so the map always answers "who is
- * losing faster than the state" — and the headline number above it still carries
- * the absolute magnitude. The legend prints the resulting percentages, so the
- * reader is never shown a multiplier without the number behind it.
- */
-export const LOSS_BAND_MULTIPLES = [0, 0.6, 0.8, 0.95, 1.1, 1.3];
+// ------------------------------------------------------------ class breaks
+
+/** Steps of the "nice number" ladder within one power of ten. */
+const NICE = [1, 2.5, 5, 10];
 
 /**
- * Loss bands for one window. `statewideShare` is the statewide loss as a
- * fraction of its own window-start caseload.
- *
- * Falls back to a flat spread when the state as a whole did not lose anyone —
- * every multiple of zero is zero, which would collapse the bins.
+ * Nearest number on the 1 / 2.5 / 5 × 10ⁿ ladder: 120 → 100, 331 → 250,
+ * 703 → 500, 1956 → 2500. Zero and negatives round to 0.
  */
-export function binsForLoss(statewideShare) {
-  if (!Number.isFinite(statewideShare) || statewideShare <= 0) {
-    return [0, 0.02, 0.05, 0.08, 0.12, 0.18, 1.0];
+export function niceRound(v) {
+  if (!(v > 0)) return 0;
+  const p = 10 ** Math.floor(Math.log10(v));
+  const f = v / p;
+  const best = NICE.reduce((a, b) => (Math.abs(b - f) < Math.abs(a - f) ? b : a));
+  return best * p;
+}
+
+/** The next number up the ladder from a nice number: 100 → 250 → 500 → 1000. */
+function niceAbove(v) {
+  if (!(v > 0)) return 1;
+  const p = 10 ** Math.floor(Math.log10(v) + 1e-9);
+  const i = NICE.findIndex((n) => n * p > v + 1e-9);
+  return NICE[i] * p;
+}
+
+/**
+ * COUNT KEYS: quintile breaks rounded to nice numbers (client direction
+ * 2026-10-16). Counts are heavily skewed — the median county lost ~450 people,
+ * Harris ~139,000 — so equal-width classes put 248 of 254 counties in the
+ * bottom one. Quintiles fix that but print odd edges (104, 229, 454…) that move
+ * with every window; rounding keeps the even spread and makes the key readable
+ * and quotable: 0 / 100 / 250 / 500 / 2,500 / max.
+ *
+ * @param {number[]} values
+ * @param {number} [classes]
+ * @returns {number[]} classes + 1 strictly increasing edges, 0 first, the max last.
+ */
+export function roundedQuantileBins(values, classes = 5) {
+  const sorted = values.filter((v) => Number.isFinite(v)).sort((x, y) => x - y);
+  const max = sorted.length ? sorted[sorted.length - 1] : 1;
+  const at = (p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] ?? 0;
+  const edges = [0];
+  for (let i = 1; i < classes; i++) {
+    let e = niceRound(at(i / classes));
+    // Two quintiles rounding to the same number would collapse a class.
+    if (e <= edges[edges.length - 1]) e = niceAbove(edges[edges.length - 1]);
+    edges.push(e);
   }
-  // Final bound is 1.0: a county can at most lose its entire caseload.
-  return [...LOSS_BAND_MULTIPLES.map((m) => m * statewideShare), 1.0];
+  edges.push(Math.max(max, edges[edges.length - 1] + 1));
+  return edges;
+}
+
+/**
+ * SHARE KEYS (share of caseload lost): five equal steps of whole percents from
+ * 0 to the 98th percentile, the top class open to 100% (client direction
+ * 2026-10-16). At a top of ~28% that reads 0 / 6 / 12 / 18 / 24 / 100.
+ *
+ * The 98th percentile rather than the maximum, so one tiny county that lost
+ * three quarters of a forty-child caseload does not stretch every class. Still
+ * recomputed for the window on screen, so a short window keeps its contrast.
+ *
+ * @param {number[]} shares - 0–1 fractions.
+ * @param {number} [classes]
+ */
+export function equalShareBins(shares, classes = 5) {
+  const sorted = shares.filter((v) => Number.isFinite(v)).sort((x, y) => x - y);
+  const top = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(0.98 * sorted.length))] : 0.25;
+  const step = Math.max(1, Math.ceil((top * 100) / classes)) / 100;
+  const edges = Array.from({ length: classes }, (_, i) => Number((i * step).toFixed(4)));
+  edges.push(1);
+  return edges;
 }
 
 /**
@@ -100,32 +132,36 @@ export function binsForLoss(statewideShare) {
  */
 export const BINS_COMPOSITE = [0.8, 1.35, 1.65, 1.85, 2.05, 2.27, 2.66, 3.4];
 
-/** build_scores.R:478 — integer bins for cumulative_impact 0…4. */
-export const BINS_CUMULATIVE = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5];
+/** A loss layer's bands before any window is known: 5 classes of 8 points. */
+const BINS_LOSS_DEFAULT = [0, 0.08, 0.16, 0.24, 0.32, 1];
 
 /**
  * Thresholds for a layer: the composite has its own rebin.
  *
  * A loss layer's bands depend on the window, which this signature knows nothing
- * about, so it returns the zero-statewide fallback. Callers drawing a loss layer
- * pass the real bands explicitly — see LayerValues.bins.
+ * about, so it returns a default. Callers drawing a loss layer pass the real
+ * bands explicitly — see LayerValues.bins and equalShareBins.
  */
 export function binsFor(layer) {
-  if (isLoss(layer)) return binsForLoss(0);
+  if (isLoss(layer)) return BINS_LOSS_DEFAULT;
   return layer === 'composite' ? BINS_COMPOSITE : BINS_SCORE;
 }
 
 /**
  * Colours for a layer, one per bin interval.
  *
+ * `classes` defaults to the layer's own bins; a caller with other edges (the
+ * count keys, the window's loss bands) passes their count, so the ramp always
+ * has one colour per class.
+ *
  * NOTE: build_scores.R generates 7 colours per domain but bins_score defines only
  * 6 intervals. We generate 6 — one per interval. Flagged for reconciliation with
  * the R side so the review maps and the dashboard cannot diverge.
  */
-export function rampFor(layer) {
+export function rampFor(layer, classes = binsFor(layer).length - 1) {
   const anchors = RAMP_ANCHORS[layer];
   if (!anchors) return [];
-  return colorRampPalette(anchors, binsFor(layer).length - 1);
+  return colorRampPalette(anchors, classes);
 }
 
 /**
@@ -151,7 +187,7 @@ export function colorFor(
   /** Override for layers whose bands are not a function of the layer alone. */
   bins = binsFor(layer),
 ) {
-  const ramp = rampFor(layer);
+  const ramp = rampFor(layer, bins.length - 1);
   const i = binIndex(value, bins);
   if (i < 0 || !ramp.length) return NO_DATA;
   return ramp[Math.min(i, ramp.length - 1)];

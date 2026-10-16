@@ -106,7 +106,7 @@ function Ready({ data, children }) {
 
   /**
    * Projected geometry, built once. Path strings and the cartogram are derived
-   * per render mode in MapPage — see src/lib/mapGeometry.ts.
+   * per render mode in MapPage — see src/lib/mapGeometry.js.
    */
   const baseRings = useMemo(
     () => projectRings(data.geometry.counties, projection),

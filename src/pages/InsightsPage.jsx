@@ -1,7 +1,7 @@
 /**
  * Insights page — spec §8. One scrolling page of four sections (2026-10-16).
  *
- * SCOPED. Every chart reads from a `Scope` (src/lib/insights.ts) — Texas, or one
+ * SCOPED. Every chart reads from a `Scope` (src/lib/insights.js) — Texas, or one
  * county — so the page doubles as a county stat page for sharing with people who
  * will never touch the map: `/insights/decline?county=48201` is the link, and it
  * is just the address bar after picking a county.
@@ -15,6 +15,7 @@
  * figure is the failure mode.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../state/AppContext';
 import { Callout } from '../components/shell/Callout';
@@ -30,10 +31,11 @@ import {
   buildScope,
   peersFor,
   indexTo,
-  lossRank,
   monthlyChange,
   participationShare,
+  benefitShortfall,
   windowChange,
+  windowLoss,
 } from '../lib/insights';
 import { fmtInt, fmtMonthBody, fmtMonthFull, fmtPct } from '../lib/format';
 import styles from './InsightsPage.module.css';
@@ -70,6 +72,16 @@ const LEGACY_TAB = { decline: 'enrollment', who: 'who', 'rate-count': 'size' };
 
 /** Viewbox width for a chart that spans both columns — about its rendered width. */
 const WIDE_VIEW_WIDTH = 960;
+
+/**
+ * PRINT SIZES. On paper every card is half the page wide and the whole report
+ * aims for one Letter page, so while printing each chart is drawn at about its
+ * printed width (a half-width card on a 0.4in-margin page is ~350px) and short.
+ * Drawn at the screen sizes and scaled down, the wide charts' 12px axis type
+ * printed at ~4px.
+ */
+const PRINT_VIEW_WIDTH = 350;
+const PRINT_CHART_H = 112;
 
 /** Marks a chart the data cannot scope below state level. */
 function StatewideBadge({ scoped }) {
@@ -129,11 +141,6 @@ export default function InsightsPage() {
 
   const change = useMemo(() => windowChange(scope.enrolled, i0, i1), [scope.enrolled, i0, i1]);
 
-  const rank = useMemo(
-    () => (isScoped ? lossRank(peers.units, scope.key, statewide.enrolled, i0, i1) : null),
-    [isScoped, peers, scope.key, statewide.enrolled, i0, i1],
-  );
-
   /** Statewide series, always available as the comparison line. */
   const stateIndexed = useMemo(() => indexTo(statewide.enrolled, i0), [statewide.enrolled, i0]);
   const scopeIndexed = useMemo(() => indexTo(scope.enrolled, i0), [scope.enrolled, i0]);
@@ -141,6 +148,57 @@ export default function InsightsPage() {
     () => (scope.children ? indexTo(scope.children, i0) : null),
     [scope.children, i0],
   );
+
+  /** The report box's four figures — the same for every place. */
+  const figures = useMemo(
+    () => ({
+      people: windowLoss(scope.enrolled, i0, i1),
+      children: windowLoss(scope.children, i0, i1),
+      seniors: windowLoss(scope.seniors, i0, i1),
+      shortfall: benefitShortfall(scope.payments, i0, i1),
+      sinceLabel:
+        state.window[0] === statewide.meta.policy_start ? 'H.R. 1' : fmtMonthBody(state.window[0]),
+    }),
+    [scope, i0, i1, state.window, statewide.meta.policy_start],
+  );
+
+  /**
+   * Print / save as PDF: the browser's own dialog, with the page's print
+   * stylesheet (InsightsPage.module.css, ScopeBar.module.css). The document
+   * title is the PDF's default file name, so it names the place and window for
+   * the length of the dialog and is put back after.
+   */
+  const printReport = () => {
+    const previous = document.title;
+    document.title = `${scope.label} — SNAP and H.R. 1, ${fmtMonthBody(state.window[0])} to ${fmtMonthBody(state.window[1])}`;
+    const restore = () => {
+      document.title = previous;
+      window.removeEventListener('afterprint', restore);
+    };
+    window.addEventListener('afterprint', restore);
+    window.print();
+  };
+
+  /**
+   * True for the length of a print, whichever way it was started (the button or
+   * the browser's own Print). flushSync so the charts have re-rendered at their
+   * print sizes before the browser lays the page out for paper.
+   */
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    const before = () => flushSync(() => setPrinting(true));
+    const after = () => setPrinting(false);
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => {
+      window.removeEventListener('beforeprint', before);
+      window.removeEventListener('afterprint', after);
+    };
+  }, []);
+  /** Chart sizes for the medium: screen, or a half-width card on paper. */
+  const vw = printing ? PRINT_VIEW_WIDTH : VIEW_WIDTH;
+  const wideVw = printing ? PRINT_VIEW_WIDTH : WIDE_VIEW_WIDTH;
+  const chartH = (screen) => (printing ? PRINT_CHART_H : screen);
 
   const funnel = useMemo(() => buildFunnel(peers.units, i0, i1), [peers, i0, i1]);
   const funnelOutside = funnel.points.filter((p) => p.outside).length;
@@ -217,12 +275,11 @@ export default function InsightsPage() {
           counties={counties}
           scope={scope}
           change={change}
-          rank={rank}
-          peers={peers}
           districtCounts={districtCounts}
-          byGeoid={byGeoid}
           window={state.window}
+          figures={figures}
           onSelect={(geoid) => dispatch({ type: 'setScope', geoid })}
+          onPrint={printReport}
         />
 
         {/* ---------------------------------------------------- 1 Enrollment */}
@@ -257,7 +314,8 @@ export default function InsightsPage() {
                       emphasis: true,
                     },
                   ]}
-                  viewWidth={VIEW_WIDTH}
+                  viewWidth={vw}
+                  height={chartH(250)}
                   title={`${scope.label} indexed against Texas`}
                 />
               ) : (
@@ -266,7 +324,8 @@ export default function InsightsPage() {
                   series={[{ label: 'Texas', values: statewide.enrolled }]}
                   shade={state.window}
                   formatY={(v) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : fmtInt(v))}
-                  viewWidth={VIEW_WIDTH}
+                  viewWidth={vw}
+                  height={chartH(240)}
                   title="Enrolled individuals in Texas"
                 />
               )}
@@ -280,8 +339,8 @@ export default function InsightsPage() {
                 months={months.slice(i0, i1 + 1)}
                 values={monthlyChange(scope.enrolled).slice(i0, i1 + 1)}
                 annotations={isScoped ? [] : [{ month: '2025-11', label: 'NOV −110k' }]}
-                viewWidth={VIEW_WIDTH}
-                height={220}
+                viewWidth={vw}
+                height={chartH(220)}
               />
             </ChartCard>
 
@@ -313,8 +372,8 @@ export default function InsightsPage() {
                 ]}
                 shade={state.window}
                 formatY={(v) => fmtPct(v, 1)}
-                viewWidth={WIDE_VIEW_WIDTH}
-                height={260}
+                viewWidth={wideVw}
+                height={chartH(260)}
                 title={`Share of residents enrolled in ${scope.label}`}
               />
             </ChartCard>
@@ -341,8 +400,8 @@ export default function InsightsPage() {
                     ? indexTo(statewide.age_series[b.band].slice(i0, i1 + 1), 0)
                     : [100, 100 * (1 + b.pct_change)],
                 }))}
-                viewWidth={VIEW_WIDTH}
-                height={240}
+                viewWidth={vw}
+                height={chartH(240)}
                 title="Age bands indexed to the window start"
               />
             </ChartCard>
@@ -353,7 +412,11 @@ export default function InsightsPage() {
               statewideOnly
               scoped={isScoped}
             >
-              <DumbbellChart rows={ageBandRows(statewide, i0, i1)} viewWidth={VIEW_WIDTH} />
+              <DumbbellChart
+                rows={ageBandRows(statewide, i0, i1)}
+                viewWidth={vw}
+                rowH={printing ? 17 : 32}
+              />
             </ChartCard>
           </div>
         </section>
@@ -385,8 +448,9 @@ export default function InsightsPage() {
                       emphasis: true,
                     },
                   ]}
-                  viewWidth={WIDE_VIEW_WIDTH}
-                  height={280}
+                  viewWidth={wideVw}
+                  height={chartH(280)}
+                  refLabelRight={printing}
                   title={`Children against all enrolled in ${scope.label}`}
                 />
               </ChartCard>
@@ -420,8 +484,8 @@ export default function InsightsPage() {
                 data={funnel}
                 markOutliers={funnelCalibrated}
                 highlight={isScoped ? scope.key : null}
-                viewWidth={WIDE_VIEW_WIDTH}
-                height={420}
+                viewWidth={wideVw}
+                height={chartH(420)}
               />
             </ChartCard>
           </div>

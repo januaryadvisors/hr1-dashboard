@@ -21,6 +21,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FETCH_TIMEOUT_MS, onHost } from './lib/urls.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, 'public/data/bulletins.json');
@@ -41,10 +42,14 @@ const ENTITIES = {
 };
 const decode = (s) => s.replace(/&[a-z#0-9]+;/gi, (m) => ENTITIES[m] ?? m);
 const text = (s) => decode(s.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
-const absolute = (href) => (href.startsWith('http') ? href : `${ORIGIN}${href}`);
+/** Absolute https URL on the handbook's own host, or null — see lib/urls.mjs. */
+const absolute = (href) => onHost(decode(href), SOURCES.bulletins, new URL(ORIGIN).hostname);
 
 async function get(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
+  const res = await fetch(url, {
+    headers: { 'User-Agent': UA, Accept: 'text/html' },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
   return res.text();
 }
@@ -83,6 +88,7 @@ function parseBulletins(html) {
     const byHref = new Map();
     for (const a of cells[2].matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
       const href = absolute(a[1]);
+      if (!href) continue; // off-host or not https — see lib/urls.mjs
       const title = text(a[2]).replace(/\s*\(PDF\)\s*$/i, '').replace(/^\d+\.\s*/, '');
       if (!title) continue;
       if (!byHref.has(href)) byHref.set(href, []);
@@ -120,6 +126,8 @@ function parseRevisions(html) {
     // e.g. "26-3, July Quarterly Revision"
     const m = label.match(/^(\d{2})-(\d),\s*([A-Za-z]+)\s+Quarterly Revision$/);
     if (!m || !href.includes('quarterly-revision')) continue;
+    const url = absolute(href);
+    if (!url) continue;
 
     const [, fy, , monthName] = m;
     const mm = MONTHS[monthName.toLowerCase()];
@@ -137,7 +145,7 @@ function parseRevisions(html) {
       number: m[1] + '-' + m[2],
       title: `${monthName} quarterly revision`,
       body: 'Handbook revisions folded into the Texas Works Handbook.',
-      url: absolute(href),
+      url,
       source: 'Texas Works quarterly revision',
     });
   }

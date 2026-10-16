@@ -28,7 +28,7 @@
  * lives on in git history — restoring it means reinstating `pinned` in the state
  * model and the two controls in this header.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   foodbankCoverage,
   layerBasis,
@@ -61,7 +61,7 @@ import styles from './CountyTooltip.module.css';
  * of the arrow cursor's own hotspot so it does not sit under the tip.
  */
 const OFFSET = 6;
-const WIDTH = 340;
+const WIDTH = 272;
 
 /**
  * Median and descending rank per SCORED layer — computed once for the dataset.
@@ -74,8 +74,8 @@ const WIDTH = 340;
  * @property {Record<string, number>} median
  * @property {Record<string, Map<string, number>>} rank
  * @property {number} total
- * @property {number} infraMax - Top of the assistance bars' shared count scale, so the tooltip's columns
- *   are drawn to the same scale as the bars in the grid tiles.
+ * @property {Record<string, number>} infraMax - Top of each registry's bar, shared with the grid tiles so the
+ *   tooltip's columns are drawn to the same scale.
  */
 
 export function buildLayerStats(counties) {
@@ -110,7 +110,9 @@ export function buildLayerStats(counties) {
  * @property {string[]} months
  * @property {[string, string]} window
  * @property {Measure} [measure] - Rate or count. Decides the unit of the three facts at the top.
- * @property {'enrollment' | 'work' | 'index'} [tooltipStats] - Which three facts to show. From the view's TooltipSpec.
+ * @property {'enrollment' | 'index'} [tooltipStats] - Which facts to show. From the view's TooltipSpec.
+ *   'enrollment' — residents, on SNAP, lost since the window start — is every view's but the index's,
+ *   Work requirements included (2026-10-16, was a "newly subject" row of its own).
  * @property {import('../../types').FoodbankMeta} [foodbank] - statewide.meta.foodbank: the period and
  *   bank coverage the food-bank figures quote, so no date is written into this panel.
  * @property {'pointer' | 'external'} origin - 'pointer' anchors the panel to the cursor. 'external' (search, rank list)
@@ -131,6 +133,20 @@ export function CountyTooltip({
 }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [countyAnchor, setCountyAnchor] = useState(null);
+
+  /*
+     The panel's real height, measured after each render (2026-10-16). It was
+     a fixed 400/520px estimate, larger than most panels, so in the lower half
+     of the screen the "would it overflow?" test always said yes and the clamp
+     pinned the panel in place — it looked as if it had stopped following the
+     cursor. Set only when it changes, so this settles in one pass.
+  */
+  const rootRef = useRef(null);
+  const [panelH, setPanelH] = useState(240);
+  useLayoutEffect(() => {
+    const h = rootRef.current?.offsetHeight;
+    if (h && Math.abs(h - panelH) > 1) setPanelH(h);
+  });
 
   useEffect(() => {
     const onMove = (e) => setPos({ x: e.clientX, y: e.clientY });
@@ -174,6 +190,8 @@ export function CountyTooltip({
    */
   const seriesField = layerByKey(layer).seriesField ?? 'snap_enrolled';
   const isChildLayer = seriesField === 'snap_children';
+  /** Work requirements: the third figure is who the requirement reaches, not who left. */
+  const isWorkView = viewForLayer(layer).key === 'work';
   const isMedicaid = seriesField === 'medicaid_enrolled';
 
   const enrollment = useMemo(() => {
@@ -191,9 +209,7 @@ export function CountyTooltip({
   // Flip at the viewport edge rather than letting the panel clip.
   const flipX = anchor.x + OFFSET + WIDTH > window.innerWidth;
   const left = Math.max(8, flipX ? anchor.x - OFFSET - WIDTH : anchor.x + OFFSET);
-  // The index view carries five scale rows, four figures and the assistance
-  // chart.
-  const estHeight = spec.domains ? 520 : 400;
+  const estHeight = panelH;
   const top = Math.max(
     8,
     anchor.y + OFFSET + estHeight > window.innerHeight
@@ -216,11 +232,10 @@ export function CountyTooltip({
   const shareOfCaseload = start > 0 ? county.newly_subject_persons / start : null;
 
   /*
-     Which three facts this view puts at the top, and in which unit.
-     'work' is the newly-subject reading; every other view reports enrollment.
+     Which facts this view puts at the top, and in which unit: the index view
+     has its own four; every other view reports enrollment.
   */
   const counting = measure === 'count';
-  const workStats = tooltipStats === 'work';
   const indexStats = tooltipStats === 'index';
   // Signed headcount change over the window; a gain is shown, not floored to 0.
   const netLost = start - end;
@@ -234,9 +249,21 @@ export function CountyTooltip({
     : isChildLayer
       ? `Children lost since ${fmtMonth(win[0])}`
       : `Lost since ${fmtMonth(win[0])}`;
+  /** The same two facts as percentages, for the Rate measure. */
+  const enrolledRateLabel = isMedicaid
+    ? '% of residents on Medicaid'
+    : isChildLayer
+      ? 'Children on SNAP, % of residents'
+      : '% of residents on SNAP';
+  const lostRateLabel = isMedicaid
+    ? `% left Medicaid since ${fmtMonth(win[0])}`
+    : isChildLayer
+      ? `% of children lost since ${fmtMonth(win[0])}`
+      : `% lost since ${fmtMonth(win[0])}`;
 
   return (
     <div
+      ref={rootRef}
       className={styles.root}
       style={{ left, top }}
       role="tooltip"
@@ -398,8 +425,8 @@ export function CountyTooltip({
           <>
             {/* Raw headcounts on client direction 2026-10-16, whatever the
                 Rate/Count toggle says: the index is already the rate. Order on
-                client direction 2026-10-16: caseload now, its change, who the
-                requirement reaches, then food-bank help. Three count PEOPLE and
+                client direction 2026-10-16: caseload now, its change, the
+                county's population, then food-bank help. Three count PEOPLE and
                 the food-bank one counts HOUSEHOLDS, so every figure names its
                 unit — side by side they would otherwise read as the same kind
                 of number. */}
@@ -422,17 +449,12 @@ export function CountyTooltip({
               </div>
               <div className={styles.statUnit}>people</div>
             </div>
+            {/* Total population in place of "newly subject" on the index view
+                (2026-10-16): the scale the other three figures sit against. */}
             <div>
-              <div
-                className={styles.statLabel}
-                title="Modelled: SNAP recipients newly subject to the H.R. 1 work requirement"
-              >
-                Newly subject to work requirements
-              </div>
-              <div className={`${styles.statValue} tabular`}>
-                {fmtInt(county.newly_subject_persons)}
-              </div>
-              <div className={styles.statUnit}>people</div>
+              <div className={styles.statLabel}>Total population</div>
+              <div className={`${styles.statValue} tabular`}>{fmtInt(county.pop)}</div>
+              <div className={styles.statUnit}>residents</div>
             </div>
             <div>
               <div
@@ -459,34 +481,6 @@ export function CountyTooltip({
               <div className={styles.statUnit}>{fbCoverage.period}</div>
             </div>
           </>
-        ) : workStats ? (
-          <>
-            <div>
-              {/* The D1 count basis: a fact about the county, not about the layer
-                  being viewed. Reading it off `layer` meant every column here
-                  showed an em dash on D3, D4 and the composite. */}
-              {/* A headcount by nature, so it stays a headcount in both
-                  measures — the share is the column beside it. */}
-              <div className={styles.statLabel}>Newly subject</div>
-              <div className={`${styles.statValue} tabular`}>
-                {fmtInt(county.newly_subject_persons)}
-              </div>
-            </div>
-            <div>
-              <div className={styles.statLabel}>Of caseload</div>
-              <div className={`${styles.statValue} tabular`}>
-                {shareOfCaseload == null ? '—' : fmtPct(shareOfCaseload, 0)}
-              </div>
-            </div>
-            <div>
-              <div className={styles.statLabel}>
-                {isChildLayer ? 'Children since' : 'Since'} {fmtMonth(win[0])}
-              </div>
-              <div className={`${styles.statValue} ${styles.negative} tabular`}>
-                {pctChange == null ? '—' : fmtPctDelta(pctChange)}
-              </div>
-            </div>
-          </>
         ) : (
           <>
             <div>
@@ -495,7 +489,7 @@ export function CountyTooltip({
             </div>
             <div>
               <div className={styles.statLabel}>
-                {counting ? enrolledLabel : `${enrolledLabel}, rate`}
+                {counting ? enrolledLabel : enrolledRateLabel}
               </div>
               <div className={`${styles.statValue} tabular`}>
                 {counting
@@ -505,18 +499,38 @@ export function CountyTooltip({
                     : '—'}
               </div>
             </div>
-            <div>
-              <div className={styles.statLabel}>
-                {counting ? lostLabel : `${lostLabel}, rate`}
+            {isWorkView ? (
+              // Work requirements (2026-10-16): the PUMS-modelled headcount
+              // newly subject, or under Rate its share of the caseload.
+              <div>
+                <div
+                  className={styles.statLabel}
+                  title="Modelled: SNAP recipients newly subject to the H.R. 1 work requirement"
+                >
+                  {counting ? 'Newly subject to requirements' : '% of caseload newly subject'}
+                </div>
+                <div className={`${styles.statValue} ${styles.negative} tabular`}>
+                  {counting
+                    ? fmtInt(county.newly_subject_persons)
+                    : shareOfCaseload == null
+                      ? '—'
+                      : fmtPct(shareOfCaseload, 1)}
+                </div>
               </div>
-              <div className={`${styles.statValue} ${styles.negative} tabular`}>
-                {counting
-                  ? fmtInt(Math.max(0, start - end))
-                  : pctChange == null
-                    ? '—'
-                    : fmtPctDelta(pctChange)}
+            ) : (
+              <div>
+                <div className={styles.statLabel}>
+                  {counting ? lostLabel : lostRateLabel}
+                </div>
+                <div className={`${styles.statValue} ${styles.negative} tabular`}>
+                  {counting
+                    ? fmtInt(Math.max(0, start - end))
+                    : pctChange == null
+                      ? '—'
+                      : fmtPctDelta(pctChange)}
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>
@@ -525,7 +539,8 @@ export function CountyTooltip({
           The same bars as the grid tiles, on the same scale. §L7 still
           applies: unsourced is n/a, and a county no reporting food bank
           covers is "no data", never a zero. */}
-      {/* No section title (2026-10-16): the bars' own labels say what they are. */}
+      {/* The bar chart stays here (client direction 2026-10-16); the Insights
+          report lists the same registries in words — see <HelpList>. */}
       {spec.capacity && (
         <div className={styles.capacity}>
           <InfraColumnChart county={county} max={stats.infraMax} />

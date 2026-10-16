@@ -11,7 +11,7 @@
  * LAYERS  the value each view maps; still the framework's own vocabulary, and
  * still all four domains in the tooltip
  *
- * Ramps live in src/lib/scales.ts, traceable to build_scores.R. Do not put
+ * Ramps live in src/lib/scales.js, traceable to build_scores.R. Do not put
  * colours here.
  *
  * @typedef {import('../types').LayerKey} LayerKey
@@ -24,7 +24,7 @@ import { fmtMonthBody } from '../lib/format';
  *
  * 'score'      a stored percentile column (d1_score … composite)
  * 'window'     recomputed from the brush window against a monthly series, so
- * there is no column to read — see src/lib/layerValues.ts
+ * there is no column to read — see src/lib/layerValues.js
  * 'bivariate'  TWO values per county, drawn as one red-blue scheme. Has no
  * single ramp, so it never goes through colorFor().
  *
@@ -59,6 +59,8 @@ import { fmtMonthBody } from '../lib/format';
  * @property {LayerBasis} [basis] - Defaults to 'score'.
  * @property {'snap_enrolled' | 'snap_children'} [seriesField] - Window layers only: the monthly County series the loss is measured on.
  * @property {string} [countLabel] - Legend heading in count measure, where `countField` does not name it.
+ * @property {number[]} [countBins] - Fixed count-measure class edges, lowest first (the top class is open).
+ *   Overrides the rounded quintiles countBinsFor otherwise computes.
  * @property {[BivariateAxis, BivariateAxis]} [axes] - Bivariate layers only: the red axis then the blue axis.
  * @property {number} [rankFloor] - Window layers: in rate measure, counties whose caseload at the
  *   window start is under this are left out of the "Top affected counties" list. A county of 40
@@ -118,6 +120,8 @@ export const LAYERS = [
     formalName: 'Work-requirement exposure',
     components: 5,
     countField: 'newly_subject_persons',
+    // Fixed on client direction 2026-10-16: 0–500, 500–1,000, 1,000–10,000, 10,000+.
+    countBins: [0, 500, 1000, 10000],
     available: true,
   },
   {
@@ -230,9 +234,6 @@ export const LAYERS = [
  */
 export const SCORE_LAYERS = LAYERS.filter((l) => l.available && basisOf(l) === 'score');
 
-/** Kept for callers that only ever wanted "layers that can be drawn". */
-export const VISIBLE_LAYERS = LAYERS.filter((l) => l.available);
-
 export const layerByKey = (key) =>
   LAYERS.find((l) => l.key === key) ?? LAYERS[0];
 
@@ -245,7 +246,7 @@ export const layerBasis = (key) => basisOf(layerByKey(key));
 /**
  * The score field a layer reads for its fill, or null for a window layer — which
  * has no column at all. Callers that used to index a County directly must go
- * through src/lib/layerValues.ts instead.
+ * through src/lib/layerValues.js instead.
  */
 export function scoreFieldOrNull(key) {
   if (layerBasis(key) === 'window') return null;
@@ -293,12 +294,12 @@ export function countLabelFor(key) {
  *   'enrollment'  the caseload sparkline across the window
  *   'exposure'    caseload against newly-subject against who actually left
  *   'none'        no chart
- * @property {'enrollment' | 'work' | 'index'} stats - Which three facts head the tooltip.
- *   'enrollment'  residents, on SNAP, lost since the window start
- *   'work'        newly subject, share of caseload, change over the window
- *   'index'       newly subject, on SNAP, change since the window start — all
+ * @property {'enrollment' | 'index'} stats - Which facts head the tooltip.
+ *   'enrollment'  residents, on SNAP, lost since the window start — counts, or
+ *                 percentages under Rate. Every view but the index (Work
+ *                 requirements too, since 2026-10-16).
+ *   'index'       on SNAP, change, population, food-bank households — all
  *                 headcounts, whatever the Rate/Count toggle says
- *   The first two follow the Rate/Count toggle — see <CountyTooltip>.
  */
 
 /**
@@ -334,7 +335,7 @@ export const VIEWS = [
     showCapacity: false,
     // The caseload line belongs to the loss views; here the question is how many
     // people the requirement reaches, so the panel ends on the exposure bars.
-    tooltip: { domains: false, capacity: false, chart: 'exposure', stats: 'work' },
+    tooltip: { domains: false, capacity: false, chart: 'exposure', stats: 'enrollment' },
   },
   {
     key: 'vulnerability',
@@ -359,7 +360,8 @@ export const VIEWS = [
     key: 'children',
     label: 'Children losing benefits',
     blurb: 'SNAP benefits lost, children under 18',
-    metrics: ['child_loss'],
+    // 'loss' second: the map's "Show children only" switch turned off.
+    metrics: ['child_loss', 'loss'],
     showCapacity: false,
     tooltip: { domains: false, capacity: false, chart: 'enrollment', stats: 'enrollment' },
   },

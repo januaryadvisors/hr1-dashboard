@@ -44,7 +44,6 @@ const W = 380;
  *   splitAt?: string,
  *   markers?: { month: string, n: number }[],
  *   rules?: { month: string, label: string, color?: string, anchor?: 'start' | 'end', ly?: number }[],
- *   endNote?: { text: string, color: string },
  *   endLabels?: boolean,
  *   endDot?: string,
  *   height?: number,
@@ -62,7 +61,6 @@ export function LineFigure({
   splitAt,
   markers = [],
   rules = [],
-  endNote,
   endLabels = false,
   endDot,
   height = 150,
@@ -185,18 +183,6 @@ export function LineFigure({
 
       {endDot && first.values[last] != null && (
         <circle cx={x(last)} cy={y(first.values[last])} r={3} style={{ fill: endDot }} />
-      )}
-
-      {endNote && first.values[last] != null && (
-        <text
-          className={styles.endNote}
-          style={{ fill: endNote.color }}
-          x={x(last)}
-          y={Math.min(height - pad.bottom - 2, y(first.values[last]) + 14)}
-          textAnchor="end"
-        >
-          {endNote.text}
-        </text>
       )}
 
       {ends.map((e) => (
@@ -495,9 +481,9 @@ export function YearBarsFigure({ rows, height = 130, title }) {
  * that go into it. Deliberately without figures — this step explains the logic,
  * and the map beside it carries the numbers.
  *
- * @param {{ domains: { name: string, measures: string[] }[], formula?: string }} props
+ * @param {{ domains: { name: string, measures: string[] }[] }} props
  */
-export function IndexRecipe({ domains, formula }) {
+export function IndexRecipe({ domains }) {
   return (
     <div className={styles.recipe}>
       {domains.map((d) => (
@@ -508,10 +494,14 @@ export function IndexRecipe({ domains, formula }) {
               {d.measures.length} {d.measures.length === 1 ? 'measure' : 'measures'}
             </span>
           </div>
-          <p className={styles.recipeMeasures}>{d.measures.join(' · ')}</p>
+          {/* Two columns, one measure per cell (2026-10-16). */}
+          <ul className={styles.recipeMeasures}>
+            {d.measures.map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
         </div>
       ))}
-      {formula && <p className={styles.recipeFormula}>{formula}</p>}
     </div>
   );
 }

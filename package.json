@@ -2,7 +2,7 @@
   "name": "hr1-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Texas SNAP & H.R. 1 \u2014 D1 county vulnerability dashboard for Feeding Texas.",
+  "description": "Texas SNAP & H.R. 1 — D1 county vulnerability dashboard for Feeding Texas.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -39,6 +39,6 @@
     "mapshaper": "^0.6.102",
     "vite": "^5.4.0",
     "vitest": "^2.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

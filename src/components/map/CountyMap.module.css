@@ -21,16 +21,21 @@
   stroke-width: 1.5;
 }
 
+/* Dark county outlines on the Work requirements map (2026-10-16), the D1
+   ramp's own navy at partial strength. Hover still wins. */
+.outlined .county {
+  stroke: rgba(14, 52, 100, 0.5);
+}
+
+.outlined .hovered {
+  stroke: var(--ja-ink);
+}
+
 
 .stateOutline {
   fill: none;
   stroke: var(--ja-navy);
   pointer-events: none;
-}
-
-/* §6.5: small denominators dim in rate measure, with a footnote naming the guard. */
-.smallDenominator {
-  opacity: 0.4;
 }
 
 /* Overlay on: the counties it does not pick out fade back (2026-10-16), so
@@ -85,12 +90,6 @@
   pointer-events: none;
 }
 
-.group:focus-visible {
-  outline: none;
-}
-
-.group:focus-visible .focusRing {
-  stroke: var(--ja-teal);
-  stroke-width: 2.5;
-  fill: none;
-}
+/* Keyboard focus on the map uses the global outline (global.css). A custom
+   .focusRing stroke used to suppress it, but nothing ever drew that ring, so
+   the focused map showed no indicator at all. */

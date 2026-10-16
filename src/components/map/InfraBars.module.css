@@ -2,8 +2,8 @@
    one baseline so heights compare directly. */
 .chart {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
   padding: var(--space-2) 0 var(--space-1);
 }
 
@@ -16,7 +16,7 @@
 
 .value {
   font-family: var(--font-figure);
-  font-size: var(--text-sm);
+  font-size: 13px;
   font-weight: 800;
   line-height: 1.1;
   text-align: center;
@@ -27,7 +27,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  height: 44px;
+  height: 34px;
   margin-top: 3px;
   border-bottom: 1px solid var(--hairline-strong);
 }
@@ -45,22 +45,24 @@
   border-bottom-style: dashed;
 }
 
-/* 9px, down from 10 (2026-10-16), so the longer registry names ("Community
-   Partner Program sites", "Food banks serving county") fit in three lines. */
+/* Small enough that the longer registry names ("Community Partner Program
+   sites", "Food banks serving county") fit their quarter of the compact
+   tooltip in three or four lines without running into the next column. */
 .label {
   display: flex;
   align-items: flex-start;
   gap: 3px;
+  min-width: 0;
   margin-top: 4px;
-  font-size: var(--text-2xs);
+  font-size: 9px;
   font-weight: 600;
   line-height: 1.2;
 }
 
 .swatch {
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   margin-top: 2px;
   border-radius: 1.5px;
 }

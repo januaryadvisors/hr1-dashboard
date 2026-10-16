@@ -73,25 +73,16 @@ describe('windowed loss layers', () => {
     expect(v.fill.get('z')).toBeNull();
   });
 
-  it('anchors its bands to the statewide loss over the same window', () => {
+  it('bands the share lost in five equal whole-percent steps, top class open', () => {
     const v = buildLayerValues(COUNTIES, 'loss', 0, 1);
-    // 3,000 enrolled at the start, 2,800 at the end — but the county that grew
-    // still counts in the denominator and the numerator.
     expect(v.statewideShare).toBeCloseTo(200 / 3000);
-    // Midpoint of the ramp is "losing at the Texas rate".
-    expect(v.bins[3]).toBeCloseTo(0.95 * v.statewideShare);
-  });
-
-  it('keeps its contrast when the window changes length', () => {
-    // The same counties losing at the same relative pace over a window twice as
-    // long must land in the same bins — that is the point of the anchor.
-    const short = [county('a', [1000, 900], [1, 1]), county('b', [1000, 975], [1, 1])];
-    const long = [county('a', [1000, 800], [1, 1]), county('b', [1000, 950], [1, 1])];
-    const vs = buildLayerValues(short, 'loss', 0, 1);
-    const vl = buildLayerValues(long, 'loss', 0, 1);
-    for (const geoid of ['a', 'b']) {
-      expect(binIndex(vs.fill.get(geoid), vs.bins)).toBe(binIndex(vl.fill.get(geoid), vl.bins));
-    }
+    expect(v.bins).toHaveLength(6);
+    expect(v.bins[0]).toBe(0);
+    expect(v.bins[5]).toBe(1);
+    const step = v.bins[1];
+    for (let i = 1; i < 5; i++) expect(v.bins[i]).toBeCloseTo(i * step);
+    // Whole percents.
+    expect(Math.round(step * 100)).toBeCloseTo(step * 100);
   });
 
   it('falls back to a spread rather than collapsing when nobody lost anyone', () => {
@@ -150,9 +141,16 @@ describe('views and layers cannot drift apart', () => {
     }
   });
 
-  it('maps every metric of every view back to that view', () => {
+  it('maps every view\'s OWN metric back to that view', () => {
+    // A view's first metric is its own. Later ones may be borrowed — Children
+    // offers the all-people loss layer behind its "Show children only" switch —
+    // and those map back to the view that owns them.
+    for (const v of VIEWS) expect(viewForLayer(v.metrics[0]).key).toBe(v.key);
     for (const v of VIEWS) {
-      for (const layer of v.metrics) expect(viewForLayer(layer).key).toBe(v.key);
+      for (const layer of v.metrics.slice(1)) {
+        const owner = viewForLayer(layer);
+        expect(owner.key === v.key || owner.metrics[0] === layer).toBe(true);
+      }
     }
   });
 

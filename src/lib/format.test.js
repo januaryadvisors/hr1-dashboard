@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   fmtDelta,
+  fmtDollars,
   fmtInt,
   fmtMonth,
   fmtPct,
@@ -32,5 +33,17 @@ describe('formatters', () => {
     expect(fmtDelta(null)).toBe('—');
     expect(fmtPct(null)).toBe('—');
     expect(fmtPercentile(null)).toBe('—');
+  });
+});
+
+describe('fmtDollars', () => {
+  it('abbreviates by size', () => {
+    expect(fmtDollars(936_412_000)).toBe('$936M');
+    expect(fmtDollars(29_160_000)).toBe('$29.2M');
+    expect(fmtDollars(1_240_000_000)).toBe('$1.24B');
+    expect(fmtDollars(89_359)).toBe('$89.4K');
+    expect(fmtDollars(950)).toBe('$950');
+    expect(fmtDollars(-5_000_000)).toBe('−$5.0M');
+    expect(fmtDollars(null)).toBe('—');
   });
 });

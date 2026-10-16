@@ -13,6 +13,7 @@ import {
   INFRA_TYPES,
   layerBasis,
   layerByKey,
+  viewByKey,
   viewForLayer,
 } from '../config/layers';
 import { CountyMap } from '../components/map/CountyMap';
@@ -72,9 +73,9 @@ import { loadMarketplace } from '../data/marketplace';
 import { buildGeometry } from '../lib/mapGeometry';
 import { useElementSize } from '../lib/useElementSize';
 import { buildLayerValues, countBinsFor, formatLayerValue, fractionOf } from '../lib/layerValues';
-import { countyTrends, headlineStats, indexTo } from '../lib/insights';
+import { headlineStats, indexTo } from '../lib/insights';
 import { binIndex, binsFor } from '../lib/scales';
-import { fmtDelta, fmtInt, fmtMonthBody, fmtMonthFull, fmtPct } from '../lib/format';
+import { fmtDelta, fmtInt, fmtMonthBody, fmtMonthFull, fmtPct, fmtPercentile } from '../lib/format';
 /**
  * @typedef {import('../types').InfraKey} InfraKey
  * @typedef {import('../types').LayerKey} LayerKey
@@ -215,8 +216,6 @@ export default function MapPage() {
   const layerDef = layerByKey(state.layer);
   /** The pinned map title shrinks to fit its one-line slot — see useFitText. */
   const titleRef = useRef(null);
-  /** Derived, not stored — see the note at the top of state/appState.ts. */
-  const view = viewForLayer(state.layer);
   const activeId = activeGeoid(state);
   const activeCounty = activeId ? byGeoid.get(activeId) ?? null : null;
 
@@ -237,22 +236,24 @@ export default function MapPage() {
     return a >= 0 && b >= 0 ? statewide.enrolled[b] - statewide.enrolled[a] : windowChange;
   }, [months, shownWindow, statewide.enrolled, windowChange]);
 
+    /** Statewide SNAP benefits paid each month — the counties' sum, for the hero's dollars. */
+  const statewidePayments = useMemo(
+    () =>
+      counties[0]?.snap_payments
+        ? months.map((_, i) => counties.reduce((t, c) => t + (c.snap_payments?.[i] ?? 0), 0))
+        : null,
+    [counties, months],
+  );
   /*
      The hero band's three figures, recomputed for the window on screen —
      including mid-drag, like the headline — rather than typed into
-     timeline.json. The county trends are fitted once; each window only
-     projects them.
+     timeline.json. See headlineStats().
   */
-  const trends = useMemo(() => {
-    const tw = statewide.meta.trend_window;
-    if (!tw) return [];
-    return countyTrends(counties, [months.indexOf(tw[0]), months.indexOf(tw[1])]);
-  }, [counties, months, statewide.meta.trend_window]);
   const heroStats = useMemo(() => {
     const a = months.indexOf(shownWindow[0]);
     const b = months.indexOf(shownWindow[1]);
-    return a >= 0 && b >= 0 ? headlineStats(statewide, trends, a, b) : [];
-  }, [months, shownWindow, statewide, trends]);
+    return a >= 0 && b >= 0 ? headlineStats(statewide, statewidePayments, a, b) : [];
+  }, [months, shownWindow, statewide, statewidePayments]);
 
   // §6.8 "Where need meets capacity".
   // ------------------------------------------------- scatter axes and focus
@@ -294,6 +295,14 @@ export default function MapPage() {
     initial: initialStep,
   });
   const step = story.steps[Math.min(activeStep, story.steps.length - 1)];
+  /**
+   * Derived, not stored — see the note at the top of state/appState.js. The
+   * open chapter's view wins when it lists the layer: Children also offers the
+   * all-people loss layer (its "Children only" switch), and that layer must not
+   * flip the chapter to SNAP benefits lost.
+   */
+  const chapterView = viewByKey(step.chapter.view);
+  const view = chapterView.metrics.includes(state.layer) ? chapterView : viewForLayer(state.layer);
   useFitText(titleRef, storyPinned, [layerDef.formalName]);
 
   /**
@@ -309,6 +318,8 @@ export default function MapPage() {
     if (appliedStepRef.current === step.id) return;
     const first = appliedStepRef.current === null;
     appliedStepRef.current = step.id;
+    // Local, not in the URL, so it applies on arrival too.
+    setCapacityOn(!!step.capacity);
     if (first) return;
 
     const layer = step.layer ?? defaultLayerFor(step.chapter.view);
@@ -355,7 +366,7 @@ export default function MapPage() {
 
   /**
    * The numbers behind the hero map. Rebuilt when the layer or the window moves,
-   * because the two loss layers are windowed — see src/lib/layerValues.ts.
+   * because the two loss layers are windowed — see src/lib/layerValues.js.
    */
   const layerValues = useMemo(
     () => buildLayerValues(counties, state.layer, i0, i1),
@@ -537,6 +548,13 @@ export default function MapPage() {
 
   /** Capacity is a reading of the index, so its marks draw on one view only. */
   const showCapacity = view.showCapacity;
+  /**
+   * On that view, whether the assistance marks (or the grid's bars) and their
+   * key are drawn — the "Index only / Index + assistance" switch. Off on
+   * arrival unless the step says otherwise (StoryStep.capacity).
+   */
+  const [capacityOn, setCapacityOn] = useState(false);
+  const capacityShown = showCapacity && capacityOn;
 
   /**
    * The hero map's render style. The reader's Geo/Density choice everywhere
@@ -635,14 +653,11 @@ export default function MapPage() {
       }
       const oep = marketplace.oep.filter((o) => o.not_effectuated_share != null);
       const lo = oep[oep.length - 1];
-      const prev = oep[oep.length - 2];
-      if (lo && prev) {
+      if (lo) {
         f.neverLatest = pctOf(lo.not_effectuated_share);
         f.neverOneIn = String(Math.round(1 / lo.not_effectuated_share));
         f.selLatestM = (lo.plan_selections / 1e6).toFixed(2);
-        f.selGrew = lo.plan_selections > prev.plan_selections ? 'yes' : null;
         f.oepLatest = String(lo.year);
-        f.oepPrev = String(prev.year);
       }
     }
     return f;
@@ -671,6 +686,31 @@ export default function MapPage() {
     : state.layer === 'composite'
       ? ['0.8', '3.4']
       : ['p0', 'p100'];
+
+  /**
+   * Each key swatch's range, for its hover tooltip — from the same edges the map
+   * classes counties by, so the key cannot describe a different map.
+   */
+  const keyCounting = state.measure === 'count' && hasCount;
+  const legendRanges = useMemo(() => {
+    const edges = keyCounting ? countBinsFor(layerValues, state.layer) : layerValues.bins;
+    if (!edges || edges.length < 2) return undefined;
+    const fmt = keyCounting
+      ? fmtInt
+      : isWindowLayer
+        ? (v) => fmtPct(v, 0) // whole-percent steps — see equalShareBins
+        : state.layer === 'composite'
+          ? (v) => v.toFixed(2)
+          : fmtPercentile;
+    const last = edges.length - 2;
+    return edges.slice(0, -1).map((lo, i) =>
+      // The top class is open: a count's runs to one outlier county, a loss
+      // layer's to 100% — either reads as a claim, so say "or more".
+      (keyCounting || isWindowLayer) && i === last
+        ? `${fmt(lo)} or more`
+        : `${fmt(lo)} – ${fmt(edges[i + 1])}`,
+    );
+  }, [keyCounting, layerValues, state.layer, isWindowLayer]);
 
   const rateLegendLabel = isWindowLayer
     ? 'Share of caseload lost'
@@ -869,7 +909,6 @@ export default function MapPage() {
                 { month: statewide.meta.policy_start, n: 1 },
                 { month: RULES_MONTH, n: 2 },
               ]}
-              endNote={{ text: 'no floor yet', color: red }}
             />
             <p className={styles.figureKey}>
               <b>1</b> H.R. 1 signed, {fmtMonthBody(statewide.meta.policy_start)} · <b>2</b> Texas
@@ -959,9 +998,7 @@ export default function MapPage() {
           />
         );
 
-      // 3a — school meals, figures from outside this dataset.
-
-      // 3b — share of the child caseload lost, by county type.
+      // 3 — share of the child caseload lost, by county type.
       case 'childTypes': {
         const by = childLossByType(counties, i0, i1);
         return (
@@ -1255,7 +1292,30 @@ export default function MapPage() {
           <MapOptions>
             {/* Views with more than one metric only; absent, not greyed out,
                 elsewhere — an inert toggle reads as a missed feature. */}
-            {view.metrics.length > 1 && (
+            {/* Children: one switch, children only or everyone (2026-10-16). */}
+            {view.key === 'children' && (
+              <MapOption label="Who">
+                <div className={styles.switchRow}>
+                  <span className={styles.switchLabel}>Show children only</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={state.layer === 'child_loss'}
+                    aria-label="Show children only"
+                    className={`${styles.switch} ${state.layer === 'child_loss' ? styles.switchOn : ''}`}
+                    onClick={() =>
+                      dispatch({
+                        type: 'setLayer',
+                        layer: state.layer === 'child_loss' ? 'loss' : 'child_loss',
+                      })
+                    }
+                  >
+                    <span className={styles.switchKnob} aria-hidden="true" />
+                  </button>
+                </div>
+              </MapOption>
+            )}
+            {view.metrics.length > 1 && view.key !== 'children' && (
               <MapOption label="Metric">
                 <SegmentedControl
                   label="Metric"
@@ -1269,23 +1329,44 @@ export default function MapPage() {
                 />
               </MapOption>
             )}
-            <MapOption label="Measure">
-              <SegmentedControl
-                label="Measure"
-                size="sm"
-                options={[
-                  {
-                    value: 'rate',
-                    label: 'Rate',
-                    title: 'A share or a percentile, coloured as a choropleth',
-                  },
-                  { value: 'count', label: 'Count', title: 'People, as proportional symbols' },
-                ]}
-                value={state.measure}
-                onChange={(v) => dispatch({ type: 'setMeasure', measure: v })}
-              />
-            </MapOption>
-            {showCapacity && <MapOption label="Marks">{infraPicker}</MapOption>}
+            {/* On the index view Rate/Count says nothing — an index is not a
+                headcount — so the slot switches the assistance layer instead. */}
+            {showCapacity ? (
+              <MapOption label="Show">
+                <SegmentedControl
+                  label="Show"
+                  size="sm"
+                  options={[
+                    { value: 'index', label: 'Index only', title: 'The vulnerability index alone' },
+                    {
+                      value: 'capacity',
+                      label: 'Index + assistance',
+                      title: 'With the enrollment help listed in each county drawn over it',
+                    },
+                  ]}
+                  value={capacityOn ? 'capacity' : 'index'}
+                  onChange={(v) => setCapacityOn(v === 'capacity')}
+                />
+              </MapOption>
+            ) : (
+              <MapOption label="Measure">
+                <SegmentedControl
+                  label="Measure"
+                  size="sm"
+                  options={[
+                    {
+                      value: 'rate',
+                      label: 'Rate',
+                      title: 'A share or a percentile, coloured as a choropleth',
+                    },
+                    { value: 'count', label: 'Count', title: 'People, as proportional symbols' },
+                  ]}
+                  value={state.measure}
+                  onChange={(v) => dispatch({ type: 'setMeasure', measure: v })}
+                />
+              </MapOption>
+            )}
+            {capacityShown && <MapOption label="Marks">{infraPicker}</MapOption>}
             {/* Cartogram removed 2026-09-11 on client direction — two styles,
                 not three. See the note on MapStyle in src/types.js. Hidden on
                 the one step that forces the tile grid, where it would be inert. */}
@@ -1321,7 +1402,7 @@ export default function MapPage() {
                     <span className={styles.switchKnob} />
                   </button>
                   <span className={styles.switchDef}>
-                    Outlines the worst fifth on the metric showing.
+                    Outlines the fifth of counties highest on what the map shows — by count or by rate.
                   </span>
                 </div>
 
@@ -1415,6 +1496,7 @@ export default function MapPage() {
                       }
                       loLabel={rampEnds[0]}
                       hiLabel={rampEnds[1]}
+                      ranges={legendRanges}
                     />
                   )}
                 </div>
@@ -1448,7 +1530,7 @@ export default function MapPage() {
                     interactive={!noCount}
                     /* Capacity marks and the gap overlay belong to the index, not to
                        every choropleth — see ViewDef.showCapacity. */
-                    marks={showCapacity ? state.infra : []}
+                    marks={capacityShown ? state.infra : []}
                     overlays={{ q5: state.overlayQ5, gap: showCapacity && state.overlayGap }}
                     hovered={noCount ? null : state.hovered}
                     onHover={noCount ? undefined : (geoid) => dispatch({ type: 'hover', geoid })}
@@ -1468,7 +1550,7 @@ export default function MapPage() {
             {/* The band-anchoring and small-denominator notes were removed on
                 2026-09-11 — they are going into a methodology page instead.
                 The mark key stays, and only where the marks draw. */}
-            {showCapacity && drawStyle !== 'grid' && (
+            {capacityShown && drawStyle !== 'grid' && (
               <>
                 <span className="eyebrow">Marks</span>
                 {INFRA_TYPES.filter((t) => t.available).map((t) => (
@@ -1492,7 +1574,7 @@ export default function MapPage() {
             {/* On the grid the marks are bars inside each tile, so the key is
                 a bar too, named by registry — and the unsourced registries
                 named, so no bar never reads as none. */}
-            {showCapacity && drawStyle === 'grid' && (
+            {capacityShown && drawStyle === 'grid' && (
               <>
                 <span className="eyebrow">Bars</span>
                 {INFRA_BAR_ORDER.map((key) => INFRA_TYPES.find((t) => t.key === key))

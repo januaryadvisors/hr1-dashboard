@@ -26,7 +26,7 @@
  * @typedef {import('../types').County} County
  * @typedef {import('../types').Statewide} Statewide
  */
-import { fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
+import { fmtDollars, fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
 
 /**
  * @typedef {Object} Scope
@@ -36,6 +36,8 @@ import { fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
  * @property {number} population - Resident population — the participation-rate denominator.
  * @property {number[]} enrolled - Monthly enrolled individuals, parallel to meta.months.
  * @property {number[] | null} children - Monthly enrolled children, or null where the series is missing.
+ * @property {number[] | null} seniors - Monthly enrolled people 65 and older, or null where missing.
+ * @property {number[] | null} payments - Monthly SNAP benefits paid, whole dollars, or null where missing.
  * @property {County | null} county - The county record when kind is 'county', else null.
  * @property {import('../data/load').DistrictUnit | null} district - The district when kind is 'district', else null.
  */
@@ -56,6 +58,8 @@ export function buildScope(
       population: district.pop,
       enrolled: district.snap_enrolled,
       children: district.snap_children,
+      seniors: district.snap_seniors ?? null,
+      payments: district.snap_payments ?? null,
       county: null,
       district,
     };
@@ -71,6 +75,8 @@ export function buildScope(
         population: county.pop,
         enrolled: county.snap_enrolled,
         children: county.snap_children ?? null,
+        seniors: county.snap_seniors ?? null,
+        payments: county.snap_payments ?? null,
         county,
         district: null,
       };
@@ -84,12 +90,12 @@ export function buildScope(
    * the statewide caseload exactly — the same arithmetic the data build asserts.
    * It equals statewide.age_series 'Under 5' + '5–17' month by month.
    */
-  const childMonths = counties[0]?.snap_children?.length ?? 0;
-  const children = childMonths
-    ? Array.from({ length: childMonths }, (_, i) =>
-        counties.reduce((sum, c) => sum + (c.snap_children?.[i] ?? 0), 0),
-      )
-    : null;
+  const sumCounties = (field) => {
+    const n = counties[0]?.[field]?.length ?? 0;
+    return n
+      ? Array.from({ length: n }, (_, i) => counties.reduce((sum, c) => sum + (c[field]?.[i] ?? 0), 0))
+      : null;
+  };
 
   return {
     key: 'state',
@@ -97,7 +103,9 @@ export function buildScope(
     label: 'Texas',
     population: statewide.meta.texas_population,
     enrolled: statewide.enrolled,
-    children,
+    children: sumCounties('snap_children'),
+    seniors: sumCounties('snap_seniors'),
+    payments: sumCounties('snap_payments'),
     county: null,
     district: null,
   };
@@ -131,23 +139,34 @@ export function peersFor(scope, counties, districtCounts) {
   return { units: counties, noun: 'counties', singular: 'county' };
 }
 
+// ------------------------------------------------------------------- series
+
 /**
- * How the scope's children moved against its whole caseload over a window —
- * 'faster', 'slower' or 'same' (within half a point). The "Who is falling off"
- * heading used to assert "faster" for every county; on the real data child-heavy
- * caseloads are, if anything, falling more slowly, so the claim has to be read
- * off the numbers.
+ * How many fewer people a series counts at the window's end than at its start —
+ * positive for a loss. null when either end is missing.
  */
-export function childPace(scope, i0, i1) {
-  if (!scope.children) return null;
-  const kids = windowChange(scope.children, i0, i1).pct;
-  const all = windowChange(scope.enrolled, i0, i1).pct;
-  if (kids == null || all == null) return null;
-  if (Math.abs(kids - all) < 0.005) return 'same';
-  return kids < all ? 'faster' : 'slower';
+export function windowLoss(series, i0, i1) {
+  const a = series?.[i0];
+  const b = series?.[i1];
+  return a == null || b == null ? null : a - b;
 }
 
-// ------------------------------------------------------------------- series
+/**
+ * SNAP money that did not reach the scope's grocery stores over the window:
+ * each month after the start, how far benefits paid fell below the start
+ * month's level, summed. Months above the start level count as zero, not as a
+ * credit — the same arithmetic as the Map story's "$936 million less".
+ *
+ * @returns {{ total: number, monthly: number } | null} `monthly` is the latest
+ *   month's gap, positive for less. null without a payments series.
+ */
+export function benefitShortfall(payments, i0, i1) {
+  if (!payments || payments[i0] == null || payments[i1] == null) return null;
+  const base = payments[i0];
+  let total = 0;
+  for (let i = i0 + 1; i <= i1; i++) total += Math.max(0, base - (payments[i] ?? base));
+  return { total, monthly: base - payments[i1] };
+}
 
 /** Month-over-month change, null at the first month where there is no prior. */
 export function monthlyChange(series) {
@@ -510,31 +529,32 @@ function bandPhrase(band) {
  * and all three follow, in the same sentence shapes the editorial copy used.
  *
  * @param {import('../types').Statewide} statewide
- * @param {CountyTrend[]} trends - countyTrends() over statewide.meta.trend_window.
- * @returns {{ value: string; body: string; tone?: 'negative' }[]}
+ * @param {number[] | null} payments - Statewide SNAP benefits paid each month (the counties' sum).
+ * @returns {{ label?: string; value: string; body: string; tone?: 'negative' }[]}
  */
-export function headlineStats(statewide, trends, i0, i1) {
+export function headlineStats(statewide, payments, i0, i1) {
   const months = statewide.meta.months;
   const from = fmtMonthBody(months[i0]);
   const to = fmtMonthBody(months[i1]);
   const out = [];
 
-  // 1. The steepest age band, and the oldest band for contrast.
+  /*
+     1. The steepest age band, against everyone on SNAP (2026-10-16). It was
+     against the 65+ band, with the window's start month spelled out; the
+     whole caseload is the steadier comparison — it is the hero number's own
+     rate — and the window is already on screen.
+  */
   const rows = ageBandRows(statewide, i0, i1);
   if (rows.length) {
     const steep = rows[0];
-    const old = rows.find((r) => r.label === '65+');
     const band = bandPhrase(steep.label);
-    let body = `The steepest drop of any age group since ${from}.`;
-    if (old && old !== steep) {
-      const p = old.pctChange;
-      body +=
-        Math.abs(p) < 0.0005
-          ? ' Ages 65+ are flat.'
-          : Math.abs(p) < 0.005
-            ? ` Ages 65+ are flat at ${fmtPctDelta(p)}.`
-            : ` Ages 65+ are ${p < 0 ? 'down' : 'up'} ${fmtPct(Math.abs(p))}.`;
-    }
+    const all = statewide.enrolled[i0] > 0
+      ? (statewide.enrolled[i1] - statewide.enrolled[i0]) / statewide.enrolled[i0]
+      : null;
+    const body =
+      all == null
+        ? 'The steepest drop of any age group.'
+        : `The steepest drop of any age group, against ${fmtPctDelta(all)} for all Texans on SNAP.`;
     out.push({
       label: band.charAt(0).toUpperCase() + band.slice(1),
       value: fmtPctDelta(steep.pctChange),
@@ -543,14 +563,19 @@ export function headlineStats(statewide, trends, i0, i1) {
     });
   }
 
-  // 2. Excess decline at the window's end, against each county's own trend.
-  const ex = trends.length ? excessDecline(trends, i1) : null;
-  if (ex != null) {
+  /*
+     2. SNAP money that did not reach SNAP-authorized stores over the window
+     (2026-10-16; it was the excess decline against each county's own trend).
+     The same arithmetic as the Insights report and the Map story's figure.
+  */
+  const short = benefitShortfall(payments, i0, i1);
+  if (short) {
+    const since = months[i0] === statewide.meta.policy_start ? 'H.R. 1' : from;
     out.push({
-      label: "Against each county's own trend",
-      value: fmtPctDelta(ex),
-      body: `${ex < 0 ? 'Below' : 'Above'} where each county's pre-policy trend pointed, by ${to}.`,
-      tone: ex < 0 ? 'negative' : undefined,
+      label: 'Less spent at SNAP-authorized stores',
+      value: fmtDollars(Math.max(0, short.total)),
+      body: `In SNAP benefits not going to Texans since ${since}.`,
+      tone: short.total > 0 ? 'negative' : undefined,
     });
   }
 

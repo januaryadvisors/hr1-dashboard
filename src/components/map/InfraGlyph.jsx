@@ -30,13 +30,6 @@ export const INFRA_COLOR = {
  */
 export const NO_DATA_COLOR = '#B9B5B2';
 
-export const INFRA_SHAPE = {
-  food_bank: 'square',
-  cms_navigator: 'triangle',
-  chw: 'circle',
-  cpp: 'diamond',
-};
-
 /**
  * @typedef {Object} InfraGlyphProps
  * @property {InfraKey} type
@@ -78,19 +71,4 @@ export function InfraGlyph({ type, x, y, size, legend = false, noData = false })
       );
     }
   }
-}
-
-/** Gap counties are an overlay, not a mark type (§6.6) — red square outline. */
-export function GapGlyph({ x, y, size }) {
-  return (
-    <rect
-      x={x - size}
-      y={y - size}
-      width={size * 2}
-      height={size * 2}
-      fill="none"
-      stroke="var(--ja-burgundy)"
-      strokeWidth={1.2}
-    />
-  );
 }

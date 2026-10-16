@@ -8,10 +8,10 @@
  * count drew proportional symbols; count is a choropleth as of 2026-09-11, and a
  * circle key for a map with no circles on it would be a key to nothing.
  *
- * The bands are equal-COUNT, not equal-interval (see countBinsFor), so the bar
- * says so. Without that line a reader would reasonably assume the midpoint
- * colour meant the midpoint headcount, and on a distribution this skewed it is
- * nowhere near it.
+ * Each swatch names its own range on hover or focus (2026-10-16), which also
+ * answers the question the old "each shade holds the same number of counties"
+ * note was there for: the count bands are equal-count, so their ranges are
+ * uneven, and the tooltip shows exactly how uneven.
  */
 import { fmtInt } from '../../lib/format';
 import { rampFor } from '../../lib/scales';
@@ -29,6 +29,8 @@ import styles from './RampLegend.module.css';
  * @property {string} [loLabel]
  * @property {string} [hiLabel]
  * @property {string} [label]
+ * @property {string[]} [ranges] - One label per swatch, e.g. "2.0% – 5.3%", shown in a tooltip on hover.
+ *   Its length is also the number of swatches drawn, so the key has exactly the map's classes.
  */
 
 export function RampLegend({
@@ -39,8 +41,9 @@ export function RampLegend({
   loLabel = 'p0',
   hiLabel = 'p100',
   label,
+  ranges,
 }) {
-  const stops = rampFor(layer);
+  const stops = rampFor(layer, ranges?.length);
 
   if (!stops.length) return null;
 
@@ -52,20 +55,30 @@ export function RampLegend({
   return (
     <div className={styles.root}>
       <div className={styles.label}>{label ?? (counting ? 'People' : 'Percentile in Texas')}</div>
-      <div className={styles.bar} aria-hidden="true">
-        {stops.map((c) => (
-          <span key={c} className={styles.swatch} style={{ background: c }} />
-        ))}
+      <div className={styles.bar} role={ranges ? 'list' : undefined} aria-hidden={ranges ? undefined : true}>
+        {stops.map((c, i) =>
+          ranges?.[i] ? (
+            <span
+              key={c}
+              className={styles.swatch}
+              style={{ background: c }}
+              role="listitem"
+              tabIndex={0}
+              aria-label={ranges[i]}
+            >
+              <span className={styles.tip} aria-hidden="true">
+                {ranges[i]}
+              </span>
+            </span>
+          ) : (
+            <span key={c} className={styles.swatch} style={{ background: c }} />
+          ),
+        )}
       </div>
       <div className={styles.ends}>
         <span className={counting ? 'tabular' : undefined}>{lo}</span>
         <span className={counting ? 'tabular' : undefined}>{hi}</span>
       </div>
-      {counting && (
-        <div className={styles.note}>
-          Each shade holds the same number of counties.
-        </div>
-      )}
     </div>
   );
 }

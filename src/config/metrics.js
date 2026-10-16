@@ -401,10 +401,6 @@ export const METRICS = [
 export const metricById = (id) =>
   METRICS.find((m) => m.id === id) ?? METRICS[0];
 
-/** Metrics offered on a view, in registry order. */
-export const metricsForView = (view) =>
-  METRICS.filter((m) => m.views.includes(view));
-
 /**
  * THE CURATED AXIS PAIRS — 2026-09-11 direction.
  *

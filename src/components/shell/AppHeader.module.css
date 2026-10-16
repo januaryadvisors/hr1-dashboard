@@ -88,3 +88,10 @@
     transition: none;
   }
 }
+
+/* Printed pages carry their own title block (the Insights report box). */
+@media print {
+  .header {
+    display: none;
+  }
+}

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   ageBandRows,
+  benefitShortfall,
   buildFunnel,
   buildScope,
-  childPace,
   countyTrends,
   excessDecline,
   fitFunnel,
@@ -15,6 +15,7 @@ import {
   participationShare,
   peersFor,
   windowChange,
+  windowLoss,
 } from './insights';
 /**
  * @typedef {import('../types').County} County
@@ -342,16 +343,6 @@ describe('district scope', () => {
     const s = buildScope(COUNTIES, byGeoid, STATEWIDE, '48001', districtCounts);
     expect(peersFor(s, COUNTIES, districtCounts).noun).toBe('counties');
   });
-
-  /** The "who is falling off" heading used to assert "faster" everywhere. */
-  it('reads whether children are falling faster or slower off the numbers', () => {
-    const faster = buildScope(COUNTIES, byGeoid, STATEWIDE, 'txhouse-1', districtCounts);
-    expect(childPace(faster, 0, 2)).toBe('faster'); // children −20%, all −10%
-    const same = buildScope(COUNTIES, byGeoid, STATEWIDE, 'txhouse-2', districtCounts);
-    expect(childPace(same, 0, 2)).toBe('same'); // −0.75% against −1%
-    const slower = { children: [100, 99, 98], enrolled: [100, 90, 80] };
-    expect(childPace(slower, 0, 2)).toBe('slower');
-  });
 });
 
 describe('headline figures', () => {
@@ -371,17 +362,34 @@ describe('headline figures', () => {
 
   it('writes the three figures for the window given', () => {
     const statewide = {
-      meta: { months },
+      meta: { months, policy_start: '2025-01' },
       enrolled: [600, 610, 620, 630, 540],
       participation_share: [0.12, 0.12, 0.12, 0.12, 0.1],
       age_bands: [{ band: '18–59' }, { band: '65+' }],
       age_series: { '18–59': [100, 100, 100, 100, 80], '65+': [50, 50, 50, 50, 50] },
     };
-    const [age, excess, share] = headlineStats(statewide, trends, 0, 4);
+    // Benefits: start 1,000,000, then 0 + 100k + 200k + 300k below it.
+    const payments = [1_000_000, 1_000_000, 900_000, 800_000, 700_000];
+    const [age, dollars, share] = headlineStats(statewide, payments, 0, 4);
     expect(age.value).toBe('−20.0%');
     expect(age.label).toBe('Adults 18–59');
-    expect(age.body).toBe('The steepest drop of any age group since Jan 2025. Ages 65+ are flat.');
-    expect(excess.value).toBe('−15.6%');
+    expect(age.body).toMatch(/^The steepest drop of any age group, against −[\d.]+% for all Texans on SNAP\.$/);
+    expect(dollars.value).toBe('$600.0K');
+    expect(dollars.body).toBe('In SNAP benefits not going to Texans since H.R. 1.');
     expect(share.body).toBe('In May 2025, down from 12.0% in Jan 2025.');
+  });
+});
+
+describe('windowLoss and benefitShortfall', () => {
+  it('counts a loss as positive and a gain as negative', () => {
+    expect(windowLoss([100, 90, 80], 0, 2)).toBe(20);
+    expect(windowLoss([80, 90, 100], 0, 2)).toBe(-20);
+    expect(windowLoss(null, 0, 2)).toBeNull();
+  });
+
+  it('sums each month below the start level and ignores months above it', () => {
+    // Start 100; months 110 (above, 0), 90 (10), 70 (30) → 40; latest gap 30.
+    expect(benefitShortfall([100, 110, 90, 70], 0, 3)).toEqual({ total: 40, monthly: 30 });
+    expect(benefitShortfall(null, 0, 3)).toBeNull();
   });
 });

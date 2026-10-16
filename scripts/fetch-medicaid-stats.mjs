@@ -30,6 +30,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { FETCH_TIMEOUT_MS, onHost } from './lib/urls.mjs';
 
 const XLSX = createRequire(import.meta.url)('xlsx');
 
@@ -69,7 +70,10 @@ function monthFromHref(href) {
 }
 
 async function getText(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
+  const res = await fetch(url, {
+    headers: { 'User-Agent': UA, Accept: 'text/html' },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
   return res.text();
 }
@@ -84,8 +88,10 @@ async function listWorkbooks() {
     // taking both would give one month two different values.
     if (!/^medicaid-enrollment-by-county-final/.test(file)) continue;
     const month = monthFromHref(href);
-    if (month && !byMonth.has(month)) {
-      byMonth.set(month, href.startsWith('http') ? href : `${ORIGIN}${href}`);
+    // https on HHS's own host only — see lib/urls.mjs.
+    const url = onHost(href, INDEX, new URL(ORIGIN).hostname);
+    if (month && url && !byMonth.has(month)) {
+      byMonth.set(month, url);
     }
   }
   return [...byMonth.entries()].sort((a, b) => a[0].localeCompare(b[0]));
@@ -94,7 +100,10 @@ async function listWorkbooks() {
 async function workbookBytes(month, url) {
   const cached = resolve(CACHE, `${month}${url.endsWith('.xlsx') ? '.xlsx' : '.xls'}`);
   if (!REFRESH && existsSync(cached)) return readFileSync(cached);
-  const res = await fetch(url, { headers: { 'User-Agent': UA } });
+  const res = await fetch(url, {
+    headers: { 'User-Agent': UA },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
   mkdirSync(CACHE, { recursive: true });

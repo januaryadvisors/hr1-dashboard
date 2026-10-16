@@ -495,45 +495,7 @@
   }
 }
 
-/*
- * FOCUS FADE — see StoryRail.jsx. Two chapters away the timeline is a faint
- * haze; three or more and it is invisible. The rule segments live on the same
- * items, so the line itself dissolves with them.
- *
- * --reveal (0–1) is written by the pointer: how far the fog has lifted on this
- * row. The short transition smooths the per-frame updates without lagging the
- * cursor. Keyboard focus anywhere in the list lifts it all.
- */
-.chapter {
-  transition:
-    opacity 140ms linear,
-    filter 140ms linear;
-}
-
-.fadeMid {
-  --fade-o: 0.18;
-  --fade-b: 1.2px;
-}
-
-.fadeFar {
-  --fade-o: 0;
-  --fade-b: 2px;
-}
-
-.fadeMid,
-.fadeFar {
-  opacity: calc(var(--fade-o) + (1 - var(--fade-o)) * var(--reveal, 0));
-  filter: blur(calc(var(--fade-b) * (1 - var(--reveal, 0))));
-}
-
-.root:has(:focus-visible) .fadeMid,
-.root:has(:focus-visible) .fadeFar {
-  opacity: 1;
-  filter: none;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .chapter,
   .ruleDone::before,
   .ruleHere::before,
   .ruleTodo::before,

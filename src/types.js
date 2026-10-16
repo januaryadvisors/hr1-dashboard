@@ -13,7 +13,7 @@
 /**
  * Layers whose value is a windowed enrollment loss rather than a stored score.
  * They recompute from the brush window every time it moves, which is why they
- * have no `*_score` column and go through src/lib/layerValues.ts instead.
+ * have no `*_score` column and go through src/lib/layerValues.js instead.
  *
  * @typedef {'loss' | 'child_loss' | 'medicaid_loss'} LossKey
  */
@@ -33,7 +33,7 @@
 /**
  * The four views of the map (spec §6.4 reworked 2026-09-10 on client direction —
  * six layer cards became four views). A view is one or two layers plus a
- * decision about whether assistance capacity is drawn; see config/layers.ts.
+ * decision about whether assistance capacity is drawn; see config/layers.js.
  *
  * @typedef {'loss' | 'work' | 'vulnerability' | 'medicaid' | 'children'} ViewKey
  */

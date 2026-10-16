@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  equalShareBins,
+  niceRound,
+  roundedQuantileBins,
   BINS_COMPOSITE,
   BINS_SCORE,
   binIndex,
@@ -93,5 +96,32 @@ describe('quintile', () => {
   it('returns null for absent values', () => {
     expect(quintile(null)).toBeNull();
     expect(quintile(NaN)).toBeNull();
+  });
+});
+
+describe('niceRound, roundedQuantileBins, equalShareBins', () => {
+  it('rounds to the 1 / 2.5 / 5 ladder', () => {
+    expect([120, 331, 703, 1956, 0].map(niceRound)).toEqual([100, 250, 500, 2500, 0]);
+  });
+
+  it('gives five classes of nice, strictly increasing edges, 0 to the max', () => {
+    const values = Array.from({ length: 254 }, (_, i) => Math.round(10 * 1.04 ** i));
+    const bins = roundedQuantileBins(values, 5);
+    expect(bins).toHaveLength(6);
+    expect(bins[0]).toBe(0);
+    expect(bins[5]).toBe(Math.max(...values));
+    for (let i = 1; i < bins.length; i++) expect(bins[i]).toBeGreaterThan(bins[i - 1]);
+    for (const e of bins.slice(1, -1)) expect(niceRound(e)).toBe(e);
+  });
+
+  it('never collapses a class when quintiles round to the same number', () => {
+    const bins = roundedQuantileBins([0, 0, 0, 0, 1, 1, 1, 2, 2, 3], 5);
+    for (let i = 1; i < bins.length; i++) expect(bins[i]).toBeGreaterThan(bins[i - 1]);
+  });
+
+  it('steps the share lost in whole percents up to the 98th percentile', () => {
+    // 28% at the top → steps of 6: 0 / 6 / 12 / 18 / 24, open to 100%.
+    const shares = Array.from({ length: 100 }, (_, i) => (i / 99) * 0.28);
+    expect(equalShareBins(shares, 5)).toEqual([0, 0.06, 0.12, 0.18, 0.24, 1]);
   });
 });

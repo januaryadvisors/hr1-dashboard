@@ -6,13 +6,13 @@
  * feed.
  *
  * The feed is Texas HHS "Texas Works" policy bulletins and quarterly revisions,
- * refreshed on a schedule (see src/data/timeline.ts). Each entry links to the
+ * refreshed on a schedule (see src/data/timeline.js). Each entry links to the
  * source PDF or page, because a policy claim on a dashboard should be one click
  * from the document it came from.
  *
  * The feed covers every Texas Works programme — CHIP, Medicaid and TANF as well
  * as SNAP — so it carries a filter, including one for the coverage side. The filter is a TEXT MATCH (see classify()
- * in src/data/timeline.ts) and the footnote says so: a bulletin that changes
+ * in src/data/timeline.js) and the footnote says so: a bulletin that changes
  * SNAP without naming it will not appear under the SNAP filter, and pretending
  * otherwise would be the dishonest version of this control.
  */
@@ -23,6 +23,7 @@ import { useMemo, useState } from 'react';
  * @typedef {import('../../data/timeline').TimelineContent} TimelineContent
  */
 import { fmtMonthFull } from '../../lib/format';
+import { safeHref } from '../../lib/safeHref';
 import styles from './TimelineFeed.module.css';
 
 /**
@@ -130,6 +131,7 @@ export function TimelineFeed({ content, window: win }) {
                   {group.items.map((item) => {
                     const inWindow = item.month >= win[0] && item.month <= win[1];
                     const isRevision = item.source?.includes('quarterly');
+                    const href = safeHref(item.url);
                     return (
                       <li
                         key={`${item.number ?? item.month}-${item.url ?? item.title}`}
@@ -137,10 +139,10 @@ export function TimelineFeed({ content, window: win }) {
                       >
                         <span className={`${styles.day} tabular`}>{day(item)}</span>
                         <div className={styles.itemMain}>
-                          {item.url ? (
+                          {href ? (
                             <a
                               className={styles.itemLink}
-                              href={item.url}
+                              href={href}
                               target="_blank"
                               rel="noreferrer noopener"
                               // The visible title is short; spell it out for screen readers.

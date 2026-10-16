@@ -1,35 +1,8 @@
-.card {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-4);
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-}
-
-.title {
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  font-weight: 600;
-}
-
-.subhead {
-  margin: var(--space-1) 0 var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
 
 .svg {
   display: block;
   width: 100%;
   height: auto;
-}
-
-.footnote {
-  margin-top: var(--space-3);
-  font-size: var(--text-xs);
-  line-height: 1.4;
-  color: var(--text-faint);
 }
 
 .axis {
@@ -81,7 +54,7 @@
 }
 
 .zeroLine {
-  stroke: var(--text-faint);
+  stroke: var(--rule-faint);
   stroke-width: 0.8;
 }
 
@@ -131,7 +104,6 @@
   fill-opacity: 0.55;
 }
 
-
 /* Highlight overlay. Transitions on the geometry so a hover glides between
    counties instead of snapping. */
 .highlight {
@@ -140,7 +112,6 @@
 
 .highlightDot,
 .highlightRing,
-.highlightRingPinned,
 .highlightLabel {
   transition:
     cx 120ms ease-out,
@@ -157,13 +128,6 @@
 .highlightRing {
   fill: none;
   stroke: var(--ja-burgundy);
-  stroke-width: 1.5;
-}
-
-/* Pinned reads as ink, matching the pinned outline on the map. */
-.highlightRingPinned {
-  fill: none;
-  stroke: var(--ja-ink);
   stroke-width: 1.5;
 }
 
@@ -229,4 +193,30 @@
 .funnelPointOutside {
   fill: var(--ja-burgundy);
   fill-opacity: 0.65;
+}
+
+/* Printed charts are drawn at about their printed size (InsightsPage), so the
+   screen's 12px axis type is large on a half-page card: a step down on paper. */
+@media print {
+  .axis,
+  .axisLabel,
+  .annotation,
+  .endLabel,
+  .endLabelStrong,
+  .tick,
+  .tickMedian,
+  .medianLabel,
+  .dumbbellLabel,
+  .dumbbellValue,
+  .quadrantLabel,
+  .quadrantLabelConcern,
+  .highlightLabel {
+    font-size: 9px;
+  }
+  /* Line-end labels ("60–64 −17.1%") a step smaller again: five of them stack
+     at the right edge of the age-band chart. */
+  .endLabel,
+  .endLabelStrong {
+    font-size: 7.5px;
+  }
 }

@@ -45,7 +45,7 @@ import { radiusScale, relax } from '../../lib/density';
  * @typedef {import('../../lib/density').Bubble} Bubble
  */
 import { INFRA_GLYPH_ORDER, InfraGlyph } from './InfraGlyph';
-import { INFRA_TYPES } from '../../config/layers';
+import { INFRA_TYPES, viewForLayer } from '../../config/layers';
 import { InfraTileBars, infraMax } from './InfraBars';
 import styles from './CountyMap.module.css';
 
@@ -68,11 +68,11 @@ const SIZE_SPEC = {
  * @typedef {Object} CountyMapProps
  * @property {County[]} counties
  * @property {Map<string, County>} byGeoid
- * @property {MapGeometry} geometry - Render-ready shapes, shared by every panel. See src/lib/mapGeometry.ts.
+ * @property {MapGeometry} geometry - Render-ready shapes, shared by every panel. See src/lib/mapGeometry.js.
  * @property {{ cols: number; rows: number }} grid
  * @property {string} viewBox - Radius basis for the density style, in projected units.
  * @property {LayerKey} layer - Which ramp and bins to colour with.
- * @property {LayerValues} values - The numbers to draw, precomputed by the page (src/lib/layerValues.ts).
+ * @property {LayerValues} values - The numbers to draw, precomputed by the page (src/lib/layerValues.js).
  *   Passed in rather than derived here because the loss layers recompute from
  *   the brush window — the map would otherwise need to know about months.
  * @property {MapStyle | 'grid'} style - 'grid' is set by a story step, never by the reader.
@@ -134,11 +134,9 @@ function CountyMapInner(props) {
   );
 
   /**
-   * The layer's own rate or percentile. Still the basis for the top-quintile
-   * overlay and the accessible label even in count measure — "the worst fifth"
-   * has to keep meaning the worst fifth by rate, or switching measure would
-   * quietly redefine an overlay the reader turned on for a different reason
-   * (by headcount, the top fifth is essentially the five biggest metros).
+   * The layer's own rate or percentile — the accessible label's basis in
+   * either measure. (The top-quintile overlay follows the measure instead; see
+   * q5Set.)
    */
   const rateValue = (county) => (county ? values.fill.get(county.geoid) ?? null : null);
 
@@ -304,8 +302,8 @@ function CountyMapInner(props) {
     const parts = [styles.county];
     if (!county) return parts.join(' ');
     if (county.geoid === hovered) parts.push(styles.hovered);
-    // §6.5: dim small denominators in rate measure only.
-    if (measure === 'rate' && county.small_denominator) parts.push(styles.smallDenominator);
+    // Every county is drawn in exactly its key colour: small denominators used
+    // to be dimmed here (§6.5), which made off-key greyed reds (2026-10-16).
     // With an overlay on, everything it does not pick out steps back, so the
     // outlined counties read at a glance rather than as a thin line to hunt for.
     if (overlayOn && !isFlagged(county)) parts.push(styles.overlayDimmed);
@@ -323,19 +321,26 @@ function CountyMapInner(props) {
     return `${county.name}: ${rate}`;
   };
 
+  /*
+     §6.8 / M-08: outline the top fifth of counties on WHAT THE MAP SHOWS —
+     headcount in Count, rate or percentile in Rate (client direction
+     2026-10-16; it used to rank by rate in both). Sorted ascending, the cut is
+     the 80th-percentile value and every county at or above it is in: 51 of 254.
+  */
   const q5Set = useMemo(() => {
     if (!overlays.q5) return new Set();
-    // §6.8 / M-08: outline every county in Q5 on the layer showing.
     const sorted = counties
-      .map((c) => rateValue(c))
+      .map((c) => fillValue(c))
       .filter((v) => v != null)
       .sort((a, b) => a - b);
     if (!sorted.length) return new Set();
     const cut = sorted[Math.floor(sorted.length * 0.8)];
     return new Set(
-      counties.filter((c) => (rateValue(c) ?? -Infinity) >= cut).map((c) => c.geoid),
+      counties.filter((c) => (fillValue(c) ?? -Infinity) >= cut).map((c) => c.geoid),
     );
-  }, [counties, values, overlays.q5]);
+    // fillValue reads `counting` and `values`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counties, values, counting, overlays.q5]);
 
   const overlayOn = !!(overlays.q5 || overlays.gap);
   const isFlagged = (c) => (overlays.q5 && q5Set.has(c.geoid)) || (overlays.gap && c.is_gap);
@@ -356,7 +361,11 @@ function CountyMapInner(props) {
   return (
     <svg
       ref={svgRef}
-      className={`${styles.root} ${interactive ? styles.interactive : ''} ${styles.group}`}
+      className={`${styles.root} ${interactive ? styles.interactive : ''} ${styles.group} ${
+        // Work requirements: most counties sit in the palest class, and white
+        // borders between pale fills vanish — dark outlines keep them apart.
+        viewForLayer(layer).key === 'work' ? styles.outlined : ''
+      }`}
       viewBox={viewBox}
       role="img"
       aria-label={title}
@@ -447,7 +456,7 @@ function CountyMapInner(props) {
                 r={b.r}
                 className={`${styles.bubble} ${classFor(county)}`}
                 fill={colorOf(county, value)}
-                fillOpacity={0.85}
+                // Opaque, so a bubble is exactly its key colour (2026-10-16).
                 strokeWidth={spec.county}
                 onMouseEnter={() => handleEnter(b.geoid)}
                 aria-label={label(county)}

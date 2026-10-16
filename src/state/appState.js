@@ -3,7 +3,7 @@
  * `hovered` mirrored to a query param so any view is a shareable link.
  *
  * NOTE: there is deliberately no `view` field. The four views are a function of
- * `layer` (config/layers.ts viewForLayer), so the view cannot drift out of sync
+ * `layer` (config/layers.js viewForLayer), so the view cannot drift out of sync
  * with the layer being drawn and old `?layer=` links keep working.
  *
  * Spec §2 is explicit: no Redux, no Zustand.

@@ -19,9 +19,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CountySearch } from '../map/CountySearch';
 import { SegmentedControl } from './SegmentedControl';
-import { fmtDelta, fmtInt, fmtMonthBody, fmtPct, fmtPctDelta } from '../../lib/format';
+import { HelpList } from '../map/HelpList';
+import { fmtDollars, fmtInt, fmtMonthBody, fmtPctDelta } from '../../lib/format';
 /**
- * @typedef {import('../../lib/insights').LossRank} LossRank
  * @typedef {import('../../lib/insights').Scope} Scope
  * @typedef {import('../../lib/insights').WindowChange} WindowChange
  */
@@ -35,12 +35,13 @@ import styles from './ScopeBar.module.css';
  * @property {County[]} counties
  * @property {Scope} scope
  * @property {WindowChange} change - Enrollment change across the active window, for the scope.
- * @property {LossRank | null} rank - Where the scope ranks among its peers. null when scoped to the state.
- * @property {import('../../lib/insights').Peers} peers - What the rank is among: counties, or the chamber's districts.
  * @property {import('../../data/load').DistrictCounts | null} districtCounts - null hides the geography switch.
- * @property {Map<string, County>} byGeoid - For a district's margin: each split county's own series.
  * @property {[string, string]} window
+ * @property {{ people: number | null, children: number | null, seniors: number | null,
+ *   shortfall: { total: number, monthly: number } | null, sinceLabel: string }} figures - The four headline
+ *   figures, for the window. sinceLabel is "H.R. 1" when the window starts at the policy month, else that month.
  * @property {(geoid: string | null) => void} onSelect
+ * @property {() => void} onPrint
  */
 
 /** "Harris (part)", "Travis, Hays", "Bowie +4" — enough to recognise a district in a list. */
@@ -56,12 +57,11 @@ export function ScopeBar({
   counties,
   scope,
   change,
-  rank,
-  peers,
   districtCounts,
-  byGeoid,
   window: win,
+  figures,
   onSelect,
+  onPrint,
 }) {
   const isScoped = scope.kind !== 'state';
   const county = scope.county;
@@ -83,21 +83,6 @@ export function ScopeBar({
 
   const chamber = districtCounts?.meta.chambers[geo];
 
-  /**
-   * Share of the scope's own caseload newly subject to the work requirement.
-   * §10: the numerator is PUMS-modelled, flagged wherever shown.
-   */
-  const subject = county?.newly_subject_persons ?? district?.newly_subject_persons ?? null;
-  /** For the stat row: the statewide figure is the sum of the counties' estimates. */
-  const subjectShown = useMemo(
-    () =>
-      subject ??
-      (scope.kind === 'state'
-        ? counties.reduce((t, c) => t + (c.newly_subject_persons ?? 0), 0)
-        : null),
-    [subject, scope.kind, counties],
-  );
-  const subjectShare = subject != null && change.start > 0 ? subject / change.start : null;
 
   /** The district's composition, for the meta line. */
   const districtMeta = district
@@ -108,25 +93,6 @@ export function ScopeBar({
         : `${district.counties.length} counties, ${district.counties.filter((c) => c.share < 1).length} split`
     : null;
 
-  /**
-   * 90% margin on a district count, from the survey margin on each split share:
-   * the count is sum(share_c * county_c), so its MOE is sqrt(sum((moe_c * county_c)^2)).
-   * Whole counties contribute nothing. null when a split has no survey MOE (a
-   * fallback weight) — better no ± than a ± that claims more precision than exists.
-   */
-  const districtMoe = (read) => {
-    if (!district || district.exact) return null;
-    let sq = 0;
-    for (const m of district.counties) {
-      if (m.share >= 1) continue;
-      if (m.share_moe == null) return null;
-      const v = read(byGeoid?.get(m.geoid));
-      if (v == null) return null;
-      sq += (m.share_moe * v) ** 2;
-    }
-    return Math.sqrt(sq);
-  };
-  const moeSubject = districtMoe((c) => c?.newly_subject_persons);
 
   return (
     <header className={styles.root}>
@@ -202,90 +168,94 @@ export function ScopeBar({
             placeholder={chamber ? 'Number or county…' : 'Find a county…'}
             emptyText={chamber ? `No ${chamber.label} district matches that.` : 'No county matches that.'}
           />
-          {isScoped && (
-            <button type="button" className={styles.clear} onClick={() => onSelect(null)}>
-              Back to statewide
+          <div className={styles.pickerActions}>
+            {isScoped && (
+              <button type="button" className={styles.clear} onClick={() => onSelect(null)}>
+                Back to statewide
+              </button>
+            )}
+            {/* The browser's own print dialog, which saves a PDF — the page
+                carries a print stylesheet that lays the report out on paper. */}
+            <button type="button" className={styles.print} onClick={onPrint}>
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path
+                  d="M4 6V2h8v4M4 12H2.5V6.5h11V12H12M4 9.5h8V14H4z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Print / save as PDF
             </button>
-          )}
+          </div>
         </div>
       </div>
 
+      {/*
+        The same four figures for every place — Texas, a county or a district
+        (2026-10-16): people, children and seniors who left SNAP over the
+        window, and how much less in benefits now goes out each month.
+      */}
       <dl className={styles.stats}>
-        <div className={styles.stat}>
-          <dt className={styles.statLabel}>Enrolled now</dt>
-          <dd className={`${styles.statValue} tabular`}>{fmtInt(change.end)}</dd>
-        </div>
-        <div className={styles.stat}>
-          <dt
-            className={styles.statLabel}
-            title="Residents newly subject to H.R. 1's work requirement. PUMS-modelled estimate, not a lookup."
-          >
-            Newly subject
-          </dt>
-          <dd className={`${styles.statValue} tabular`}>
-            {subjectShown == null ? '—' : fmtInt(subjectShown)}
-          </dd>
-        </div>
-        <div className={styles.stat}>
-          <dt className={styles.statLabel}>Change since {fmtMonthBody(win[0])}</dt>
-          <dd className={`${styles.statValue} ${styles.negative} tabular`}>
-            {fmtDelta(change.absolute)}
-          </dd>
-        </div>
-        <div className={styles.stat}>
-          <dt className={styles.statLabel}>Percent change</dt>
-          <dd className={`${styles.statValue} ${styles.negative} tabular`}>
-            {fmtPctDelta(change.pct, 1)}
-          </dd>
-        </div>
+        <Stat
+          label="People who left SNAP"
+          value={lossLabel(figures.people)}
+          sub={change.pct == null ? null : `${fmtPctDelta(change.pct, 1)} since ${fmtMonthBody(win[0])}`}
+          negative={figures.people > 0}
+        />
+        <Stat label="Children who left SNAP" value={lossLabel(figures.children)} sub="under 18" negative={figures.children > 0} />
+        <Stat label="Seniors who left SNAP" value={lossLabel(figures.seniors)} sub="65 and older" negative={figures.seniors > 0} />
+        {/*
+          Cumulative, not one month against another (2026-10-16): every month
+          after the start, how far benefits paid fell below the start month's
+          level, summed. One number for the whole period — the Map story's
+          "$936 million" for Texas — rather than one that moves with whichever
+          month is latest. SNAP benefits can only be spent at SNAP-authorized
+          retailers, so this is money those stores did not take in.
+        */}
+        <Stat
+          label="Less spent at SNAP-authorized stores"
+          value={figures.shortfall ? fmtDollars(Math.max(0, figures.shortfall.total)) : '—'}
+          sub={`in SNAP benefits not going to residents since ${figures.sinceLabel}`}
+          negative={figures.shortfall?.total > 0}
+          title={`SNAP benefits paid each month from ${fmtMonthBody(win[0])} to ${fmtMonthBody(win[1])}, below the ${fmtMonthBody(win[0])} level, summed.`}
+        />
       </dl>
 
       {/*
-        The comparison sentence. Both the statewide figure and the county median
-        are quoted because they routinely disagree — the statewide number is
-        dominated by the metros, the median describes the typical county — and
-        quoting only the flattering one is how a stat page misleads.
+        Enrollment help listed in the county — the tooltip's bar chart. Counties
+        only: the health-worker figure is a range, not a count, and an
+        organisation serving several counties would be counted once per county if
+        a district or the state were summed.
       */}
-      {isScoped && (
-      <div className={styles.notes}>
-      {rank && (
-        <p className={styles.compare}>
-          <strong>{scope.label}</strong>{' '}
-          {rank.pct < 0 ? 'lost' : 'grew by'} <strong>{fmtPctDelta(rank.pct, 1)}</strong>
-          {rank.pct < 0 ? ' of its caseload' : ''}, {comparison(rank, peers.singular)}. That is the{' '}
-          <strong>
-            {rank.tied ? 'joint ' : ''}
-            {ordinal(rank.rank)} steepest
-          </strong>{' '}
-          percentage loss of {rank.total} {peers.noun}
-          {rank.tied ? ` — ${rank.tied + 1} share that figure` : ''}.
-          {county?.small_denominator && (
-            <span className={styles.caveat}>
-              {' '}
-              Under 10,000 residents — a percentage on a caseload this small moves on a handful of
-              households. See the funnel plot before quoting the rank.
-            </span>
-          )}
-        </p>
-      )}
-
-      {subject != null && subjectShare != null && (
-        <p className={styles.compare}>
-          <strong>{fmtInt(subject)}</strong>
-          {moeSubject != null ? ` (± ${fmtInt(moeSubject)} margin of error)` : ''} residents are newly
-          subject to H.R. 1&rsquo;s work requirement — {fmtPct(subjectShare, 0)} of the caseload at
-          the start of this window.{' '}
-          <span className={styles.caveat}>
-            PUMS-modelled estimate, not a lookup
-            {district && !district.exact ? ', apportioned from county figures' : ''}.
-          </span>
-        </p>
-      )}
-      </div>
+      {county && (
+        <div className={styles.capacity}>
+          <h2 className={styles.capacityTitle}>Enrollment help listed in {scope.label}</h2>
+          <HelpList county={county} className={styles.helpList} />
+        </div>
       )}
 
       {district && <DistrictMethod district={district} />}
     </header>
+  );
+}
+
+/** "138,946", or "+1,204 gained" when the count went up instead. */
+function lossLabel(n) {
+  if (n == null) return '—';
+  return n >= 0 ? fmtInt(n) : `+${fmtInt(-n)} gained`;
+}
+
+function Stat({ label, value, sub, negative = false, title }) {
+  return (
+    <div className={styles.stat}>
+      <dt className={styles.statLabel} title={title}>
+        {label}
+      </dt>
+      <dd className={`${styles.statValue} ${negative ? styles.negative : ''} tabular`}>{value}</dd>
+      {sub && <dd className={styles.statSub}>{sub}</dd>}
+    </div>
   );
 }
 
@@ -347,42 +317,4 @@ function DistrictMethod({ district }) {
       </div>
     </div>
   );
-}
-
-/**
- * "a smaller loss than the −15.5% for Texas as a whole and the −15.8% for the
- * median House district" — each comparison judged on its own, at the precision
- * printed, so a county steeper than Texas but gentler than the median says both.
- * ("Lower than" is avoided on purpose: −13.4% is a smaller loss but a higher
- * number than −15.5%, and readers split on which one "lower" means.)
- */
-function comparison(rank, singular) {
-  const state = `${fmtPctDelta(rank.statePct, 1)} for Texas as a whole`;
-  const median = `${fmtPctDelta(rank.medianPct, 1)} for the median ${singular}`;
-  if (rank.pct >= 0) return `against ${state} and ${median}`;
-  const side = (other) => {
-    const a = Math.round(rank.pct * 1000);
-    const b = Math.round(other * 1000);
-    return a === b ? 'the same as' : a < b ? 'a steeper loss than' : 'a smaller loss than';
-  };
-  const s1 = side(rank.statePct);
-  const s2 = side(rank.medianPct);
-  return s1 === s2
-    ? `${s1} the ${state} and the ${median}`
-    : `${s1} the ${state} but ${s2} the ${median}`;
-}
-
-function ordinal(n) {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
 }

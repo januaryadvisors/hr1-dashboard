@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   METRICS,
   metricById,
-  metricsForView,
   presetById,
   PRESET_FOR_VIEW,
   SCATTER_PRESETS,

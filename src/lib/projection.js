@@ -73,8 +73,3 @@ export function createProjection(state) {
     },
   };
 }
-
-/** Path string for one county geometry, or null when it fails to project. */
-export function pathFor(p, geometry) {
-  return p.path(geometry);
-}

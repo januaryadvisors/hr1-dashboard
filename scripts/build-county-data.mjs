@@ -326,6 +326,10 @@ const records = shapes.map((shape) => {
   // Under-18s, straight from the county's own age columns — the genuine
   // county-by-month child series §A4 said the export owed.
   rec.snap_children = s.enrolled.map((_, i) => s.bands[0][i] + s.bands[1][i]);
+  // 65+, the same band the statewide "seniors" series uses.
+  rec.snap_seniors = s.bands[4].slice();
+  // Total SNAP benefits paid to the county's households each month, whole dollars.
+  rec.snap_payments = s.payments.map((v) => Math.round(v ?? 0));
 
   /*
      All four registries, from capacity_county. Each bar in the app has its
@@ -728,6 +732,8 @@ for (const [plan, chamber] of Object.entries(CHAMBERS)) {
   const zeros = () => ids.map(() => 0);
   const enrolledF = MONTHS.map(zeros);
   const childrenF = MONTHS.map(zeros);
+  const seniorsF = MONTHS.map(zeros);
+  const paymentsF = MONTHS.map(zeros);
   const subjectF = zeros();
   const popF = zeros();
   const julyFromSplit = zeros();
@@ -741,6 +747,8 @@ for (const [plan, chamber] of Object.entries(CHAMBERS)) {
       MONTHS.forEach((_, i) => {
         enrolledF[i][k] += sh * r.snap_enrolled[i];
         childrenF[i][k] += sh * r.snap_children[i];
+        seniorsF[i][k] += sh * r.snap_seniors[i];
+        paymentsF[i][k] += sh * r.snap_payments[i];
       });
       subjectF[k] += sh * r.newly_subject_persons;
       if (!whole) julyFromSplit[k] += sh * r.snap_enrolled[p0];
@@ -761,6 +769,8 @@ for (const [plan, chamber] of Object.entries(CHAMBERS)) {
   const enrolledI = MONTHS.map((_, i) => apportion(enrolledF[i], enrolled[i]));
   const childTotal = MONTHS.map((_, i) => bandSeries[0][i] + bandSeries[1][i]);
   const childrenI = MONTHS.map((_, i) => apportion(childrenF[i], childTotal[i]));
+  const seniorsI = MONTHS.map((_, i) => apportion(seniorsF[i], bandSeries[4][i]));
+  const paymentsI = MONTHS.map((_, i) => apportion(paymentsF[i], payments[i]));
 
   ids.forEach((d, k) => {
     const julyTotal = enrolledF[p0][k];
@@ -772,6 +782,8 @@ for (const [plan, chamber] of Object.entries(CHAMBERS)) {
       pop: Math.round(popF[k]),
       snap_enrolled: MONTHS.map((_, i) => enrolledI[i][k]),
       snap_children: MONTHS.map((_, i) => childrenI[i][k]),
+      snap_seniors: MONTHS.map((_, i) => seniorsI[i][k]),
+      snap_payments: MONTHS.map((_, i) => paymentsI[i][k]),
       newly_subject_persons: Math.round(subjectF[k]),
       exact: julyFromSplit[k] === 0,
       allocated_share: julyTotal > 0 ? round(julyFromSplit[k] / julyTotal, 4) : 0,
