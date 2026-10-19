@@ -1,8 +1,9 @@
 name: Refresh Texas Works bulletins
 
 # Re-scrapes Texas HHS "Texas Works" policy bulletins and quarterly revisions and
-# commits public/data/bulletins.json when it changes. Pushing to main then
-# triggers the Pages deploy.
+# commits public/data/bulletins.json when it changes, then starts the Pages
+# deploy itself: a push made with GITHUB_TOKEN does not trigger other workflows,
+# so without the explicit dispatch a refreshed feed waited for the next human push.
 #
 # Baking the feed at build time keeps the published page static: fhb.hhs.texas.gov
 # sends no CORS headers, and a reader should not depend on a government host being
@@ -16,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # to dispatch deploy.yml after a refresh
 
 concurrency:
   group: refresh-bulletins
@@ -24,6 +26,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,6 +41,7 @@ jobs:
         run: node scripts/fetch-texas-works.mjs
 
       - name: Commit if changed
+        id: commit
         run: |
           if git diff --quiet -- public/data/bulletins.json; then
             echo "No change."
@@ -48,3 +52,10 @@ jobs:
           git add public/data/bulletins.json
           git commit -m "Refresh Texas Works bulletins"
           git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy the refreshed feed
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main

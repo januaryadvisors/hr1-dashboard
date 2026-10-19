@@ -1,0 +1,120 @@
+name: Refresh county data
+
+# Rebuilds public/data/ from the analysis repo (januaryadvisors/feeding-texas-hr1)
+# every week, commits it when it changes, then starts the Pages deploy itself (a
+# push made with GITHUB_TOKEN does not trigger deploy.yml on its own).
+#
+# feeding-texas-hr1 refreshes data-clean/ when a new SNAP month is pushed there
+# (its refresh-snap.yml), so this only has to read it. Weekly is plenty for data
+# that changes monthly; "Run workflow" picks a refresh up the same day.
+#
+# One-time setup: a read-only deploy key on feeding-texas-hr1 whose private half
+# is this repo's FT_DEPLOY_KEY secret (it is private; GITHUB_TOKEN cannot read it).
+#
+# Also keeps this repo's schedules alive: GitHub disables scheduled workflows in
+# a public repo after 60 days without a commit, and a quiet stretch of HHSC data
+# could go that long. See the last step.
+
+on:
+  schedule:
+    # 06:40 UTC on Mondays, after refresh-bulletins.yml.
+    - cron: '40 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write # to dispatch deploy.yml after a refresh
+
+concurrency:
+  group: refresh-county-data
+  cancel-in-progress: false
+
+env:
+  # data-raw/ and data-clean/ there are Git LFS; this is everything the two
+  # build scripts read (tool-data/ is plain git).
+  FT_LFS_INCLUDE: data-clean/**,data-raw/capacity/tx_foodbanks.csv
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: januaryadvisors/feeding-texas-hr1
+          ssh-key: ${{ secrets.FT_DEPLOY_KEY }}
+          path: feeding-texas-hr1
+
+      # LFS bandwidth on that repo is metered, so cache the objects and only
+      # download the ones whose pointers changed since the last run.
+      - name: LFS cache key
+        id: lfs
+        working-directory: feeding-texas-hr1
+        run: echo "key=$(git lfs ls-files -l -I "$FT_LFS_INCLUDE" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: feeding-texas-hr1/.git/lfs/objects
+          key: ft-lfs-${{ steps.lfs.outputs.key }}
+          restore-keys: ft-lfs-
+      - name: Pull LFS inputs
+        working-directory: feeding-texas-hr1
+        run: git lfs pull -I "$FT_LFS_INCLUDE"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # Both scripts refuse to write on a missing county or month, so a bad input
+      # fails the run and leaves the last good files on the page. Their logs carry
+      # the claim checks (hero figures vs the data); they go to the run summary so
+      # a reader can skim them after each refresh.
+      - name: Build county data
+        env:
+          FT_DATA: feeding-texas-hr1/data-clean
+        run: |
+          set -o pipefail
+          npm run --silent build:counties 2>&1 | tee build.log
+          npm run --silent build:marketplace 2>&1 | tee -a build.log
+          { echo '### Build log'; echo '```'; cat build.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      # HHSC's bot protection blocks some clients. If it blocks this runner, the
+      # Medicaid file keeps its last good copy and the county refresh still ships.
+      - name: Fetch Medicaid
+        continue-on-error: true
+        run: npm run --silent fetch:medicaid
+
+      - name: Commit if changed
+        id: commit
+        run: |
+          if git diff --quiet -- public/data; then
+            echo "No change."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data
+          git commit -m "Refresh county data from feeding-texas-hr1"
+          git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy the refreshed data
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref main
+
+      # An empty commit after 45 quiet days, well inside GitHub's 60. A data
+      # refresh resets the clock, so in a normal month this does nothing.
+      - name: Keep schedules alive
+        run: |
+          git pull --quiet --ff-only
+          age=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          echo "Last commit ${age} days ago."
+          if [ "$age" -lt 45 ]; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "Keep scheduled workflows active"
+          git push
