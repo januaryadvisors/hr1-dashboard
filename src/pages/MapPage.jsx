@@ -21,7 +21,7 @@ import { buildLayerStats, CountyTooltip } from '../components/map/CountyTooltip'
 import { CountySearch } from '../components/map/CountySearch';
 import { SegmentedControl } from '../components/shell/SegmentedControl';
 import { MapOption, MapOptions } from '../components/map/MapOptions';
-import { JumpMenu } from '../components/shell/JumpMenu';
+import { JumpMenu, StoryExits } from '../components/shell/JumpMenu';
 import { Section } from '../components/shell/Section';
 import { RampLegend } from '../components/map/RampLegend';
 import { BivariateLegend } from '../components/map/BivariateLegend';
@@ -795,21 +795,31 @@ export default function MapPage() {
     const story = storyRef.current;
     if (!band || !story) return undefined;
     const SHIFT_PX = 100;
+    /*
+       The story peeking under the band is dimmed at the top of the page, so the
+       hero reads on its own, and lifts as the reader scrolls: gone by
+       DIM_CLEAR of the way to the pin. Opacity, not motion, so it runs on
+       phones and under reduced motion too.
+    */
+    const DIM_MAX = 0.75;
+    const DIM_CLEAR = 0.6;
     const wide = window.matchMedia('(min-width: 900px)');
     const still = window.matchMedia('(prefers-reduced-motion: reduce)');
     let frame = 0;
     const update = () => {
       frame = 0;
-      if (!wide.matches || still.matches) {
-        story.style.setProperty('--under-shift', '0px');
-        return;
-      }
       // The scroll position at which the stage pins under the header.
       const header =
         parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 0;
       // The story's own top, less the shift already applied to its stage.
       const end = story.getBoundingClientRect().top + window.scrollY - header;
       const t = Math.min(1, Math.max(0, window.scrollY / Math.max(1, end)));
+      const dim = DIM_MAX * Math.max(0, 1 - t / DIM_CLEAR);
+      story.style.setProperty('--under-dim', dim.toFixed(3));
+      if (!wide.matches || still.matches) {
+        story.style.setProperty('--under-shift', '0px');
+        return;
+      }
       // Linear, so the lag is one steady speed — the plane, not an animation.
       const shift = -SHIFT_PX * (1 - t);
       story.style.setProperty('--under-shift', `${shift.toFixed(1)}px`);
@@ -829,9 +839,10 @@ export default function MapPage() {
 
   // ------------------------------------------------------------- jumping
   /**
-   * The floating Jump to menu — the story's one way out, either end, and the
-   * way between its chapters (2026-10-16: it replaced the rail's separate Back
-   * to top and Skip the story buttons). Every jump that leaves the
+   * The ways out of the story: on desktop, floating Back to top and Skip the
+   * story buttons (2026-10-19, back from the Jump to menu that replaced them on
+   * 2026-10-16); on phones, the Jump to menu in the progress bar, which also
+   * moves between chapters. Every jump that leaves the
    * story goes through scrollToY, which settles the step before the trip so
    * the map is not redrawn for every chapter scrolled past on the way.
    */
@@ -1757,9 +1768,13 @@ export default function MapPage() {
       </aside>
       </div>
 
-      {/* Over the story only — see JumpMenu. */}
-      {/* Phones carry it in the progress bar instead — see <StoryProgress aside>. */}
-      <JumpMenu groups={jumpGroups} currentLabel={jumpCurrent} visible={region === 'in' && !phoneStory} />
+      {/* Over the story only — see StoryExits. Phones carry the Jump to menu in
+          the progress bar instead — see <StoryProgress aside>. */}
+      <StoryExits
+        onTop={() => scrollToY(0)}
+        onSkip={jumpPastStory}
+        visible={region === 'in' && !phoneStory}
+      />
 
       <CountyTooltip
         county={activeCounty}

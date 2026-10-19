@@ -50,6 +50,21 @@
 }
 
 /*
+ * The dim over the story while it peeks under the band (--under-dim, set in
+ * MapPage beside --under-shift): the hero's green, so the two planes read as
+ * one at rest. Above the stage, below the band; never takes a click.
+ */
+.story::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--ft-green);
+  opacity: var(--under-dim, 0);
+  pointer-events: none;
+}
+
+/*
  * Inner container repeats .page's max-width, gutters AND column split, so the
  * hero number starts on exactly the same vertical as the section titles below
  * it and the brush card ends where the main column ends. The second track is

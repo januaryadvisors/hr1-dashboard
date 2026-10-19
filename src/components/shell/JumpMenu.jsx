@@ -117,3 +117,26 @@ export function JumpMenu({ groups, currentLabel, visible = true, inline = false 
     </div>
   );
 }
+
+/**
+ * <StoryExits> — the desktop's two ways out of the story (2026-10-19: they
+ * replaced the floating Jump to there; phones keep the inline menu). Same pill,
+ * same corner, same show-inside-the-story rule as <JumpMenu>.
+ *
+ * @param {{ onTop: () => void, onSkip: () => void, visible?: boolean }} props
+ */
+export function StoryExits({ onTop, onSkip, visible = true }) {
+  return (
+    <div
+      className={`${styles.root} ${styles.exits} ${visible ? styles.visible : ''}`}
+      aria-hidden={visible ? undefined : true}
+    >
+      <button type="button" className={styles.trigger} onClick={onTop}>
+        <span className={styles.exitLabel}>Back to top</span>
+      </button>
+      <button type="button" className={styles.trigger} onClick={onSkip}>
+        <span className={styles.exitLabel}>Skip the story</span>
+      </button>
+    </div>
+  );
+}
