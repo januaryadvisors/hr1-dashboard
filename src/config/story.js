@@ -80,8 +80,15 @@ export const STORY = [
     steps: [
       {
         id: 'loss-trend',
+        // "Still falling" only while the latest month is down; MapPage checks. The
+        // figure is the average since the rules took effect, so the title says so
+        // rather than reading as this month's loss.
         title: (f) =>
-          f.avgMonthlyK ? `Still falling, about ${f.avgMonthlyK} a month` : 'Still falling, month after month',
+          !f.avgMonthlyK
+            ? 'Down since the new rules took effect'
+            : f.stillFalling
+              ? `Still falling: about ${f.avgMonthlyK} a month since ${f.rulesMonth}`
+              : `Down about ${f.avgMonthlyK} a month since ${f.rulesMonth}`,
         body: (f) =>
           f.fellEveryMonth
             ? 'Enrollment has fallen every month since the new rules took effect.'
@@ -114,7 +121,7 @@ export const STORY = [
         body: (f) =>
           f.shortfallM
             ? `From ${f.shortfallFrom} through ${f.shortfallTo}, payments ran $${f.shortfallM} million ` +
-              `below ${f.baseMonth} levels.`
+              `below ${f.baseMonthYear} levels.`
             : 'Monthly SNAP payments have fallen since the new rules took effect.',
         subhead: (f) =>
           'Total SNAP benefits paid to Texas households each month, in millions of dollars. ' +
@@ -149,7 +156,10 @@ export const STORY = [
     steps: [
       {
         id: 'children-rural',
-        title: 'Rural counties are losing children’s benefits faster',
+        title: (f) =>
+          f.childFaster
+            ? `${f.childFaster} counties are losing children’s benefits faster`
+            : 'Children’s benefits lost, by county type',
         body: (f) =>
           `Rural counties have lost ${f.childRural} of children on SNAP, against ${f.childMetro} in ` +
           'metro counties.',
@@ -197,7 +207,7 @@ export const STORY = [
     steps: [
       {
         id: 'market-paid',
-        title: (f) => (f.mktDrop ? `Paid enrollment fell by ${f.mktDrop}` : 'Paid enrollment fell'),
+        title: (f) => (f.mktDrop ? `Paid enrollment fell by ${f.mktDrop}` : 'Paid Marketplace enrollment'),
         body: (f) =>
           f.mktDropPct
             ? `Paid (effectuated) enrollment fell ${f.mktDropPct} between ${f.mktFrom} and ${f.mktTo}.`
@@ -211,7 +221,7 @@ export const STORY = [
       },
       {
         id: 'market-never',
-        title: (f) => (f.neverOneIn ? `1 in ${f.neverOneIn} sign-ups never paid` : 'More sign-ups never paid'),
+        title: (f) => (f.neverOneIn ? `1 in ${f.neverOneIn} sign-ups never paid` : 'Sign-ups that never paid'),
         body: (f) =>
           f.neverLatest
             ? `Of the ${f.selLatestM} million Texans who picked a ${f.oepLatest} plan, ` +

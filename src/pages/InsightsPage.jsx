@@ -37,7 +37,7 @@ import {
   windowChange,
   windowLoss,
 } from '../lib/insights';
-import { fmtInt, fmtMonthBody, fmtMonthFull, fmtPct } from '../lib/format';
+import { fmtDelta, fmtInt, fmtMonthBody, fmtMonthFull, fmtPct } from '../lib/format';
 import styles from './InsightsPage.module.css';
 
 /*
@@ -251,6 +251,9 @@ export default function InsightsPage() {
 
   const texasLine = { label: 'Texas', color: 'var(--text-faint)', dashed: true };
 
+  /** November 2025, when Texas's new rules took effect — the label reads the data. */
+  const novChange = monthlyChange(statewide.enrolled)[months.indexOf('2025-11')];
+
   return (
     <div className={styles.page}>
       <nav className={styles.tabs} aria-label="Insights sections">
@@ -338,7 +341,11 @@ export default function InsightsPage() {
               <ColumnChart
                 months={months.slice(i0, i1 + 1)}
                 values={monthlyChange(scope.enrolled).slice(i0, i1 + 1)}
-                annotations={isScoped ? [] : [{ month: '2025-11', label: 'NOV −110k' }]}
+                annotations={
+                  isScoped || !Number.isFinite(novChange)
+                    ? []
+                    : [{ month: '2025-11', label: `NOV ${fmtDelta(novChange / 1000)}k` }]
+                }
                 viewWidth={vw}
                 height={chartH(220)}
               />

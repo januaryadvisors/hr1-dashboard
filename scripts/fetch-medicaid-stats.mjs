@@ -271,7 +271,8 @@ async function main() {
     note:
       'Final monthly Medicaid enrollment by county, as published by Texas HHSC. ' +
       'Months HHSC did not publish are null, never interpolated.',
-    generated: new Date().toISOString().slice(0, 10),
+    // No generated-at timestamp: it would make every run a diff even when
+    // nothing changed, and the weekly Action commits on diff.
     months,
     first: months[0],
     latest: months.at(-1),

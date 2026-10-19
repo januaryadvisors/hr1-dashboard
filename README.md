@@ -114,9 +114,13 @@ analysis. `fetch-snap-stats.mjs` sums them in, which is one reason it is no
 longer part of `fetch:data` — running it overwrites the rail's file with a
 series that stops at Aug 2025.
 
-To refresh after HHSC publishes a new month: rerun the R collectors and
-`build_scores.R` in the analysis repo, then `npm run build:counties` here and
-commit `public/data/`.
+To refresh after HHSC publishes a new month: push the new Tableau export to
+the analysis repo as `data-raw/snap/SNAP-hhsc-<first>-<last>.csv`. Its
+`refresh-snap.yml` reruns the R steps and commits `data-clean/`; this repo's
+`refresh-county-data.yml` rebuilds `public/data/` from it every Monday (or on
+"Run workflow"), commits on change and deploys. The run summary carries the
+build log, including the hero claim checks above. The workflow reads the
+analysis repo with a read-only deploy key stored here as `FT_DEPLOY_KEY`.
 
 ### District counts (Insights only)
 

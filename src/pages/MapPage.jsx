@@ -126,8 +126,6 @@ const monthDate = (m) => {
 /** "July 2025". */
 const monthLong = (m) =>
   monthDate(m).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-/** "July". */
-const monthName = (m) => monthDate(m).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
 /** "Jul". */
 const monthShort = (m) => monthDate(m).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
 /** "Jul '25". */
@@ -600,6 +598,10 @@ export default function MapPage() {
     const byType = childLossByType(counties, i0, i1);
     f.childRural = byType.Rural == null ? null : pctOf(byType.Rural);
     f.childMetro = byType.Metro == null ? null : pctOf(byType.Metro);
+    // Which of the two is losing children faster, so the title follows the window.
+    if (byType.Rural != null && byType.Metro != null && byType.Rural !== byType.Metro) {
+      f.childFaster = byType.Rural > byType.Metro ? 'Rural' : 'Metro';
+    }
     const med = medianByType(counties, (c) => c.vulnerability_score);
     f.compRural = med.Rural?.toFixed(2) ?? null;
 
@@ -618,20 +620,23 @@ export default function MapPage() {
       f.snapSourceUrl = snap.source_url;
       f.snapRange = `${fmtMonthBody(sm[0])} – ${fmtMonthBody(sm[last])}`;
       if (r > 0 && last > r) {
-        f.avgMonthlyK = k((ind[r] - ind[last]) / (last - r));
-        // "It fell every month" is only claimed while it is true.
+        const avg = (ind[r] - ind[last]) / (last - r);
+        f.avgMonthlyK = avg > 0 ? k(avg) : null;
+        // "It fell every month" and "still falling" are only claimed while true.
         f.fellEveryMonth = ind.slice(r, last + 1).every((v, i, a) => i === 0 || v < a[i - 1])
           ? 'yes'
           : null;
+        f.stillFalling = ind[last] < ind[last - 1] ? 'yes' : null;
+        f.rulesMonth = monthLong(RULES_MONTH);
       }
       if (p0 >= 0 && r > p0 && pay) {
         const base = pay[p0];
         let short = 0;
         for (let i = r; i <= last; i++) short += Math.max(0, base - pay[i]);
         f.shortfallM = fmtInt(Math.round(short / 1e6));
-        f.shortfallFrom = monthName(RULES_MONTH);
-        f.shortfallTo = monthName(sm[last]);
-        f.baseMonth = monthName(policy);
+        // With years: the run crosses a year boundary, and keeps lengthening.
+        f.shortfallFrom = monthLong(RULES_MONTH);
+        f.shortfallTo = monthLong(sm[last]);
         f.baseMonthYear = monthLong(policy);
       }
     }
@@ -644,12 +649,12 @@ export default function MapPage() {
       f.mktSourceUrl = marketplace.source_url;
       f.oepSourceUrl = marketplace.oep_source_url;
       f.mktRange = `${fmtMonthBody(em[0])} – ${fmtMonthBody(em[last])}`;
-      if (from >= 0 && from < last) {
-        const d = ev[from] - ev[last];
+      const d = from >= 0 && from < last ? ev[from] - ev[last] : 0;
+      if (d > 0) {
         f.mktDrop = fmtInt(d);
         f.mktDropPct = pctOf(d / ev[from]);
-        f.mktFrom = monthName(em[from]);
-        f.mktTo = monthName(em[last]);
+        f.mktFrom = monthLong(em[from]);
+        f.mktTo = monthLong(em[last]);
       }
       const oep = marketplace.oep.filter((o) => o.not_effectuated_share != null);
       const lo = oep[oep.length - 1];
@@ -1188,8 +1193,7 @@ export default function MapPage() {
             thing on this page a reader might come for and leave with, and it was
             previously the last element before the fold. */}
         <p className={styles.heroBody}>
-          Losses began three months after signing, broke sharply in November, and have run
-          roughly 70,000–80,000 a month since.
+          Losses began three months after signing and broke sharply in November 2025.
         </p>
         <div className={styles.heroBodyRow}>
           <button

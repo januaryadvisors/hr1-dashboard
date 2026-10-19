@@ -60,7 +60,8 @@ const out = {
   source: 'CMS Health Insurance Exchanges Monthly Effectuated Enrollment; CMS OEP County-Level Public Use Files',
   source_url: 'https://data.cms.gov/marketplace/health-insurance-exchanges-monthly-effectuated-enrollment',
   oep_source_url: 'https://www.cms.gov/data-research/statistics-trends-and-reports/marketplace-products',
-  generated: new Date().toISOString().slice(0, 10),
+  // No generated-at timestamp: it would make every run a diff even when
+  // nothing changed, and the weekly Action commits on diff.
   effectuated: { months: eff.map((r) => r.month), values: eff.map((r) => r.value) },
   oep,
 };
