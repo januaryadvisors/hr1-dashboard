@@ -150,17 +150,18 @@ export default function InsightsPage() {
   );
 
   /** The report box's four figures — the same for every place. */
-  const figures = useMemo(
-    () => ({
+  const figures = useMemo(() => {
+    const shortfall = benefitShortfall(scope.payments, i0, i1);
+    return {
       people: windowLoss(scope.enrolled, i0, i1),
       children: windowLoss(scope.children, i0, i1),
       seniors: windowLoss(scope.seniors, i0, i1),
-      shortfall: benefitShortfall(scope.payments, i0, i1),
+      shortfall,
+      baseFromLabel: shortfall ? fmtMonthBody(months[shortfall.baseFrom]) : null,
       sinceLabel:
         state.window[0] === statewide.meta.policy_start ? 'H.R. 1' : fmtMonthBody(state.window[0]),
-    }),
-    [scope, i0, i1, state.window, statewide.meta.policy_start],
-  );
+    };
+  }, [scope, i0, i1, months, state.window, statewide.meta.policy_start]);
 
   /**
    * Print / save as PDF: the browser's own dialog, with the page's print

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ageBandRows,
   benefitShortfall,
+  shortfallLabels,
   buildFunnel,
   buildScope,
   countyTrends,
@@ -375,7 +376,9 @@ describe('headline figures', () => {
     expect(age.label).toBe('Adults 18–59');
     expect(age.body).toMatch(/^The steepest drop of any age group, against −[\d.]+% for all Texans on SNAP\.$/);
     expect(dollars.value).toBe('$600.0K');
-    expect(dollars.body).toBe('In SNAP benefits not going to Texans since H.R. 1.');
+    expect(dollars.body).toBe(
+      'Estimated SNAP benefits not going to Texans since H.R. 1, against a typical month in the year before.',
+    );
     expect(share.body).toBe('In May 2025, down from 12.0% in Jan 2025.');
   });
 });
@@ -387,9 +390,26 @@ describe('windowLoss and benefitShortfall', () => {
     expect(windowLoss(null, 0, 2)).toBeNull();
   });
 
-  it('sums each month below the start level and ignores months above it', () => {
-    // Start 100; months 110 (above, 0), 90 (10), 70 (30) → 40; latest gap 30.
-    expect(benefitShortfall([100, 110, 90, 70], 0, 3)).toEqual({ total: 40, monthly: 30 });
+  it('sums each month against the start level, net of months above it', () => {
+    // Nothing before the start, so the yardstick is 100; −10 + 10 + 30 → 30.
+    expect(benefitShortfall([100, 110, 90, 70], 0, 3)).toEqual({ total: 30, monthly: 30, base: 100, baseFrom: 0 });
     expect(benefitShortfall(null, 0, 3)).toBeNull();
+  });
+
+  it('labels a gain as more spent, not as $0 less', () => {
+    expect(shortfallLabels(600_000)).toEqual({ label: 'Less spent at SNAP-authorized stores', value: '$600.0K' });
+    expect(shortfallLabels(-19_723)).toEqual({ label: 'More spent at SNAP-authorized stores', value: '+$19.7K' });
+  });
+
+  it('averages up to 12 months ending at the start for the yardstick', () => {
+    // 13 months at 120 then a start month of 80: the year to the start averages
+    // (11 × 120 + 80) / 12 = 116.67; two months at 100 → 2 × 16.67.
+    const pay = [...Array(13).fill(120), 80, 100, 100];
+    const short = benefitShortfall(pay, 13, 15);
+    expect(short.baseFrom).toBe(2);
+    expect(short.base).toBeCloseTo((11 * 120 + 80) / 12);
+    expect(short.total).toBeCloseTo(2 * ((11 * 120 + 80) / 12 - 100));
+    // Missing months are skipped, in the yardstick and in the sum.
+    expect(benefitShortfall([100, null, 100, 90, null, 80], 2, 5).total).toBeCloseTo(30);
   });
 });

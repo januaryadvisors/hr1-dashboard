@@ -20,7 +20,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { CountySearch } from '../map/CountySearch';
 import { SegmentedControl } from './SegmentedControl';
 import { HelpList } from '../map/HelpList';
-import { fmtDollars, fmtInt, fmtMonthBody, fmtPctDelta } from '../../lib/format';
+import { fmtInt, fmtMonthBody, fmtPctDelta } from '../../lib/format';
+import { shortfallLabels } from '../../lib/insights';
 /**
  * @typedef {import('../../lib/insights').Scope} Scope
  * @typedef {import('../../lib/insights').WindowChange} WindowChange
@@ -38,8 +39,9 @@ import styles from './ScopeBar.module.css';
  * @property {import('../../data/load').DistrictCounts | null} districtCounts - null hides the geography switch.
  * @property {[string, string]} window
  * @property {{ people: number | null, children: number | null, seniors: number | null,
- *   shortfall: { total: number, monthly: number } | null, sinceLabel: string }} figures - The four headline
- *   figures, for the window. sinceLabel is "H.R. 1" when the window starts at the policy month, else that month.
+ *   shortfall: { total: number, monthly: number, base: number, baseFrom: number } | null,
+ *   baseFromLabel: string | null, sinceLabel: string }} figures - The four headline
+ *   figures, for the window. baseFromLabel is the first month the shortfall's yardstick averages. sinceLabel is "H.R. 1" when the window starts at the policy month, else that month.
  * @property {(geoid: string | null) => void} onSelect
  * @property {() => void} onPrint
  */
@@ -208,18 +210,26 @@ export function ScopeBar({
         <Stat label="Seniors who left SNAP" value={lossLabel(figures.seniors)} sub="65 and older" negative={figures.seniors > 0} />
         {/*
           Cumulative, not one month against another (2026-10-16): every month
-          after the start, how far benefits paid fell below the start month's
-          level, summed. One number for the whole period — the Map story's
-          "$936 million" for Texas — rather than one that moves with whichever
-          month is latest. SNAP benefits can only be spent at SNAP-authorized
-          retailers, so this is money those stores did not take in.
+          after the start, the average month of the year to the start minus
+          benefits paid, summed, net (benefitShortfall). One number for the
+          whole period — the Map story's figure for Texas — rather than one that
+          moves with whichever month is latest. SNAP benefits can only be spent
+          at SNAP-authorized retailers, so this is money those stores did not
+          take in.
         */}
         <Stat
-          label="Less spent at SNAP-authorized stores"
-          value={figures.shortfall ? fmtDollars(Math.max(0, figures.shortfall.total)) : '—'}
-          sub={`in SNAP benefits not going to residents since ${figures.sinceLabel}`}
+          {...(figures.shortfall
+            ? shortfallLabels(figures.shortfall.total)
+            : { label: 'Less spent at SNAP-authorized stores', value: '—' })}
+          sub={`estimated, against a typical month in the year before ${figures.sinceLabel}`}
           negative={figures.shortfall?.total > 0}
-          title={`SNAP benefits paid each month from ${fmtMonthBody(win[0])} to ${fmtMonthBody(win[1])}, below the ${fmtMonthBody(win[0])} level, summed.`}
+          title={
+            figures.shortfall
+              ? `An estimate: the average month from ${figures.baseFromLabel} to ${fmtMonthBody(win[0])}, ` +
+                `minus SNAP benefits paid each month after it through ${fmtMonthBody(win[1])}, summed. ` +
+                'A month above that average counts against the total; a total below zero shows as more spent.'
+              : undefined
+          }
         />
       </dl>
 

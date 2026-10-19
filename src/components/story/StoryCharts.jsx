@@ -215,13 +215,15 @@ export function LineLegend({ items }) {
 
 /**
  * Monthly totals as columns against a reference level, with the gap below the
- * level hatched: the money that did not arrive.
+ * level hatched: the money that did not arrive. Months before `hatchFrom` are
+ * drawn but not hatched, so the hatching matches the total the copy quotes.
  *
  * @param {{
  *   labels: string[],
  *   values: number[],
  *   base: number,
  *   baseLabel: string,
+ *   hatchFrom?: number,
  *   tickEvery?: number,
  *   yTicks: number[],
  *   yFormat: (v: number) => string,
@@ -234,6 +236,7 @@ export function ShortfallFigure({
   values,
   base,
   baseLabel,
+  hatchFrom = 0,
   tickEvery = 2,
   yTicks,
   yFormat,
@@ -276,7 +279,7 @@ export function ShortfallFigure({
             y={y(v)}
             height={y(0) - y(v)}
           />
-          {v < base && (
+          {i >= hatchFrom && v < base && (
             <rect
               fill={`url(#${hatch})`}
               className={styles.gap}

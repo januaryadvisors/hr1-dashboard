@@ -73,7 +73,7 @@ import { loadMarketplace } from '../data/marketplace';
 import { buildGeometry } from '../lib/mapGeometry';
 import { useElementSize } from '../lib/useElementSize';
 import { buildLayerValues, countBinsFor, formatLayerValue, fractionOf } from '../lib/layerValues';
-import { headlineStats, indexTo } from '../lib/insights';
+import { benefitShortfall, headlineStats, indexTo } from '../lib/insights';
 import { binIndex, binsFor } from '../lib/scales';
 import { fmtDelta, fmtInt, fmtMonthBody, fmtMonthFull, fmtPct, fmtPercentile } from '../lib/format';
 /**
@@ -629,15 +629,16 @@ export default function MapPage() {
         f.stillFalling = ind[last] < ind[last - 1] ? 'yes' : null;
         f.rulesMonth = monthLong(RULES_MONTH);
       }
-      if (p0 >= 0 && r > p0 && pay) {
-        const base = pay[p0];
-        let short = 0;
-        for (let i = r; i <= last; i++) short += Math.max(0, base - pay[i]);
-        f.shortfallM = fmtInt(Math.round(short / 1e6));
+      // The hero's arithmetic (benefitShortfall), from the signing, so the two
+      // figures are the same number.
+      const short = p0 >= 0 && last > p0 ? benefitShortfall(pay, p0, last) : null;
+      if (short) {
+        f.shortfallM = fmtInt(Math.round(Math.abs(short.total) / 1e6));
+        f.shortfallMore = short.total < 0 ? 'yes' : null;
         // With years: the run crosses a year boundary, and keeps lengthening.
-        f.shortfallFrom = monthLong(RULES_MONTH);
+        f.shortfallFrom = monthLong(sm[p0 + 1]);
         f.shortfallTo = monthLong(sm[last]);
-        f.baseMonthYear = monthLong(policy);
+        f.baseRange = `${fmtMonthBody(sm[short.baseFrom])} – ${fmtMonthBody(sm[p0])}`;
       }
     }
 
@@ -957,11 +958,13 @@ export default function MapPage() {
         );
       }
 
-      // 1c — monthly payments against the month H.R. 1 was signed.
+      // 1c — monthly payments against the year before H.R. 1 was signed.
       case 'shortfall': {
         if (!snap?.statewide.payments) return null;
         const sm = snap.months;
         const p0 = sm.indexOf(statewide.meta.policy_start);
+        const short = p0 >= 0 ? benefitShortfall(snap.statewide.payments, p0, sm.length - 1) : null;
+        if (!short) return null;
         const ms = sm.slice(p0);
         const vals = snap.statewide.payments.slice(p0);
         return (
@@ -969,8 +972,9 @@ export default function MapPage() {
             title="Total SNAP benefits paid each month"
             labels={ms.map(monthShort)}
             values={vals}
-            base={vals[0]}
-            baseLabel={`${monthLong(ms[0])} level`}
+            base={short.base}
+            baseLabel={`${fmtMonthBody(sm[short.baseFrom])} – ${fmtMonthBody(sm[p0])} average`}
+            hatchFrom={1}
             yTicks={[0, 200e6, 400e6, 600e6]}
             yFormat={(v) => `$${Math.round(v / 1e6)}M`}
           />

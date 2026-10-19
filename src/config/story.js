@@ -116,16 +116,17 @@ export const STORY = [
         id: 'loss-dollars',
         title: (f) =>
           f.shortfallM
-            ? `$${f.shortfallM} million less reached Texas grocery stores`
-            : 'Less is reaching Texas grocery stores',
+            ? `An estimated $${f.shortfallM} million ${f.shortfallMore ? 'more' : 'less'} reached Texas grocery stores`
+            : 'SNAP payments to Texas grocery stores',
         body: (f) =>
           f.shortfallM
-            ? `From ${f.shortfallFrom} through ${f.shortfallTo}, payments ran $${f.shortfallM} million ` +
-              `below ${f.baseMonthYear} levels.`
-            : 'Monthly SNAP payments have fallen since the new rules took effect.',
+            ? `From ${f.shortfallFrom} through ${f.shortfallTo}, SNAP payments ran a net $${f.shortfallM} ` +
+              `million ${f.shortfallMore ? 'above' : 'below'} the average month of the year before H.R. 1 was signed ` +
+              `(${f.baseRange}).`
+            : 'Total SNAP benefits paid each month since H.R. 1 was signed.',
         subhead: (f) =>
           'Total SNAP benefits paid to Texas households each month, in millions of dollars. ' +
-          `Hatched: the amount below the ${f.baseMonthYear} level.`,
+          `Hatched: the amount below the ${f.baseRange} monthly average.`,
         chart: 'shortfall',
         sources: HHSC,
         measure: 'count',

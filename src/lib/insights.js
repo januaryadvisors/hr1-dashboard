@@ -152,20 +152,42 @@ export function windowLoss(series, i0, i1) {
 }
 
 /**
- * SNAP money that did not reach the scope's grocery stores over the window:
- * each month after the start, how far benefits paid fell below the start
- * month's level, summed. Months above the start level count as zero, not as a
- * credit — the same arithmetic as the Map story's "$936 million less".
+ * The shortfall's label and value, for the hero and the Insights report. A
+ * place above its yardstick says so — "More spent", "+$19.7K" — rather than
+ * reading as $0 less.
  *
- * @returns {{ total: number, monthly: number } | null} `monthly` is the latest
- *   month's gap, positive for less. null without a payments series.
+ * @param {number} total - benefitShortfall's total, positive for less.
+ */
+export function shortfallLabels(total) {
+  return total >= 0
+    ? { label: 'Less spent at SNAP-authorized stores', value: fmtDollars(total) }
+    : { label: 'More spent at SNAP-authorized stores', value: `+${fmtDollars(-total)}` };
+}
+
+/** Months averaged for the shortfall's yardstick: the year up to the window's start. */
+export const SHORTFALL_BASE_MONTHS = 12;
+
+/**
+ * SNAP money that did not reach the scope's grocery stores over the window, as
+ * an estimate. The yardstick is the average month over the year ending with the
+ * window's start (fewer months where the series begins later): a single month
+ * would let one high or low month set it, and a year spans one October benefit
+ * increase. Each month after the start, the yardstick minus benefits paid,
+ * summed. Net: a month above the yardstick counts against the total. One
+ * definition for the hero, the Insights report and the Map story's chart.
+ *
+ * @returns {{ total: number, monthly: number, base: number, baseFrom: number } | null}
+ *   `monthly` is the latest month's gap, positive for less; `baseFrom` is the
+ *   index of the first month averaged. null without a payments series.
  */
 export function benefitShortfall(payments, i0, i1) {
   if (!payments || payments[i0] == null || payments[i1] == null) return null;
-  const base = payments[i0];
+  const baseFrom = Math.max(0, i0 - SHORTFALL_BASE_MONTHS + 1);
+  const ref = payments.slice(baseFrom, i0 + 1).filter(Number.isFinite);
+  const base = ref.reduce((t, v) => t + v, 0) / ref.length;
   let total = 0;
-  for (let i = i0 + 1; i <= i1; i++) total += Math.max(0, base - (payments[i] ?? base));
-  return { total, monthly: base - payments[i1] };
+  for (let i = i0 + 1; i <= i1; i++) if (Number.isFinite(payments[i])) total += base - payments[i];
+  return { total, monthly: base - payments[i1], base, baseFrom };
 }
 
 /** Month-over-month change, null at the first month where there is no prior. */
@@ -572,9 +594,11 @@ export function headlineStats(statewide, payments, i0, i1) {
   if (short) {
     const since = months[i0] === statewide.meta.policy_start ? 'H.R. 1' : from;
     out.push({
-      label: 'Less spent at SNAP-authorized stores',
-      value: fmtDollars(Math.max(0, short.total)),
-      body: `In SNAP benefits not going to Texans since ${since}.`,
+      ...shortfallLabels(short.total),
+      body:
+        short.total >= 0
+          ? `Estimated SNAP benefits not going to Texans since ${since}, against a typical month in the year before.`
+          : `Estimated extra SNAP benefits going to Texans since ${since}, against a typical month in the year before.`,
       tone: short.total > 0 ? 'negative' : undefined,
     });
   }
