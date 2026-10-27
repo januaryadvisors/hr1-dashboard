@@ -76,7 +76,7 @@ function parseGeometry(topo) {
  * @property {CountyGeometry} geometry
  * @property {SnapObserved | null} medicaid - Observed Medicaid enrollment, or null when the file is absent.
  * @property {boolean} hasMedicaid - Whether the Medicaid view has data to draw. False hides the view.
- * @property {DistrictCounts | null} districtCounts - TX House / Senate enrollment counts for the Insights
+ * @property {DistrictCounts | null} districtCounts - TX House / Senate / US House enrollment counts for the Insights
  *   scope picker, or null when district-counts.json is absent (the picker then offers counties only).
  * @property {boolean} isFixture - True when either payload carries `fixture: true`. The real build never sets it;
  *   kept so a hand-dropped fixture file still labels itself in downloads.
@@ -116,7 +116,7 @@ function attachMedicaid(counties, statewide, medicaid) {
  * @property {string} geoid - The unit key, e.g. "txhouse-133". NOT a Census GEOID — those collide with county
  *   FIPS (SLDL 48133 is also Eastland County). Named geoid so the county helpers (lossRank, buildFunnel,
  *   search) take a district unchanged.
- * @property {'txhouse' | 'txsenate'} plan
+ * @property {'txhouse' | 'txsenate' | 'ushouse'} plan
  * @property {number} number
  * @property {string} name - "House District 133".
  * @property {number} pop

@@ -1,6 +1,6 @@
 /**
  * <ScopeBar> — the Insights page header. Picks what every chart below reads
- * from: Texas, one county, or one TX House / Senate district.
+ * from: Texas, one county, or one TX House, TX Senate or US House district.
  *
  * This is the control that turns the Insights page into a county stat page. The
  * selection lives in `state.scope` and mirrors to `?county=`, so the URL in the
@@ -143,6 +143,7 @@ export function ScopeBar({
         <div className={styles.picker}>
           {districtCounts && (
             <SegmentedControl
+              className={styles.geo}
               label="Geography"
               size="sm"
               options={[
@@ -279,6 +280,7 @@ const SOURCES = {
   plans: {
     txhouse: 'https://data.capitol.texas.gov/dataset/planh2316',
     txsenate: 'https://data.capitol.texas.gov/dataset/plans2168',
+    ushouse: 'https://data.capitol.texas.gov/dataset/planc2333',
   },
 };
 

@@ -61,6 +61,15 @@
   font-size: var(--text-xs);
 }
 
+@media (max-width: 380px) {
+  .option {
+    padding-inline: 0.65rem;
+  }
+  .sm .option {
+    padding-inline: 0.45rem;
+  }
+}
+
 /* §8: the control stays visible but goes inert where it does not apply. */
 .inert {
   opacity: 0.55;

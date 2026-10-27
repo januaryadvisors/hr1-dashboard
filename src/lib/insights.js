@@ -2,7 +2,7 @@
  * Scope resolution for the Insights page.
  *
  * Every chart on that page reads from a `Scope` — Texas as a whole, one county,
- * or one TX House / Senate district — so switching scope is a data swap rather
+ * or one TX House, TX Senate or US House district — so switching scope is a data swap rather
  * than a different code path per chart. That is what makes
  * `/insights/decline?county=48201` a county stat page and
  * `?district=txhouse-133` a district one: the same charts, the same claims, a

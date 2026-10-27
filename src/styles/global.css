@@ -12,6 +12,11 @@ body,
   height: 100%;
 }
 
+/* Pinch zoom stays; a quick double tap on a control no longer zooms the page. */
+html {
+  touch-action: manipulation;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);

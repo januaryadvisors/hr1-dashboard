@@ -21,6 +21,7 @@ import styles from './SegmentedControl.module.css';
  *   page switch; onGreen for the same switch while the header is the hero's green.
  * @property {boolean} [inert] - Visible but not applicable — §8 requires labelling rather than hiding.
  * @property {string} label
+ * @property {string} [className] - Layout from the parent (e.g. stretching to fill a narrow column).
  */
 
 export function SegmentedControl({
@@ -31,6 +32,7 @@ export function SegmentedControl({
   tone = 'navy',
   inert = false,
   label,
+  className = '',
 }) {
   return (
     <div
@@ -38,7 +40,7 @@ export function SegmentedControl({
         tone === 'onGreen' ? styles.onGreen : ''
       } ${
         inert ? styles.inert : ''
-      }`}
+      } ${className}`}
       role="group"
       aria-label={label}
     >

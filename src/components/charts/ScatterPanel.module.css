@@ -54,6 +54,13 @@
   border-radius: var(--radius);
 }
 
+/* iOS zooms the page into any field under 16px when it takes focus. */
+@media (pointer: coarse) {
+  .select {
+    font-size: 1rem;
+  }
+}
+
 .select:hover {
   border-color: var(--ja-navy);
 }

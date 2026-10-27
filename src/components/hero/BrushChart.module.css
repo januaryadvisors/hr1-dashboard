@@ -135,3 +135,26 @@
     padding: var(--space-4);
   }
 }
+
+/* Phones: the presets take the card's width rather than overrunning it. */
+@media (max-width: 480px) {
+  .presets {
+    display: flex;
+    width: 100%;
+  }
+  .preset {
+    flex: 1 1 auto;
+    padding-inline: 0.4rem;
+  }
+}
+
+@media (max-width: 359px) {
+  .presets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-radius: var(--radius);
+  }
+  .preset {
+    border-radius: calc(var(--radius) - 2px);
+  }
+}

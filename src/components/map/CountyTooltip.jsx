@@ -468,7 +468,7 @@ export function CountyTooltip({
                   .filter(Boolean)
                   .join(' · ')}
               >
-                Households served by food banks
+                Households accessing SNAP application assistance via food banks
               </div>
               {/* null is "no reporting bank covers this county", not zero. */}
               <div

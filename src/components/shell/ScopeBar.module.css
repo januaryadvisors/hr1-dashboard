@@ -365,4 +365,23 @@
   .picker .search {
     width: 100%;
   }
+  /* Stacked under the name, the switch spans the column like the search. */
+  .picker .geo {
+    display: flex;
+  }
+  .picker .geo > button {
+    flex: 1 1 auto;
+  }
+}
+
+/* Four geographies do not fit one row on a small phone: two by two. */
+@container (max-width: 290px) {
+  .picker .geo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-radius: var(--radius);
+  }
+  .picker .geo > button {
+    border-radius: calc(var(--radius) - 2px);
+  }
 }

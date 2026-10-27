@@ -28,7 +28,7 @@
 //                                 certified-CHW ranges.
 //   ../data-raw/capacity/tx_foodbanks.csv  the full roster of Texas member food
 //                                 banks, the denominator of "N of M reporting".
-//   crosswalk_districts.parquet   county and tract -> TX House / TX Senate, block
+//   crosswalk_districts.parquet   county and tract -> TX House / TX Senate / US House, block
 //                                 population weights (helpers/crosswalk.R).
 //   acs_tract.parquet             ACS 2020-24 by tract; low-income and total
 //                                 population, for the weight check and fallbacks.
@@ -553,7 +553,8 @@ const snapObserved = {
 
 // ------------------------------------------------------------- districts
 /*
-   TX House (PlanH2316) and TX Senate (PlanS2168), COUNTS ONLY.
+   TX House (PlanH2316), TX Senate (PlanS2168) and US House (PlanC2333, the 2026
+   congressional map), COUNTS ONLY.
 
    SNAP is published by county. A county wholly inside one district contributes
    its whole caseload, so a district built from whole counties is an exact sum.
@@ -593,6 +594,7 @@ const snapObserved = {
 const CHAMBERS = {
   txhouse: { label: 'TX House', plan: 'PlanH2316', noun: 'House District', expected: 150 },
   txsenate: { label: 'TX Senate', plan: 'PlanS2168', noun: 'Senate District', expected: 31 },
+  ushouse: { label: 'US House', plan: 'PlanC2333', noun: 'Congressional District', expected: 38 },
 };
 
 const ACS_SNAP = resolve(ROOT, 'data/acs-snap-households-tract.json');

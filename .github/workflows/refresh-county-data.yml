@@ -5,8 +5,8 @@ name: Refresh county data
 # push made with GITHUB_TOKEN does not trigger deploy.yml on its own).
 #
 # feeding-texas-hr1 refreshes data-clean/ when a new SNAP month is pushed there
-# (its refresh-snap.yml), so this only has to read it. Weekly is plenty for data
-# that changes monthly; "Run workflow" picks a refresh up the same day.
+# (its refresh-snap.yml), so this only has to read it. That workflow also starts
+# this one as soon as it commits; the weekly schedule is the fallback.
 #
 # One-time setup: a read-only deploy key on feeding-texas-hr1 whose private half
 # is this repo's FT_DEPLOY_KEY secret (it is private; GITHUB_TOKEN cannot read it).

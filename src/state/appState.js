@@ -26,7 +26,7 @@ import { INFRA_TYPES, VIEWS } from '../config/layers';
  * @property {boolean} overlayQ5
  * @property {boolean} overlayGap
  * @property {string | null} scope - What every Insights chart reads from: a county geoid ("48201"), a district
- *   key ("txhouse-133", "txsenate-15"), or null for statewide.
+ *   key ("txhouse-133", "txsenate-15", "ushouse-7"), or null for statewide.
  *   Separate from `hovered` on purpose: `hovered` is transient and pointer-
  *   driven, this is a deliberate, shareable selection. It is what makes
  *   `/insights/decline?county=48201` a county stat page someone can send to a
@@ -42,8 +42,8 @@ import { INFRA_TYPES, VIEWS } from '../config/layers';
  * @typedef {| { type: 'setMeasure'; measure: Measure } | { type: 'setLayer'; layer: LayerKey } | { type: 'setStyle'; style: MapStyle } | { type: 'setWindow'; window: [string, string] } | { type: 'toggleInfra'; key: InfraKey } | { type: 'setInfra'; keys: InfraKey[] } | { type: 'toggleOverlayQ5' } | { type: 'toggleOverlayGap' } | { type: 'setScope'; geoid: string | null } | { type: 'hover'; geoid: string | null; origin?: 'pointer' | 'external' }} Action
  */
 
-/** A scope key naming a legislative district rather than a county. */
-export const isDistrictKey = (key) => typeof key === 'string' && /^tx(house|senate)-\d+$/.test(key);
+/** A scope key naming a legislative or congressional district rather than a county. */
+export const isDistrictKey = (key) => typeof key === 'string' && /^(txhouse|txsenate|ushouse)-\d+$/.test(key);
 
 /** Registries that can draw marks — the sourced ones only (see INFRA_TYPES). */
 export const ALL_INFRA = INFRA_TYPES.filter((t) => t.available).map((t) => t.key);

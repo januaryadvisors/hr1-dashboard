@@ -114,18 +114,20 @@ analysis. `fetch-snap-stats.mjs` sums them in, which is one reason it is no
 longer part of `fetch:data` — running it overwrites the rail's file with a
 series that stops at Aug 2025.
 
-To refresh after HHSC publishes a new month: push the new Tableau export to
-the analysis repo as `data-raw/snap/SNAP-hhsc-<first>-<last>.csv`. Its
+To refresh after HHSC publishes a new month: add the Tableau export to the
+analysis repo's `data-raw/snap/` under any `.csv` name (it is renamed there). Its
 `refresh-snap.yml` reruns the R steps and commits `data-clean/`; this repo's
-`refresh-county-data.yml` rebuilds `public/data/` from it every Monday (or on
-"Run workflow"), commits on change and deploys. The run summary carries the
+`refresh-county-data.yml` rebuilds `public/data/` from it, commits on change and
+deploys. `refresh-snap.yml` starts that run as soon as its commit lands; it also
+runs every Monday and on "Run workflow". The run summary carries the
 build log, including the hero claim checks above. The workflow reads the
 analysis repo with a read-only deploy key stored here as `FT_DEPLOY_KEY`.
 
 ### District counts (Insights only)
 
-`district-counts.json` carries, for each of the 150 TX House (PlanH2316) and 31
-TX Senate (PlanS2168) districts: monthly SNAP enrolled and children, the
+`district-counts.json` carries, for each of the 150 TX House (PlanH2316), 31
+TX Senate (PlanS2168) and 38 US House (PlanC2333, the 2026 congressional map)
+districts: monthly SNAP enrolled and children, the
 newly-subject count, population, and the counties it draws from. It is built in
 the same script, and each chamber reconciles to the statewide total exactly in
 every month.
@@ -139,7 +141,8 @@ every month.
   county data, where the truth is known, the share of enrollees put in the wrong
   county is 15.0% by population, 5.6% by low-income population and 4.2% by SNAP
   households — the build prints this every run. 25 of 150 House and 2 of 31
-  Senate districts are exact.
+  Senate districts are exact; no congressional district is, since each takes in
+  part of at least one split county (for some, like CD 19, well under 1%).
 - **Estimated figures carry a ±.** Each split share has a 90% survey margin
   (`share_moe`), and the scope bar shows it on the district's counts — e.g. HD 134
   is 5,140 ± 1,066 enrollees. The margin moves a district's size, not a
@@ -148,7 +151,8 @@ every month.
   Harris House districts show Harris's −17.1%; only their size differs. The scope
   bar says so, and ranks treat equal figures as ties.
 
-The URL is `/insights/<chapter>?district=txhouse-133` (or `txsenate-15`), and the
+The URL is `/insights/<chapter>?district=txhouse-133` (or `txsenate-15`,
+`ushouse-7`), and the
 district is ranked, funnel-plotted and top-ten'd against its own chamber, not the
 254 counties.
 

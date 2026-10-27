@@ -162,13 +162,19 @@ describe('URL mirroring', () => {
   });
 
   describe('district scope', () => {
-    const keys = new Set(['48201', 'txhouse-133', 'txsenate-15']);
+    const keys = new Set(['48201', 'txhouse-133', 'txsenate-15', 'ushouse-7']);
 
     it('round-trips a district through its own param', () => {
       const p = toSearchParams({ ...defaults, scope: 'txhouse-133' }, defaults);
       expect(p.get('district')).toBe('txhouse-133');
       expect(p.get('county')).toBeNull();
       expect(fromSearchParams(p, defaults, MONTHS, keys).scope).toBe('txhouse-133');
+    });
+
+    it('round-trips a US House district', () => {
+      const p = toSearchParams({ ...defaults, scope: 'ushouse-7' }, defaults);
+      expect(p.get('district')).toBe('ushouse-7');
+      expect(fromSearchParams(p, defaults, MONTHS, keys).scope).toBe('ushouse-7');
     });
 
     it('degrades an unknown district to statewide', () => {

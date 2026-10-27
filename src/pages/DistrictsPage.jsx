@@ -27,22 +27,18 @@ export default function DistrictsPage() {
       <Callout tone="caution" title="Provisional — aggregation method not settled">
         Percentile scores cannot be population-weighted into districts and stay meaningful.
         Districts must be re-ranked from the underlying rates through the block-weighted
-        crosswalk, then percentiled within the 150 or 31 district set. That is a back-end change,
+        crosswalk, then percentiled within the 150, 31 or 38 district set. That is a back-end change,
         so nothing is computed in the browser here.
       </Callout>
 
       <SegmentedControl
+        className={styles.chamber}
         label="Chamber"
         options={[
           { value: 'tx_house', label: 'TX House', title: 'PlanH2316, 150 districts' },
           { value: 'tx_senate', label: 'TX Senate', title: 'PlanS2168, 31 districts' },
-          {
-            value: 'us_house',
-            label: 'US House',
-            disabled: true,
-            // §9: present but disabled, with a tooltip naming the blocker.
-            title: 'Blocked: Feeding Texas has not chosen between PlanC2333 and PlanC2193.',
-          },
+          // PlanC2333, the 2026 map: Feeding Texas decision of 2026-09-28.
+          { value: 'us_house', label: 'US House', title: 'PlanC2333, 38 districts' },
         ]}
         value={chamber}
         onChange={setChamber}
@@ -54,14 +50,14 @@ export default function DistrictsPage() {
         <div className={styles.empty}>
           <h2 className={styles.emptyTitle}>No district data yet</h2>
           <p>
-            <code>districts.json</code> has not been exported. It needs TX House (PlanH2316, 150)
-            and TX Senate (PlanS2168, 31) with the same score fields as counties, re-percentiled
-            within the district set.
+            <code>districts.json</code> has not been exported. It needs TX House (PlanH2316, 150),
+            TX Senate (PlanS2168, 31) and US House (PlanC2333, 38) with the same score fields as
+            counties, re-percentiled within the district set.
           </p>
           <p>
             District <strong>enrollment counts</strong> are already available: open{' '}
-            <Link to="/insights/decline">Insights</Link> and switch the geography to TX House or TX
-            Senate above the search. Those are counts apportioned from counties, not scores.
+            <Link to="/insights/decline">Insights</Link> and switch the geography to TX House, TX
+            Senate or US House above the search. Those are counts apportioned from counties, not scores.
           </p>
           <p className={styles.emptyMeta}>
             Owner: David / January Advisors. Tracked as an open blocker in build spec §12.

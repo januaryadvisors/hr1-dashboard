@@ -36,3 +36,21 @@
   font-size: var(--text-xs);
   color: var(--text-faint);
 }
+
+/* Phones: the page's padding steps down like the other pages', and the switch
+   never runs wider than the column. */
+@media (max-width: 480px) {
+  .page {
+    padding-inline: var(--space-4);
+  }
+}
+
+.chamber {
+  max-width: 100%;
+}
+
+@media (max-width: 360px) {
+  .chamber > button {
+    padding-inline: 0.5rem;
+  }
+}

@@ -5,6 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
   height: var(--header-height);
   padding: 0 var(--space-5);
   background: var(--surface);
@@ -42,6 +43,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .logo {
@@ -57,9 +59,9 @@
 
 .end {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: var(--space-5);
-  min-width: 0;
 }
 
 .title {
@@ -67,6 +69,9 @@
   font-size: var(--text-md);
   font-weight: 600;
   white-space: nowrap;
+  /* The last resort on the narrowest phones: an ellipsis, never a sideways scroll. */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Phones: the page switch shares the bar, so the name steps down a size
@@ -77,6 +82,17 @@
   }
   .title {
     font-size: var(--text-base);
+  }
+}
+
+/* Small phones (iPhone SE, 320px): the placeholder mark goes so the full name
+   still fits beside the switch. */
+@media (max-width: 360px) {
+  .logo {
+    display: none;
+  }
+  .title {
+    font-size: var(--text-sm);
   }
 }
 

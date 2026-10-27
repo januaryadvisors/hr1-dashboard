@@ -88,8 +88,12 @@
     padding: var(--space-4) var(--space-4) var(--space-5);
     margin-left: calc(-1 * var(--space-4));
   }
+  /* One column here, so the band runs to the screen's right edge too — by the
+     page's padding exactly. A -100vw overshoot was clipped on desktop but made
+     phone browsers widen the layout viewport to fit it, and since the overshoot
+     is in vw it grew with the viewport it had widened. */
   .root::before {
-    right: -100vw;
+    right: calc(-1 * var(--space-4));
   }
   .title {
     font-size: var(--text-xl);
