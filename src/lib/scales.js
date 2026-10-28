@@ -1,26 +1,16 @@
 /**
  * Bins, ramps and the percentile→colour mapping. Every value here is traceable
- * to rscripts/build_scores.R or to spec §6.4 — do not tune them for looks.
+ * to rscripts/build_scores.R, rscripts/analyze_marketplace_aptc.R or spec §6.4
+ * — do not tune them for looks.
  */
+import { LOSS_LAYERS } from '../config/layers';
 import { colorRampPalette } from './colorRamp';
+import { quantileSorted } from './stats';
 /**
  * @typedef {import('../types').LayerKey} LayerKey
- * @typedef {import('../types').LossKey} LossKey
  */
 
-/**
- * The windowed-loss layers. They read a fraction of the window-start caseload,
- * not a percentile, so they get their own bins.
- *
- * The two SNAP ones share a ramp on purpose: all-persons and children are the
- * same measure on different denominators, and a shared scale is what makes them
- * comparable. Medicaid gets a DIFFERENT hue — it is a different programme with a
- * different denominator, and colouring it the same would invite reading one map
- * off the other.
- */
-export const LOSS_LAYERS = ['loss', 'child_loss', 'medicaid_loss'];
-
-const isLoss = (layer) => (LOSS_LAYERS).includes(layer);
+const isLoss = (layer) => LOSS_LAYERS.includes(layer);
 
 /** build_scores.R:334 — bins on the 0–1 percentile score. Six intervals. */
 export const BINS_SCORE = [0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0];
@@ -35,22 +25,16 @@ export const RAMP_ANCHORS = {
   // Spec §6.4 calls the composite ramp "burgundy, 6 stops"; these are the four
   // anchors the R code uses, interpolated to whatever bin count is in play.
   composite: ['#F2F0EE', '#D9A29A', '#B44A3F', '#5A1D18'],
-  // d5 (Children) has no source column — see spec §3 warning. No ramp assigned.
   /*
-   * Burnt orange to brown, on client direction 2026-10-16 (was plum, then
-   * briefly the composite's red). The two loss layers share it, so the
-   * all-persons and children maps are read on one scale. Distinct from D3's
-   * amber, which is yellower and never reaches brown, and from the composite's
-   * red, which the index keeps.
+   * Burnt orange to brown. The two SNAP loss layers share it on purpose:
+   * all-persons and children are the same measure on different denominators,
+   * and one scale is what makes them comparable. Distinct from D3's amber,
+   * which is yellower and never reaches brown, and from the composite's red.
    */
   loss: ['#F6EFE7', '#E6B88C', '#C0682B', '#5C2C10'],
   child_loss: ['#F6EFE7', '#E6B88C', '#C0682B', '#5C2C10'],
-  /*
-   * Teal, the one brand hue not already carrying a meaning on this page: navy
-   * is D1, amber D3, green D4, burgundy the composite, burnt orange the SNAP loss.
-   * Medicaid is a separate programme on separate data, so it reads separately.
-   */
-  medicaid_loss: ['#EAF6F7', '#8FCDD3', '#3F8E96', '#18454A'],
+  // analyze_marketplace_aptc.R's county APTC map, its ramp_aptc.
+  aca_aptc: ['#EEF6F7', '#9CC8CD', '#3F8E96'],
 };
 
 // ------------------------------------------------------------ class breaks
@@ -79,8 +63,7 @@ function niceAbove(v) {
 }
 
 /**
- * COUNT KEYS: quintile breaks rounded to nice numbers (client direction
- * 2026-10-16). Counts are heavily skewed — the median county lost ~450 people,
+ * COUNT KEYS: quintile breaks rounded to nice numbers. Counts are heavily skewed — the median county lost ~450 people,
  * Harris ~139,000 — so equal-width classes put 248 of 254 counties in the
  * bottom one. Quintiles fix that but print odd edges (104, 229, 454…) that move
  * with every window; rounding keeps the even spread and makes the key readable
@@ -93,10 +76,9 @@ function niceAbove(v) {
 export function roundedQuantileBins(values, classes = 5) {
   const sorted = values.filter((v) => Number.isFinite(v)).sort((x, y) => x - y);
   const max = sorted.length ? sorted[sorted.length - 1] : 1;
-  const at = (p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] ?? 0;
   const edges = [0];
   for (let i = 1; i < classes; i++) {
-    let e = niceRound(at(i / classes));
+    let e = niceRound(quantileSorted(sorted, i / classes) ?? 0);
     // Two quintiles rounding to the same number would collapse a class.
     if (e <= edges[edges.length - 1]) e = niceAbove(edges[edges.length - 1]);
     edges.push(e);
@@ -107,8 +89,7 @@ export function roundedQuantileBins(values, classes = 5) {
 
 /**
  * SHARE KEYS (share of caseload lost): five equal steps of whole percents from
- * 0 to the 98th percentile, the top class open to 100% (client direction
- * 2026-10-16). At a top of ~28% that reads 0 / 6 / 12 / 18 / 24 / 100.
+ * 0 to the 98th percentile, the top class open to 100%. At a top of ~28% that reads 0 / 6 / 12 / 18 / 24 / 100.
  *
  * The 98th percentile rather than the maximum, so one tiny county that lost
  * three quarters of a forty-child caseload does not stretch every class. Still
@@ -119,7 +100,7 @@ export function roundedQuantileBins(values, classes = 5) {
  */
 export function equalShareBins(shares, classes = 5) {
   const sorted = shares.filter((v) => Number.isFinite(v)).sort((x, y) => x - y);
-  const top = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(0.98 * sorted.length))] : 0.25;
+  const top = sorted.length ? quantileSorted(sorted, 0.98) : 0.25;
   const step = Math.max(1, Math.ceil((top * 100) / classes)) / 100;
   const edges = Array.from({ length: classes }, (_, i) => Number((i * step).toFixed(4)));
   edges.push(1);
@@ -127,16 +108,27 @@ export function equalShareBins(shares, classes = 5) {
 }
 
 /**
+ * The Insights map's classes: share of the caseload lost, in equal 3-point
+ * steps with open ends, the same on every map so a colour means the same
+ * percent for a county and for a district. Centred on the statewide loss
+ * (about 20%), where the counties and districts cluster.
+ */
+export const BINS_INSIGHTS_LOSS = [0, 0.12, 0.15, 0.18, 0.21, 0.24, 1];
+
+/**
  * Spec §6.4 — the composite index is rebinned because it sums four percentiles
  * onto a 0–4 range with a very different distribution than a single domain.
  */
 export const BINS_COMPOSITE = [0.8, 1.35, 1.65, 1.85, 2.05, 2.27, 2.66, 3.4];
 
+/** analyze_marketplace_aptc.R's bins_aptc: APTC consumers per 1,000 residents. Seven classes. */
+export const BINS_ACA = [0, 50, 75, 100, 125, 150, 200, Infinity];
+
 /** A loss layer's bands before any window is known: 5 classes of 8 points. */
 const BINS_LOSS_DEFAULT = [0, 0.08, 0.16, 0.24, 0.32, 1];
 
 /**
- * Thresholds for a layer: the composite has its own rebin.
+ * Thresholds for a layer: the composite and the Marketplace layer have their own.
  *
  * A loss layer's bands depend on the window, which this signature knows nothing
  * about, so it returns a default. Callers drawing a loss layer pass the real
@@ -144,6 +136,7 @@ const BINS_LOSS_DEFAULT = [0, 0.08, 0.16, 0.24, 0.32, 1];
  */
 export function binsFor(layer) {
   if (isLoss(layer)) return BINS_LOSS_DEFAULT;
+  if (layer === 'aca_aptc') return BINS_ACA;
   return layer === 'composite' ? BINS_COMPOSITE : BINS_SCORE;
 }
 
@@ -198,10 +191,9 @@ export function colorFor(
 /**
  * The 3x3 red-blue scheme for the bivariate work layer.
  *
- * NOT from build_scores.R — this layer does not exist on the R side. It is an
- * experiment requested on 2026-09-10, and it is the one ramp in this file with
- * no upstream to stay bit-identical to. If it is kept, the R review maps will
- * need the same corners.
+ * NOT from build_scores.R — this layer does not exist on the R side, so it is
+ * the one ramp in this file with no upstream to stay bit-identical to. R review
+ * maps of this layer would need the same corners.
  *
  * The corners, and why these four:
  *
@@ -212,17 +204,16 @@ export function colorFor(
  *
  * THE TWO SINGLE-HIGH CORNERS ARE LUMINANCE-MATCHED ON PURPOSE — red #C13840
  * and blue #215E9E both sit at relative luminance 86, against 39 for the joint
- * corner and 231 for the neutral. The first draft used a darker red (L75) and
- * this blue, which made a high-blue/low-red county read as nearly as urgent as a
- * both-high one and wasted the scheme's whole point. Matching them means
- * lightness now encodes only ONE thing: how much of both is going on. Check any
+ * corner and 231 for the neutral. With a darker red, a high-blue/low-red county
+ * would read as nearly as urgent as a both-high one. Matching them means
+ * lightness encodes only ONE thing: how much of both is going on. Check any
  * replacement corners against that before committing them.
  *
  * Nine classes, not sixteen: at 254 counties a 4x4 asks the reader to tell
  * apart colours that differ by a few RGB units. At 3x3 the closest adjacent
  * pair is ~58 units apart in RGB.
  *
- * The requested framing was "red at one opacity over blue at another". Blending
+ * The brief's framing is "red at one opacity over blue at another". Blending
  * two translucent layers over white is exactly a bilinear interpolation between
  * these corners, so that is what this computes — as one solid fill per county,
  * which keeps a single path per shape and avoids double-stroking every border.
@@ -303,9 +294,8 @@ export function quantileBins(values, classes) {
   const sorted = values.filter((v) => Number.isFinite(v)).sort((x, y) => x - y);
   if (!sorted.length) return Array.from({ length: classes + 1 }, (_, i) => i / classes);
 
-  const at = (p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
   const out = [sorted[0]];
-  for (let i = 1; i < classes; i++) out.push(at(i / classes));
+  for (let i = 1; i < classes; i++) out.push(quantileSorted(sorted, i / classes));
   out.push(sorted[sorted.length - 1]);
 
   // binIndex needs strictly increasing edges, and a tied distribution (every
@@ -314,10 +304,4 @@ export function quantileBins(values, classes) {
     if (out[i] <= out[i - 1]) out[i] = out[i - 1] + 1e-9;
   }
   return out;
-}
-
-/** Quintile 1–5 from a 0–1 percentile. Mirrors build_scores.R's tier(). */
-export function quintile(p) {
-  if (p == null || !Number.isFinite(p)) return null;
-  return Math.min(5, Math.floor(p * 5) + 1);
 }

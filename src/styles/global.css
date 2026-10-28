@@ -12,7 +12,7 @@ body,
   height: 100%;
 }
 
-/* Pinch zoom stays; a quick double tap on a control no longer zooms the page. */
+/* Pinch zoom stays; a quick double tap on a control does not zoom the page. */
 html {
   touch-action: manipulation;
 }
@@ -23,8 +23,8 @@ body {
   font-size: var(--step-0);
   line-height: 1.5;
   color: var(--text);
-  /* The tan is the page ground now, so overscroll and any gap below short
-     content show tan rather than a white band. */
+  /* The tan is the page ground, so overscroll and any gap below short content
+     show tan rather than a white band. */
   background: var(--surface-warm);
   -webkit-font-smoothing: antialiased;
 }
@@ -52,8 +52,7 @@ button {
 .visually-hidden {
   position: absolute;
   width: 1px;
-  height: 1px
-  ;
+  height: 1px;
   padding: 0;
   margin: -1px;
   overflow: hidden;
@@ -63,19 +62,107 @@ button {
 }
 
 /* An outline, not a box-shadow: a component's own shadow (the Jump to pill's
-   drop shadow, for one) used to replace the ring entirely, and an outline also
+   drop shadow, for one) would replace a box-shadow ring, and an outline also
    survives Windows high-contrast mode, where box-shadows are dropped. */
 :focus-visible {
   outline: 2px solid var(--ja-teal);
   outline-offset: 2px;
 }
 
-/* Eyebrow: a small semibold label. Sentence case since the 2026-10-16 comps (was tracked caps, §6.1). */
+/* Eyebrow: a small semibold label, in sentence case. */
 .eyebrow {
   font-family: var(--font-display);
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-muted);
+}
+
+/*
+ * Pill buttons: `pill` plus at most one size and one tone modifier.
+ *   sizes  (default 14px) · pill-sm (13px) · pill-xs (13px, tight) · pill-lg
+ *   tones  (default ink on white) · pill-navy · pill-quiet (transparent until
+ *          hovered or open) · pill-faint (muted, hairline) · pill-on-green
+ *   state  pill-on: selected, navy fill. aria-expanded="true" reads as hovered.
+ * This file loads after the CSS modules, so a module class cannot override
+ * these at equal specificity; it should only add what the pill leaves unset.
+ */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.35rem 0.8rem;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.pill:hover,
+.pill[aria-expanded='true'] {
+  border-color: var(--ja-navy);
+}
+
+.pill-sm {
+  gap: var(--space-1);
+  padding: 0.25rem 0.7rem;
+  font-size: var(--text-xs);
+}
+
+.pill-xs {
+  gap: var(--space-1);
+  padding: 0.15rem 0.5rem;
+  font-size: var(--text-xs);
+}
+
+.pill-lg {
+  padding: 0.5rem 1.1rem;
+}
+
+.pill-navy {
+  color: var(--ja-navy);
+}
+
+.pill-quiet {
+  background: transparent;
+}
+
+.pill-quiet:hover,
+.pill-quiet[aria-expanded='true'] {
+  background: var(--surface);
+}
+
+.pill-faint {
+  color: var(--text-muted);
+  background: transparent;
+  border-color: var(--hairline);
+}
+
+.pill-faint:hover {
+  color: var(--text);
+  border-color: var(--hairline-strong);
+}
+
+.pill-on-green {
+  color: var(--on-green);
+  background: transparent;
+  border-color: var(--on-green-muted);
+}
+
+.pill-on-green:hover {
+  color: var(--ft-green);
+  background: var(--on-green);
+  border-color: var(--on-green);
+}
+
+.pill-on,
+.pill-on:hover {
+  color: var(--text-inverse);
+  background: var(--ja-navy);
+  border-color: var(--ja-navy);
 }
 
 /*
@@ -100,6 +187,6 @@ html.story-snap {
     print-color-adjust: exact;
   }
   body {
-    background: #fff;
+    background: var(--surface);
   }
 }

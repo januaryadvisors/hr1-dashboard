@@ -2,11 +2,8 @@
 // district-counts.json from the analysis repo's data-clean/ outputs — spec §3.1
 // and §3.3, on REAL data.
 //
-// This replaces scripts/build-fixtures.mjs, which synthesised every county value
-// (populations, domain scores, enrollment, children, infrastructure) and only
-// pinned the statewide endpoints to the published figures. Nothing here is
-// synthetic. Every value is read from a parquet the R pipeline wrote, and every
-// number derived here is arithmetic on those reads.
+// Nothing here is synthetic. Every value is read from a parquet the R pipeline
+// wrote, and every number derived here is arithmetic on those reads.
 //
 // Inputs (feeding-texas-hr1/data-clean/):
 //   snap_county_monthly.parquet   HHSC SNAP by county x month, Jan 2022 onward.
@@ -40,21 +37,21 @@
 //       FT_DATA=/path/to/data-clean npm run build:counties
 //
 // SAFETY: every check below throws BEFORE anything is written. A short month, a
-// missing county or an age band that no longer adds up leaves the committed
+// missing county or an age band that does not add up leaves the committed
 // files untouched.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { gzipSync } from 'node:zlib';
-import { dirname, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parquetReadObjects } from 'hyparquet';
-import { compressors } from 'hyparquet-compressors';
+import { existsSync, readFileSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import { feature } from 'topojson-client';
 import { geoCentroid } from 'd3-geo';
-import { buildFunnel, countyTrends, excessDecline } from '../src/lib/insights.js';
+import { buildFunnel } from '../src/lib/insights.js';
+import { TX_COUNTIES, TX_TRACTS } from './lib/constants.mjs';
+import { writeJson } from './lib/io.mjs';
+import { monthNumber, monthRange, yearMonth } from './lib/months.mjs';
+import { readParquet } from './lib/parquet.mjs';
+import { FT_DATA, ROOT } from './lib/paths.mjs';
+import { countyTrends, excessDecline } from './lib/trends.mjs';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const FT_DATA = resolve(ROOT, process.env.FT_DATA ?? '../feeding-texas-hr1/data-clean');
 const GEOMETRY = resolve(ROOT, 'public/data/geometry.json');
 
 /** HR1/OBBBA signed 4 Jul 2025; July is the pre-decline baseline (spec §6.1). */
@@ -72,40 +69,7 @@ function fail(msg) {
 }
 
 // ------------------------------------------------------------------- read
-async function readParquet(file) {
-  const path = resolve(FT_DATA, file);
-  if (!existsSync(path)) fail(`${file} not found in ${FT_DATA} — set FT_DATA`);
-  const buf = readFileSync(path);
-  // A Git LFS pointer is ~130 bytes of text; parsing it gives a baffling error.
-  if (buf.length < 1024 && buf.toString('utf8', 0, 40).startsWith('version https://git-lfs')) {
-    fail(`${file} is a Git LFS pointer — run \`git lfs pull\` in the analysis repo`);
-  }
-  const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-  const rows = await parquetReadObjects({ file: ab, compressors });
-  // int64 columns arrive as BigInt; every count here fits a double exactly.
-  return rows.map((r) =>
-    Object.fromEntries(
-      Object.entries(r).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v]),
-    ),
-  );
-}
-
 const monthOf = (v) => (v instanceof Date ? v.toISOString() : String(v)).slice(0, 7);
-
-function monthRange(start, end) {
-  const out = [];
-  let [y, m] = start.split('-').map(Number);
-  const [ey, em] = end.split('-').map(Number);
-  while (y < ey || (y === ey && m <= em)) {
-    out.push(`${y}-${String(m).padStart(2, '0')}`);
-    m += 1;
-    if (m > 12) {
-      m = 1;
-      y += 1;
-    }
-  }
-  return out;
-}
 
 const byGeoid = (rows, label) => {
   const map = new Map(rows.map((r) => [r.geoid, r]));
@@ -113,7 +77,7 @@ const byGeoid = (rows, label) => {
   return map;
 };
 
-const [monthly, vuln, snapCounty, capacity, foodbank, crosswalk, acsTract] = await Promise.all([
+const [monthly, vuln, snapCounty, capacity, foodbank, crosswalk, acsTract, marketplace] = await Promise.all([
   readParquet('snap_county_monthly.parquet'),
   readParquet('vulnerability_county.parquet'),
   readParquet('snap_county.parquet'),
@@ -121,6 +85,7 @@ const [monthly, vuln, snapCounty, capacity, foodbank, crosswalk, acsTract] = awa
   readParquet('foodbank_county.parquet'),
   readParquet('crosswalk_districts.parquet'),
   readParquet('acs_tract.parquet'),
+  readParquet('marketplace_county.parquet'),
 ]);
 
 const topo = JSON.parse(readFileSync(GEOMETRY, 'utf8'));
@@ -135,12 +100,24 @@ const shapes = feature(topo, topo.objects.counties)
 // ----------------------------------------------------------------- joins
 // The geometry is the spine: load.js refuses to render if a shape has no row.
 const GEOIDS = shapes.map((s) => s.geoid);
-if (GEOIDS.length !== 254) fail(`geometry has ${GEOIDS.length} counties, expected 254`);
+if (GEOIDS.length !== TX_COUNTIES) fail(`geometry has ${GEOIDS.length} counties, expected ${TX_COUNTIES}`);
 
 const VULN = byGeoid(vuln, 'vulnerability_county');
 const TYPE = byGeoid(snapCounty, 'snap_county');
 const CAPACITY = byGeoid(capacity, 'capacity_county');
 const FOODBANK = byGeoid(foodbank, 'foodbank_county');
+
+/*
+   ACA Marketplace, the latest open enrollment: consumers with an advance
+   premium tax credit (APTC), the population whose coverage depends on the
+   subsidy. Per 1,000 residents on the 2026 projected population, exactly as
+   feeding-texas-hr1 rscripts/analyze_marketplace_aptc.R maps it.
+*/
+const ACA_YEAR = Math.max(...marketplace.map((r) => Number(r.year)));
+const ACA = byGeoid(
+  marketplace.filter((r) => Number(r.year) === ACA_YEAR),
+  `marketplace_county ${ACA_YEAR}`,
+);
 
 /*
    Food-bank coverage, for every title that quotes it — derived here so no
@@ -156,12 +133,11 @@ const FOODBANK_NAMES = {
 const FOODBANK_SLUGS = Object.keys(foodbank[0])
   .filter((k) => k.startsWith('unique_hh_') && k !== 'unique_hh_total')
   .map((k) => k.slice('unique_hh_'.length));
-const MON = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
 const foodbankCoverage = (() => {
   const periods = [...new Set(foodbank.map((r) => r.data_period))];
   if (periods.length !== 1) fail(`foodbank_county: expected one data_period, got ${periods.join(' | ')}`);
   const m = /([A-Z][a-z]{2})(\d{4})\s*-\s*([A-Z][a-z]{2})(\d{4})/.exec(periods[0]);
-  if (!m || !MON[m[1]] || !MON[m[3]]) fail(`foodbank_county: cannot read data_period "${periods[0]}"`);
+  if (!m || !monthNumber(m[1]) || !monthNumber(m[3])) fail(`foodbank_county: cannot read data_period "${periods[0]}"`);
   const slugs = FOODBANK_SLUGS;
   const unknown = slugs.filter((sl) => !FOODBANK_NAMES[sl]);
   if (unknown.length) fail(`foodbank_county: no full name for bank slug(s) ${unknown.join(', ')} — add to FOODBANK_NAMES`);
@@ -170,7 +146,7 @@ const foodbankCoverage = (() => {
     ? readFileSync(rosterPath, 'utf8').trim().split('\n').length - 1
     : null;
   return {
-    period: [`${m[2]}-${MON[m[1]]}`, `${m[4]}-${MON[m[3]]}`],
+    period: [yearMonth(m[2], monthNumber(m[1])), yearMonth(m[4], monthNumber(m[3]))],
     banks_reporting: slugs.map((sl) => FOODBANK_NAMES[sl]),
     banks_total: total,
     counties_with_data: foodbank.filter((r) => r.coverage_note !== 'no_data').length,
@@ -190,8 +166,7 @@ for (const [label, map] of [
 }
 
 // capacity_county copies foodbank_county in a separate R step, so a bank that
-// reports after that step ran leaves the copy behind (East and West, 2026-10).
-// Food-bank values are read from foodbank_county itself; this only says when
+// reports after that step ran leaves the copy behind. Food-bank values are read from foodbank_county itself; this only says when
 // the copy needs a rerun, so the analysis repo's own users are not misled.
 const staleFb = GEOIDS.filter(
   (g) => (CAPACITY.get(g).fb_hh_served ?? null) !== (FOODBANK.get(g).unique_hh_total ?? null),
@@ -267,8 +242,8 @@ for (const [g, s] of series) {
    They do not add up EXACTLY in 2022: HHSC's sheets fall a few dozen people
    short statewide (worst case 76 of ~3.5M, presumably records with no age). From
    2023 on they reconcile to the person. 0.05% statewide is loose enough for that
-   and tight enough that a dropped band — 60–64 once went missing upstream, worth
-   ~139,000 people — still fails the build.
+   and tight enough that a dropped band (60–64 alone is ~139,000 people) still
+   fails the build.
 */
 const unbanded = [];
 MONTHS.forEach((m, i) => {
@@ -323,11 +298,12 @@ const records = shapes.map((shape) => {
   rec.noncit_snap_persons = Math.round(v.noncit_snap_persons);
 
   rec.snap_enrolled = s.enrolled;
-  // Under-18s, straight from the county's own age columns — the genuine
-  // county-by-month child series §A4 said the export owed.
+  // Under-18s, straight from the county's own age columns (§A4).
   rec.snap_children = s.enrolled.map((_, i) => s.bands[0][i] + s.bands[1][i]);
   // 65+, the same band the statewide "seniors" series uses.
   rec.snap_seniors = s.bands[4].slice();
+  // All five bands, keyed like statewide.age_series, for the Insights age charts.
+  rec.snap_age = Object.fromEntries(BANDS.map(([, band], b) => [band, s.bands[b].slice()]));
   // Total SNAP benefits paid to the county's households each month, whole dollars.
   rec.snap_payments = s.payments.map((v) => Math.round(v ?? 0));
 
@@ -367,6 +343,10 @@ const records = shapes.map((shape) => {
   // Which banks, by full name.
   rec.foodbank_banks = fbServing.length ? fbServing.map((sl) => FOODBANK_NAMES[sl]) : null;
 
+  const aca = ACA.get(shape.geoid);
+  rec.aptc_consumers = num(aca?.aptc_consumers);
+  rec.aptc_per_1k = rec.aptc_consumers == null ? null : round((rec.aptc_consumers / pop) * 1000, 1);
+
   rec.small_denominator = pop < SMALL_DENOMINATOR;
   rec.centroid = shape.centroid;
   rec.county_type = TYPE.get(shape.geoid).county_type;
@@ -375,10 +355,10 @@ const records = shapes.map((shape) => {
 
 /*
    is_gap — spec §3.1 defines it as top-quintile vulnerability with zero
-   food-bank sites AND zero navigators. There is no food-bank registry, so this
-   uses the half that exists: top-quintile vulnerability and no CMS navigator.
-   The overlay's label says exactly that; restore the food-bank clause when the
-   registry lands.
+   food-bank sites AND zero navigators. Food-bank coverage is partial (only some
+   member banks report), so a county with no reporting bank is unknown, not
+   zero. This uses the half that covers every county: top-quintile
+   vulnerability and no CMS navigator. The overlay's label says exactly that.
 */
 const composites = records.map((r) => r.vulnerability_score).sort((a, b) => a - b);
 const q5Cut = composites[Math.floor(composites.length * 0.8)];
@@ -386,9 +366,9 @@ for (const r of records) {
   r.is_gap = r.vulnerability_score >= q5Cut && r.infra.cms_navigator === 0;
 }
 
-// Tile-cartogram lattice (§3.1 grid). The cartogram view is gone, but the
-// lattice still drives keyboard navigation order. Biggest counties place first
-// so metros hold their true position and rural counties absorb displacement.
+// Tile-cartogram lattice (§3.1 grid): the story's grid view draws it, and it
+// sets keyboard navigation order on the map. Biggest counties place first so
+// metros hold their true position and rural counties absorb displacement.
 function assignGrid(cols = 22, rows = 24) {
   const lons = records.map((r) => r.centroid[0]);
   const lats = records.map((r) => r.centroid[1]);
@@ -462,9 +442,8 @@ const typeRollup = ['Metro', 'Micro', 'Rural'].map((type) => {
 
 /*
    Excess decline — the notebook's "sharper cut" (snap-enrollment-trends.qmd).
-   Each county's own linear trend over TREND_WINDOW, projected forward. The hero
-   computes it live for the brush window (src/lib/insights.js headlineStats);
-   it is printed here as a check, and TREND_WINDOW ships in meta.
+   Each county's own linear trend over TREND_WINDOW, projected forward. Printed
+   here as a check against the notebook; TREND_WINDOW ships in meta.
 */
 const trends = countyTrends(records, TREND_WINDOW.map((m) => MI.get(m)));
 
@@ -483,6 +462,8 @@ const statewide = {
     foodbank: foodbankCoverage,
     // Certified-CHW range labels, lowest first: infra.chw = i + 1 is CHW_BANDS[i].
     chw_bands: CHW_BANDS.map((b) => b.label),
+    // The open-enrollment year aptc_consumers and aptc_per_1k describe.
+    aca_year: ACA_YEAR,
     generated_from: 'scripts/build-county-data.mjs',
     sources: [
       'Texas HHSC SNAP cases and eligible individuals by county, monthly (Excel to Aug 2025; PMAS Tableau export from Sep 2025)',
@@ -490,6 +471,7 @@ const statewide = {
       'Texas Demographic Center projected 2026 population (via HHSC ArcGIS) — the participation denominator',
       'feeding-texas-hr1 rscripts/capacity/build_capacity_county.R — capacity_county: CMS 2025–26 Navigator awardees (counties served); HHSC Community Partner Program sites; DSHS annual report certified-CHW ranges',
       `Feeding Texas member food banks, unique households served by county, ${foodbankCoverage.period.join(' to ')} (${foodbankCoverage.banks_reporting.join(', ')})`,
+      `CMS Marketplace Open Enrollment County-Level Public Use File, ${ACA_YEAR} (feeding-texas-hr1 rscripts/collect_marketplace.R) — consumers with APTC`,
     ],
     notes: [
       'Statewide figures are the sum of the 254 counties; HHSC call-center and state-office rows are excluded.',
@@ -512,8 +494,7 @@ const statewide = {
     households: round(pct(cases[p0], cases[last]), 4),
   },
   county_type_rollup: typeRollup,
-  // The policy-window funnel, for the download and for reference. The Insights
-  // page refits it for whatever window the brush is on — see buildFunnel().
+  // The policy-window funnel (buildFunnel), for the download and for reference.
   funnel: {
     method: 'empirical: |deviation| ~ caseload^b fitted in logs (snap-enrollment-trends.qmd)',
     center: round(funnel.center, 5),
@@ -549,7 +530,6 @@ const snapObserved = {
     change: statewide.monthly_change,
   },
 };
-
 
 // ------------------------------------------------------------- districts
 /*
@@ -600,7 +580,9 @@ const CHAMBERS = {
 const ACS_SNAP = resolve(ROOT, 'data/acs-snap-households-tract.json');
 if (!existsSync(ACS_SNAP)) fail('data/acs-snap-households-tract.json missing — run `npm run fetch:acs-snap`');
 const snapTracts = JSON.parse(readFileSync(ACS_SNAP, 'utf8')).tracts;
-if (Object.keys(snapTracts).length !== 6896) fail('ACS SNAP tract file does not have the 6,896 Texas tracts');
+if (Object.keys(snapTracts).length !== TX_TRACTS) {
+  fail(`ACS SNAP tract file does not have the ${TX_TRACTS.toLocaleString('en-US')} Texas tracts`);
+}
 
 const tractVar = (name) => {
   const out = new Map();
@@ -736,6 +718,7 @@ for (const [plan, chamber] of Object.entries(CHAMBERS)) {
   const childrenF = MONTHS.map(zeros);
   const seniorsF = MONTHS.map(zeros);
   const paymentsF = MONTHS.map(zeros);
+  const bandsF = BANDS.map(() => MONTHS.map(zeros));
   const subjectF = zeros();
   const popF = zeros();
   const julyFromSplit = zeros();
@@ -751,6 +734,9 @@ for (const [plan, chamber] of Object.entries(CHAMBERS)) {
         childrenF[i][k] += sh * r.snap_children[i];
         seniorsF[i][k] += sh * r.snap_seniors[i];
         paymentsF[i][k] += sh * r.snap_payments[i];
+        BANDS.forEach(([, band], b) => {
+          bandsF[b][i][k] += sh * r.snap_age[band][i];
+        });
       });
       subjectF[k] += sh * r.newly_subject_persons;
       if (!whole) julyFromSplit[k] += sh * r.snap_enrolled[p0];
@@ -773,6 +759,7 @@ for (const [plan, chamber] of Object.entries(CHAMBERS)) {
   const childrenI = MONTHS.map((_, i) => apportion(childrenF[i], childTotal[i]));
   const seniorsI = MONTHS.map((_, i) => apportion(seniorsF[i], bandSeries[4][i]));
   const paymentsI = MONTHS.map((_, i) => apportion(paymentsF[i], payments[i]));
+  const bandsI = BANDS.map((_, b) => MONTHS.map((_, i) => apportion(bandsF[b][i], bandSeries[b][i])));
 
   ids.forEach((d, k) => {
     const julyTotal = enrolledF[p0][k];
@@ -786,6 +773,9 @@ for (const [plan, chamber] of Object.entries(CHAMBERS)) {
       snap_children: MONTHS.map((_, i) => childrenI[i][k]),
       snap_seniors: MONTHS.map((_, i) => seniorsI[i][k]),
       snap_payments: MONTHS.map((_, i) => paymentsI[i][k]),
+      snap_age: Object.fromEntries(
+        BANDS.map(([, band], b) => [band, MONTHS.map((_, i) => bandsI[b][i][k])]),
+      ),
       newly_subject_persons: Math.round(subjectF[k]),
       exact: julyFromSplit[k] === 0,
       allocated_share: julyTotal > 0 ? round(julyFromSplit[k] / julyTotal, 4) : 0,
@@ -863,9 +853,8 @@ const vintageDrift = records.filter((r) => {
 });
 
 /*
-   The hero's three hand-written figures live in timeline.json. They are
-   editorial, so they are checked rather than overwritten — a mismatch prints
-   loudly and the build carries on.
+   Claims the Map page makes in prose, checked against the data. A mismatch
+   prints loudly and the build carries on.
 */
 const fmtPctS = (v) => `${v < 0 ? '−' : ''}${Math.abs(v * 100).toFixed(1)}%`;
 const band1859 = ageBands.find((b) => b.band === '18–59').pct_change;
@@ -886,21 +875,14 @@ const checks = [
     `${Math.max(...sinceBreak).toLocaleString()} to ${Math.min(...sinceBreak).toLocaleString()}`,
   ],
   ['18–59 change since Jul 2025', fmtPctS(band1859)],
-  ['excess decline vs own trend', fmtPctS(excessDecline(trends, last))],
   ['participation, latest', `${(statewide.participation_share[last] * 100).toFixed(1)}%`],
   ['participation, Jul 2025', `${(statewide.participation_share[p0] * 100).toFixed(1)}%`],
 ];
 
 // ----------------------------------------------------------------- write
 const write = (name, obj) => {
-  const path = resolve(ROOT, 'public/data', name);
-  const json = JSON.stringify(obj);
-  writeFileSync(path, `${json}\n`);
-  const gz = gzipSync(Buffer.from(json)).length;
-  console.log(
-    `  ${name.padEnd(18)} ${(json.length / 1024).toFixed(1).padStart(7)}KB raw  ` +
-      `${(gz / 1024).toFixed(1).padStart(6)}KB gz`,
-  );
+  const { kb, gzKb } = writeJson(resolve(ROOT, 'public/data', name), obj);
+  console.log(`  ${name.padEnd(18)} ${kb.toFixed(1).padStart(7)}KB raw  ${gzKb.toFixed(1).padStart(6)}KB gz`);
 };
 
 console.log(`source ${relative(ROOT, FT_DATA)} · ${MONTHS[0]} → ${MONTHS[last]} (${MONTHS.length} months)\n`);
@@ -917,10 +899,10 @@ const withCpp = records.filter((r) => r.infra.cpp > 0).length;
 
 console.log('\nchecks');
 console.log(`  window change Jul 2025 → ${MONTHS[last]}  ${(enrolled[last] - enrolled[p0]).toLocaleString()}`);
-console.log(`  counties that declined        ${declined.length} of 254`);
+console.log(`  counties that declined        ${declined.length} of ${TX_COUNTIES}`);
 console.log(`  small_denominator counties    ${records.filter((r) => r.small_denominator).length}`);
 console.log(`  cumulative impact 0–4         ${cum.join(' / ')}`);
-console.log(`  navigator counties            ${withNav} (${254 - withNav} with none)`);
+console.log(`  navigator counties            ${withNav} (${TX_COUNTIES - withNav} with none)`);
 console.log(`  certified-CHW counties        ${withChw} · bands ${CHW_BANDS.map((b) => b.label).join(' / ')}`);
 if (staleFb) {
   console.log(`  ! capacity_county's food-bank copy is stale in ${staleFb} counties — rerun rscripts/capacity/build_capacity_county.R (values here come from foodbank_county)`);
@@ -929,6 +911,7 @@ console.log(`  CPP L3–4 counties             ${withCpp} · max ${Math.max(...r
 console.log(`  food-bank counties            ${foodbankCoverage.counties_with_data} with data · ${banksPhrase} · ${foodbankCoverage.period.join(' → ')}`);
 console.log(`  gap counties (Q5, no nav)     ${records.filter((r) => r.is_gap).length}`);
 console.log(`  funnel: outside 2sd           ${funnel.points.filter((p) => p.outside).length} of ${funnel.points.length}`);
+console.log(`  excess decline vs own trend   ${fmtPctS(excessDecline(trends, last))} (notebook's sharper cut)`);
 console.log(`  unbanded months               ${unbanded.length}`);
 console.log(
   `  split weight check            misplaced across counties: ${Object.entries(weightCheck)

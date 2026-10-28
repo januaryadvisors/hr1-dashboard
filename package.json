@@ -2,7 +2,7 @@
   "name": "hr1-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Texas SNAP & H.R. 1 — D1 county vulnerability dashboard for Feeding Texas.",
+  "description": "Texas SNAP & H.R. 1 \u2014 D1 county vulnerability dashboard for Feeding Texas.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,15 +12,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:geometry": "node scripts/build-geometry.mjs",
+    "build:district-geometry": "node scripts/build-district-geometry.mjs",
     "build:counties": "node scripts/build-county-data.mjs",
-    "build:data": "npm run build:geometry && npm run build:counties",
+    "build:data": "npm run build:geometry && npm run build:district-geometry && npm run build:counties",
     "fetch:bulletins": "node scripts/fetch-texas-works.mjs",
     "serve:pages": "node scripts/serve-as-pages.mjs",
-    "fetch:snap": "node scripts/fetch-snap-stats.mjs",
-    "fetch:data": "npm run fetch:bulletins && npm run fetch:medicaid",
-    "fetch:medicaid": "node scripts/fetch-medicaid-stats.mjs",
+    "fetch:data": "npm run fetch:bulletins",
     "fetch:acs-snap": "node scripts/fetch-acs-snap-tracts.mjs",
-    "build:marketplace": "node scripts/build-marketplace.mjs"
+    "build:marketplace": "node scripts/build-marketplace.mjs",
+    "build:spec": "node scripts/extract-spec.mjs"
   },
   "dependencies": {
     "d3-array": "^3.2.4",

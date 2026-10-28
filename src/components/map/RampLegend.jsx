@@ -4,14 +4,13 @@
  * Rate measure: a continuous ramp bar labelled PERCENTILE IN TEXAS, p0 to p100.
  *
  * Count measure: the SAME bar, labelled with the real headcounts at either end.
- * §6.5 asked for "three nested circles with real values", which was right while
- * count drew proportional symbols; count is a choropleth as of 2026-09-11, and a
- * circle key for a map with no circles on it would be a key to nothing.
+ * §6.5's "three nested circles with real values" is a key for proportional
+ * symbols; count is a choropleth here (see <CountyMap>), and a circle key for a
+ * map with no circles on it would be a key to nothing.
  *
- * Each swatch names its own range on hover or focus (2026-10-16), which also
- * answers the question the old "each shade holds the same number of counties"
- * note was there for: the count bands are equal-count, so their ranges are
- * uneven, and the tooltip shows exactly how uneven.
+ * Each swatch names its own range on hover or focus. The count bands are
+ * equal-count, so their ranges are uneven, and the tooltip shows exactly how
+ * uneven.
  */
 import { fmtInt } from '../../lib/format';
 import { rampFor } from '../../lib/scales';

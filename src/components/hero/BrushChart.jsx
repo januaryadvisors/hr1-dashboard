@@ -6,12 +6,18 @@
  * Debounced at 120ms; 24px hit areas; arrow keys move one month per press.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { scaleLinear } from 'd3-scale';
+import { linePath } from '../../lib/chart';
+import { cx } from '../../lib/cx';
 import { fmtMillions, fmtMonth, fmtMonthBody } from '../../lib/format';
 import { useElementSize } from '../../lib/useElementSize';
+import { YGrid } from '../charts/YGrid';
 import styles from './BrushChart.module.css';
 
 const DEBOUNCE_MS = 120;
 const HIT = 24;
+/** A month label's width at 12px, plus air. */
+const LABEL_W = 64;
 
 /**
  * @typedef {Object} Preset
@@ -27,9 +33,9 @@ const HIT = 24;
  * @property {Preset[]} presets
  * @property {(window: [string, string]) => void} onChange
  * @property {(window: [string, string] | null) => void} [onPreview] - Fires on every drag frame, undebounced. §6.2 debounces `onChange` at 120ms
- *   so the map and the summary charts do not recompute mid-drag — but that made
- *   the hero number appear frozen until the handle was released. Cheap readouts
- *   (the eyebrow, the hero number, the feed highlight) follow this instead.
+ *   so the map and the summary charts do not recompute mid-drag; cheap readouts
+ *   (the eyebrow, the hero number, the feed highlight) follow this instead so
+ *   they do not freeze until the handle is released.
  *   Null on release, meaning "no preview, use the committed window".
  * @property {number} [viewWidth] - viewBox width — keep near the rendered width so the axis type stays legible.
  * @property {number} [height]
@@ -46,10 +52,9 @@ export function BrushChart({
   height: H = 150,
 }) {
   /*
-     Authored at the slot's real width (2026-10-16), so axis type renders at the
-     size it is written at. At a fixed 620-wide viewBox scaled to the card, every
-     label came out a third larger than the type around it. `viewWidth` covers
-     the first paint, before the slot is measured.
+     Authored at the slot's real width, so axis type renders at the size it is
+     written at rather than scaled with the card. `viewWidth` covers the first
+     paint, before the slot is measured.
   */
   const [slotRef, slot] = useElementSize();
   const W = Math.round(slot.width) || viewWidth;
@@ -89,9 +94,8 @@ export function BrushChart({
   useEffect(() => () => clearTimeout(timer.current), []);
 
   /**
-   * Fixed 2.8M–4.0M band, per client direction 2026-09-01. Deliberately fixed
-   * rather than fitted to the data so the slope means the same thing across
-   * exports; clamped only if a future export would fall outside it.
+   * Fixed 2.8M–4.0M band rather than fitted to the data, so the slope means the
+   * same thing across exports; widened only if an export falls outside it.
    */
   const [yMin, yMax] = useMemo(() => {
     const lo = Math.min(2.8e6, Math.min(...series));
@@ -105,20 +109,13 @@ export function BrushChart({
     return ticks;
   }, [yMin, yMax]);
 
-  const x = (i) => M.left + (i / (months.length - 1)) * (W - M.left - M.right);
-  const y = (v) => M.top + (1 - (v - yMin) / (yMax - yMin)) * (H - M.top - M.bottom);
-
-  const pathFor = (from, to) =>
-    series
-      .slice(from, to + 1)
-      .map((v, k) => `${k === 0 ? 'M' : 'L'}${x(from + k).toFixed(2)} ${y(v).toFixed(2)}`)
-      .join('');
+  const x = scaleLinear().domain([0, months.length - 1]).range([M.left, W - M.right]);
+  const y = scaleLinear().domain([yMin, yMax]).range([H - M.bottom, M.top]);
 
   const indexFromClientX = (clientX) => {
     const rect = svgRef.current.getBoundingClientRect();
     const px = ((clientX - rect.left) / rect.width) * W;
-    const frac = (px - M.left) / (W - M.left - M.right);
-    return Math.max(0, Math.min(months.length - 1, Math.round(frac * (months.length - 1))));
+    return Math.max(0, Math.min(months.length - 1, Math.round(x.invert(px))));
   };
 
   useEffect(() => {
@@ -163,9 +160,8 @@ export function BrushChart({
   /*
      Where the two handle labels sit: over their handles, but pushed apart
      around their midpoint when the handles are close enough to collide, and
-     kept inside the plot. LABEL_W is a month label's width at 12px, plus air.
+     kept inside the plot.
   */
-  const LABEL_W = 64;
   const labelX = (() => {
     const lo = M.left + LABEL_W / 2;
     const hi = W - M.right - LABEL_W / 2;
@@ -204,7 +200,7 @@ export function BrushChart({
               <button
                 key={p.label}
                 type="button"
-                className={`${styles.preset} ${active ? styles.presetOn : ''}`}
+                className={cx(styles.preset, active && styles.presetOn)}
                 aria-pressed={active}
                 onClick={() => {
                   setRange([a, b]);
@@ -220,88 +216,85 @@ export function BrushChart({
       </div>
 
       <div ref={slotRef} className={styles.slot}>
-      <svg ref={svgRef} className={styles.svg} viewBox={`0 0 ${W} ${H}`} style={{ height: H }}>
-        {yTicks.map((v) => {
-          // Label the round millions only; the 200k gridlines stay unlabelled so
-          // a short chart does not turn into a wall of numbers.
-          const labelled = v % 1e6 === 0 || v % 1e6 === 5e5;
-          return (
-            <g key={v}>
-              <line x1={M.left} x2={W - M.right} y1={y(v)} y2={y(v)} className={styles.gridline} />
-              {labelled && (
-                <text x={M.left - 4} y={y(v) + 3} textAnchor="end" className={styles.axis}>
-                  {fmtMillions(v)}
-                </text>
-              )}
-            </g>
-          );
-        })}
+        <svg ref={svgRef} className={styles.svg} viewBox={`0 0 ${W} ${H}`} style={{ height: H }}>
+          {/* Only the whole and half millions are labelled; the 200k gridlines
+              stay bare so a short chart does not turn into a wall of numbers. */}
+          <YGrid
+            ticks={yTicks}
+            y={y}
+            x1={M.left}
+            x2={W - M.right}
+            format={(v) => (v % 1e6 === 0 || v % 1e6 === 5e5 ? fmtMillions(v) : null)}
+            gap={4}
+            lineClassName={styles.gridline}
+            labelClassName={styles.axis}
+          />
 
-        {yearTicks.map(({ m, i }) => (
-          <text key={m} x={x(i)} y={H - 5} textAnchor="middle" className={styles.axis}>
-            {m.slice(0, 4)}
-          </text>
-        ))}
-
-        {/* Selected window: lifted band, gold line inside, faded cream outside. */}
-        <rect
-          x={x(i0)}
-          y={M.top}
-          width={Math.max(1, x(i1) - x(i0))}
-          height={H - M.top - M.bottom}
-          className={styles.band}
-        />
-        <path d={pathFor(0, months.length - 1)} className={styles.line} />
-        <path d={pathFor(i0, i1)} className={styles.lineIn} />
-
-        {([['start', i0], ['end', i1]]).map(([which, i]) => (
-          <g key={which}>
-            <line x1={x(i)} x2={x(i)} y1={M.top} y2={H - M.bottom} className={styles.handle} />
-            {/* The grip: a pill on the line, so it reads as something to drag. */}
-            <rect
-              x={x(i) - 4}
-              y={(M.top + H - M.bottom) / 2 - 11}
-              width={8}
-              height={22}
-              rx={3}
-              className={styles.grip}
-            />
-            {/* 24px hit area (§6.2), keyboard-reachable, one month per arrow press. */}
-            <rect
-              x={x(i) - HIT / 2}
-              y={M.top}
-              width={HIT}
-              height={H - M.top - M.bottom}
-              className={styles.handleHit}
-              tabIndex={0}
-              role="slider"
-              aria-label={`${which === 'start' ? 'Window start' : 'Window end'}: ${fmtMonth(months[i])}`}
-              aria-valuemin={0}
-              aria-valuemax={months.length - 1}
-              aria-valuenow={i}
-              aria-valuetext={fmtMonth(months[i])}
-              onPointerDown={() => setDrag(which)}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowLeft') {
-                  e.preventDefault();
-                  nudge(which, -1);
-                } else if (e.key === 'ArrowRight') {
-                  e.preventDefault();
-                  nudge(which, 1);
-                }
-              }}
-            />
-            <text
-              x={labelX[which]}
-              y={M.top - 7}
-              textAnchor="middle"
-              className={styles.endpointLabel}
-            >
-              {fmtMonthBody(months[i])}
+          {yearTicks.map(({ m, i }) => (
+            <text key={m} x={x(i)} y={H - 5} textAnchor="middle" className={styles.axis}>
+              {m.slice(0, 4)}
             </text>
-          </g>
-        ))}
-      </svg>
+          ))}
+
+          {/* Selected window: lifted band, gold line inside, faded cream outside. */}
+          <rect
+            x={x(i0)}
+            y={M.top}
+            width={Math.max(1, x(i1) - x(i0))}
+            height={H - M.top - M.bottom}
+            className={styles.band}
+          />
+          <path d={linePath(series, x, y)} className={styles.line} />
+          <path d={linePath(series, x, y, i0, i1)} className={styles.lineIn} />
+
+          {([['start', i0], ['end', i1]]).map(([which, i]) => (
+            <g key={which}>
+              <line x1={x(i)} x2={x(i)} y1={M.top} y2={H - M.bottom} className={styles.handle} />
+              {/* The grip: a pill on the line, so it reads as something to drag. */}
+              <rect
+                x={x(i) - 4}
+                y={(M.top + H - M.bottom) / 2 - 11}
+                width={8}
+                height={22}
+                rx={3}
+                className={styles.grip}
+              />
+              {/* 24px hit area (§6.2), keyboard-reachable, one month per arrow press. */}
+              <rect
+                x={x(i) - HIT / 2}
+                y={M.top}
+                width={HIT}
+                height={H - M.top - M.bottom}
+                className={styles.handleHit}
+                tabIndex={0}
+                role="slider"
+                aria-label={`${which === 'start' ? 'Window start' : 'Window end'}: ${fmtMonth(months[i])}`}
+                aria-valuemin={0}
+                aria-valuemax={months.length - 1}
+                aria-valuenow={i}
+                aria-valuetext={fmtMonth(months[i])}
+                onPointerDown={() => setDrag(which)}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    nudge(which, -1);
+                  } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    nudge(which, 1);
+                  }
+                }}
+              />
+              <text
+                x={labelX[which]}
+                y={M.top - 7}
+                textAnchor="middle"
+                className={styles.endpointLabel}
+              >
+                {fmtMonthBody(months[i])}
+              </text>
+            </g>
+          ))}
+        </svg>
       </div>
     </div>
   );

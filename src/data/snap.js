@@ -4,12 +4,12 @@
  * Written by scripts/build-county-data.mjs from the SAME county rows as
  * counties.json and statewide.json, so the rail's line and the hero number agree
  * to the person: both are the sum of the 254 counties, with HHSC's call-center
- * and state-office rows excluded. (The older fetch-snap-stats.mjs scrape summed
- * those rows in, which put the rail ~3,300 above the hero for the same month.)
+ * and state-office rows excluded.
  *
  * Optional by design: a missing file renders the panel's empty state rather than
  * failing the page, exactly like the bulletins feed.
  */
+import { fetchOptionalJson } from './fetchJson';
 
 /**
  * @typedef {Object} SnapSeries
@@ -36,15 +36,9 @@
  */
 
 export async function loadSnapObserved() {
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}data/snap-observed.json`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    // A file that parsed but carries no months would draw an empty axis and
-    // read as "enrollment is zero" rather than as "no data".
-    if (!Array.isArray(data?.months) || data.months.length < 2) return null;
-    return data;
-  } catch {
-    return null;
-  }
+  const data = await fetchOptionalJson('snap-observed.json');
+  // A file that parsed but carries no months would draw an empty axis and
+  // read as "enrollment is zero" rather than as "no data".
+  if (!Array.isArray(data?.months) || data.months.length < 2) return null;
+  return data;
 }

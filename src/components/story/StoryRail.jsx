@@ -14,15 +14,17 @@
  * different states. On narrow screens the parent's `onSelect` sets the step
  * directly and the same markup reads as an accordion.
  *
- * THE RULE. Each block on the timeline — a chapter's head, each step — draws its own stretch of the vertical rule, coloured by
- * whether the reader has passed it: navy up to the active step's node, hairline
- * after. Drawn per block because CSS cannot know where the active node is, but
+ * THE RULE. Each block on the timeline — a chapter's head, each step — draws
+ * its own stretch of the vertical rule, coloured by whether the reader has
+ * passed it: navy up to the active step's node, hairline after. Drawn per block because CSS cannot know where the active node is, but
  * each block knows which side of it it is on.
  *
  * @typedef {import('react').ReactNode} ReactNode
  * @typedef {import('../../config/story').StoryStep} StoryStep
  */
 import { useEffect, useRef } from 'react';
+import { cx } from '../../lib/cx';
+import { prefersReducedMotion } from '../../lib/layout';
 import { safeHref } from '../../lib/safeHref';
 import styles from './StoryRail.module.css';
 
@@ -37,10 +39,10 @@ import styles from './StoryRail.module.css';
  * "Source: A ↗ · B ↗ · note". Outside the chart's box, so the links stay
  * clickable while the chart itself takes no pointer at all.
  */
-export function StepSources({ sources = [], note, className = '' }) {
+export function StepSources({ sources = [], note, className }) {
   if (!sources.length && !note) return null;
   return (
-    <p className={`${styles.stepSource} ${className}`}>
+    <p className={cx(styles.stepSource, className)}>
       Source:{' '}
       {sources.map((src, i) => (
         <span key={src.label}>
@@ -92,8 +94,7 @@ export function StoryRail({ chapters, activeChapter, activeStep, renderChart, on
       const rail = rootRef.current?.parentElement;
       const open = rootRef.current?.querySelector(`.${styles.current}`);
       if (!rail || !open) return;
-      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      const behavior = reduce ? 'auto' : 'smooth';
+      const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
       if (rail.scrollHeight <= rail.clientHeight + 1) {
         if (rail.scrollTop) rail.scrollTo({ top: 0, behavior });
         return;
@@ -112,18 +113,21 @@ export function StoryRail({ chapters, activeChapter, activeStep, renderChart, on
         return (
           <li
             key={chapter.key}
-            className={`${styles.chapter} ${current ? styles.current : ''} ${done ? styles.done : ''}`}
+            className={cx(styles.chapter, current && styles.current, done && styles.done)}
           >
             {/* One line per chapter; the open chapter's is its section title. */}
             <button
               type="button"
-              className={`${styles.chapterHead} ${rule(ci <= activeChapter ? 'done' : 'todo')} ${
-                ci === 0 ? styles.ruleStart : ''
-              } ${ci === last && !current ? styles.ruleEnd : ''}`}
+              className={cx(
+                styles.chapterHead,
+                rule(ci <= activeChapter ? 'done' : 'todo'),
+                ci === 0 && styles.ruleStart,
+                ci === last && !current && styles.ruleEnd,
+              )}
               aria-current={current ? 'step' : undefined}
               onClick={() => onSelect(ci, 0)}
             >
-              <span className={`${styles.chapterNode} tabular`} aria-hidden="true">
+              <span className={cx(styles.chapterNode, 'tabular')} aria-hidden="true">
                 {ci + 1}
               </span>
               <span className={styles.chapterLabel}>{chapter.label}</span>
@@ -158,9 +162,13 @@ export function StoryRail({ chapters, activeChapter, activeStep, renderChart, on
                     return (
                       <li
                         key={step.id}
-                        className={`${styles.step} ${open ? styles.open : ''} ${
-                          state === 'done' ? styles.stepDone : ''
-                        } ${rule(state)} ${isEnd ? styles.ruleEnd : ''}`}
+                        className={cx(
+                          styles.step,
+                          open && styles.open,
+                          state === 'done' && styles.stepDone,
+                          rule(state),
+                          isEnd && styles.ruleEnd,
+                        )}
                       >
                         <button
                           type="button"
@@ -183,8 +191,8 @@ export function StoryRail({ chapters, activeChapter, activeStep, renderChart, on
                           <div className={styles.stepBodyInner}>
                             {step.body && <p className={styles.stepText}>{step.body}</p>}
                             {chart ? (
-                              /* A white card, per the 2026-10-16 comps: what
-                                 the chart shows, the chart, where it is from. */
+                              /* A white card: what the chart shows, the
+                                 chart, where it is from. */
                               <figure className={styles.chartCard}>
                                 {step.subhead && <p className={styles.stepSubhead}>{step.subhead}</p>}
                                 <div className={styles.stepChart}>{chart}</div>

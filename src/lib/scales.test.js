@@ -9,7 +9,6 @@ import {
   binsFor,
   colorFor,
   NO_DATA,
-  quintile,
   rampFor,
 } from './scales';
 
@@ -29,8 +28,8 @@ describe('bins', () => {
     expect(rampFor('composite')).toHaveLength(BINS_COMPOSITE.length - 1);
   });
 
-  it('has no ramp for the un-sourced Children layer', () => {
-    expect(rampFor('d5')).toEqual([]);
+  it('has no single ramp for the bivariate layer', () => {
+    expect(rampFor('work_both')).toEqual([]);
   });
 });
 
@@ -74,28 +73,12 @@ describe('colorFor', () => {
   });
 
   it('falls back to no-data for a layer with no ramp', () => {
-    expect(colorFor(0.5, 'd5')).toBe(NO_DATA);
+    expect(colorFor(0.5, 'work_both')).toBe(NO_DATA);
   });
 
   it('uses the composite scale on a 0–4 value', () => {
     // 2.0 sits in the [1.85, 2.05) interval → index 3 of the composite ramp.
     expect(colorFor(2.0, 'composite')).toBe(rampFor('composite')[3]);
-  });
-});
-
-describe('quintile', () => {
-  it('matches build_scores.R tier() boundaries', () => {
-    expect(quintile(0)).toBe(1);
-    expect(quintile(0.19)).toBe(1);
-    expect(quintile(0.2)).toBe(2);
-    expect(quintile(0.79)).toBe(4);
-    expect(quintile(0.8)).toBe(5);
-    expect(quintile(1)).toBe(5);
-  });
-
-  it('returns null for absent values', () => {
-    expect(quintile(null)).toBeNull();
-    expect(quintile(NaN)).toBeNull();
   });
 });
 

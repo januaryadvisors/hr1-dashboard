@@ -98,17 +98,6 @@
 }
 
 /*
- * The title of the chapter in view sits on a lighter tan chip (2026-10-16).
- * A box-shadow ring rather than padding, so the chip reaches past the words
- * without moving a single line of the timeline.
- */
-.current .chapterLabel {
-  background: var(--ft-tan);
-  border-radius: 6px;
-  box-shadow: 0 0 0 6px var(--ft-tan);
-}
-
-/*
  * Space either side of each rule — outside, between it and the neighbouring
  * chapter; inside, between it and the chapter's own content — so the chapter in
  * view reads as its own block. All of it goes on the head (above) and the last
@@ -200,13 +189,20 @@
   color: var(--text);
 }
 
-/* Open, the label is the section's title. */
+/*
+ * Open, the label is the section's title, on a lighter tan chip. A box-shadow
+ * ring rather than padding, so the chip reaches past the words without moving
+ * a single line of the timeline.
+ */
 .current .chapterLabel {
   font-size: var(--text-lg);
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: -0.02em;
   color: var(--text);
+  background: var(--ft-tan);
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 6px var(--ft-tan);
 }
 
 /* Level 4 — see tokens.css. */
@@ -318,8 +314,7 @@
   border-color: var(--ja-navy);
 }
 
-/* A subtitle under the chapter's title: a size down from it, still bold
-   (2026-10-16). */
+/* A subtitle under the chapter's title: a size down from it, still bold. */
 .stepTitle {
   font-family: var(--font-figure);
   font-size: var(--text-sm);
@@ -396,7 +391,7 @@
 }
 
 /* The step's chart, its caption and its source, framed by a hairline on the
-   rail's own ground — a stroke, not a fill (2026-10-16 direction). */
+   rail's own ground — a stroke, not a fill. */
 .chartCard {
   margin: 0 0 var(--space-2);
   padding: var(--space-3) var(--space-3) var(--space-2);
@@ -411,8 +406,7 @@
   border-top: 1px solid var(--hairline);
 }
 
-/* What the chart shows, at the top of the card. */
-/* Level 4: the chart's caption sits under the step title, not beside it. */
+/* What the chart shows, at the top of the card. Level 4 — see tokens.css. */
 .stepSubhead {
   margin: 0 0 var(--space-2);
   font-size: var(--text-2xs);
@@ -485,9 +479,6 @@
 @media (max-height: 760px) {
   .chapterHead {
     --pad: 3px;
-  }
-  .current .chapterLabel {
-    font-size: var(--text-base);
   }
   .stepText {
     font-size: var(--text-xs);

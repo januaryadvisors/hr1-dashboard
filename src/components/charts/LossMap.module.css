@@ -1,0 +1,79 @@
+.root {
+  position: relative;
+}
+
+.legend {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+
+.single {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Strokes are in screen pixels, whatever width the map draws at. */
+.shape {
+  stroke: var(--surface);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.halo {
+  fill: none;
+  stroke: var(--surface);
+  stroke-width: 5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.outline {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.hovered {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Above the pointer, centred on it. LossMap keeps the centre clear of the edges. */
+.tip {
+  position: absolute;
+  z-index: 2;
+  min-width: 140px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text);
+  white-space: nowrap;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+  transform: translate(-50%, calc(-100% - 12px));
+  pointer-events: none;
+}
+
+.tipName {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.tipSub {
+  color: var(--text-muted);
+}

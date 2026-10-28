@@ -1,35 +1,31 @@
 /**
  * <RankList> — §7 / M-09.
  *
- * §7 said "six rows maximum — a longer list drifts toward the 1-to-254 ranking
- * requirement F9 rules out." Raised to TEN on client direction 2026-09-11.
+ * At most TEN rows. F9 rules out a 1-to-254 ranking: ten of 254 is a shortlist,
+ * not a ranking, and the card's own subhead says so. The cap is enforced here
+ * rather than left to callers, so if this creeps toward 25 the change has to be
+ * made deliberately in one place.
  *
- * The F9 concern still holds and the cap still exists: ten of 254 is a
- * shortlist, not a ranking, and the card's own subhead says so. But the cap is
- * enforced here rather than left to callers, so if this creeps toward 25 the
- * change has to be made deliberately in one place.
- *
- * THE GLYPH IN THE MIDDLE COLUMN follows the view — 2026-09-11 direction:
+ * THE GLYPH IN THE MIDDLE COLUMN follows the view:
  *
  *   'line'    a sparkline of that county's enrollment for the group being
  *             mapped. On the enrollment views the shortlist is ten counties
- *             that all lost a lot, so a bar of "how much" repeated the value
- *             column; the line says something the number cannot, which is
- *             whether the fall was steady or cliff-edged.
+ *             that all lost a lot, so a bar of "how much" would repeat the
+ *             value column; the line says something the number cannot, which
+ *             is whether the fall was steady or cliff-edged.
  *   'bucket'  the layer's class intervals as steps, with a caret on the one
  *             this county is in. On a percentile view the ten counties are all
- *             in the top class by construction — a bar showing them all at 100%
- *             was a row of full bars — so the honest glyph is WHERE the class
- *             sits on the scale, not how long the bar is.
- *   'bar'     the original proportional bar. Still the fallback.
+ *             in the top class by construction, so the honest glyph is WHERE
+ *             the class sits on the scale, not how long a bar is.
  */
+import { scaleLinear } from 'd3-scale';
+import { cx } from '../../lib/cx';
 import styles from './RankList.module.css';
 
 /**
  * @typedef {Object} RankRow
  * @property {string} geoid
  * @property {string} name
- * @property {number} fraction - 0–1. The bar's length, and the caret's position on the bucket scale.
  * @property {string} value - Right-aligned display value, e.g. "p98".
  * @property {number[]} [series] - Enrollment over the window, for glyph 'line'. Nulls break the line.
  * @property {number} [bin] - Which class interval this county falls in, for glyph 'bucket'.
@@ -39,7 +35,7 @@ import styles from './RankList.module.css';
  * @typedef {Object} RankListProps
  * @property {RankRow[]} rows
  * @property {number} [max]
- * @property {'line' | 'bucket' | 'bar'} [glyph] - What the middle column draws. See the note above.
+ * @property {'line' | 'bucket'} glyph - What the middle column draws. See the note above.
  * @property {number} [bins] - How many class intervals, for glyph 'bucket'.
  * @property {string | null} [activeGeoid]
  * @property {(geoid: string | null) => void} [onHover]
@@ -62,22 +58,21 @@ const GH = 14;
  */
 function LineGlyph({ series }) {
   const points = (series ?? []).map((v, i) => [i, v]);
-  const valid = points.filter(([, v]) => typeof v === 'number' && Number.isFinite(v));
+  const valid = points.filter(([, v]) => Number.isFinite(v));
   if (valid.length < 2) return <span className={styles.glyphEmpty} />;
 
   const values = valid.map(([, v]) => v);
   const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const x = (i) => (points.length < 2 ? 0 : (i / (points.length - 1)) * GW);
-  const y = (v) => 1 + (1 - (v - min) / span) * (GH - 2);
+  const span = Math.max(...values) - min || 1;
+  const x = scaleLinear([0, points.length - 1], [0, GW]);
+  const y = scaleLinear([min, min + span], [GH - 1, 1]);
 
   // Break rather than bridge where a month has no value: a straight line across
   // a month nobody published is a fabricated reading.
   let d = '';
   let pen = false;
   for (const [i, v] of points) {
-    if (typeof v !== 'number' || !Number.isFinite(v)) {
+    if (!Number.isFinite(v)) {
       pen = false;
       continue;
     }
@@ -98,8 +93,8 @@ function LineGlyph({ series }) {
  * The layer's class intervals as steps, with a caret on this county's class.
  *
  * Steps rather than a bar because the shortlist is, by definition, ten counties
- * in the top class: a proportional bar draws ten identical full bars and says
- * nothing. This says which class, against all of them.
+ * in the top class: a proportional bar would draw ten identical full bars and
+ * say nothing. This says which class, against all of them.
  */
 function BucketGlyph({ bin, bins }) {
   const n = Math.max(2, bins);
@@ -127,14 +122,14 @@ function BucketGlyph({ bin, bins }) {
   );
 }
 
-export function RankList({ rows, max = MAX_ROWS, glyph = 'bar', bins = 6, activeGeoid, onHover }) {
+export function RankList({ rows, max = MAX_ROWS, glyph, bins = 6, activeGeoid, onHover }) {
   return (
     <div className={styles.root} onMouseLeave={() => onHover?.(null)}>
       {rows.slice(0, Math.min(max, MAX_ROWS)).map((row, i) => (
         <button
           key={row.geoid}
           type="button"
-          className={`${styles.row} ${row.geoid === activeGeoid ? styles.active : ''}`}
+          className={cx(styles.row, row.geoid === activeGeoid && styles.active)}
           onMouseEnter={() => onHover?.(row.geoid)}
           onFocus={() => onHover?.(row.geoid)}
         >
@@ -142,20 +137,10 @@ export function RankList({ rows, max = MAX_ROWS, glyph = 'bar', bins = 6, active
           <span className={styles.name}>{row.name}</span>
           {glyph === 'line' ? (
             <LineGlyph series={row.series} />
-          ) : glyph === 'bucket' ? (
-            <BucketGlyph bin={row.bin} bins={bins} />
           ) : (
-            <span className={styles.barTrack}>
-              <span
-                className={styles.bar}
-                style={{
-                  width: `${Math.max(2, Math.min(100, row.fraction * 100))}%`,
-                  display: 'block',
-                }}
-              />
-            </span>
+            <BucketGlyph bin={row.bin} bins={bins} />
           )}
-          <span className={`${styles.value} tabular`}>{row.value}</span>
+          <span className={cx(styles.value, 'tabular')}>{row.value}</span>
         </button>
       ))}
     </div>

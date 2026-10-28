@@ -5,8 +5,8 @@
  *   → http://localhost:4330/hr1-dashboard/map
  *
  * `vite preview` cannot be used for this: it has its own SPA fallback, so every
- * deep route works there whether or not the deploy would actually serve it. That
- * is how /hr1-dashboard/map shipped broken. This replicates Pages exactly:
+ * deep route works there whether or not the deploy would actually serve it.
+ * This replicates Pages exactly:
  *
  *   - serve the file if it exists
  *   - otherwise serve 404.html WITH a 404 status and WITHOUT changing the URL
@@ -15,8 +15,9 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { ROOT as REPO } from './lib/paths.mjs';
 
-const ROOT = new URL('../dist/', import.meta.url).pathname;
+const ROOT = join(REPO, 'dist');
 const BASE = '/hr1-dashboard';
 const PORT = Number(process.env.PORT ?? 4330);
 const TYPES = {

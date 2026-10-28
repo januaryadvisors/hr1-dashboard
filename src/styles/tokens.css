@@ -20,8 +20,8 @@
   --overlay-q5: #d92b1f;
 
   /*
-   * Feeding Texas palette, 2026-09-11. The page ground is the tan; the hero
-   * band is the green.
+   * Feeding Texas palette. The page ground is the tan; the hero band is the
+   * green.
    *
    * Contrast on the green is verified, not eyeballed — every foreground below
    * clears 4.5:1 against #414A2A, so it is safe at any text size:
@@ -51,9 +51,9 @@
   /* Text */
   --text: var(--ja-ink);
   --text-muted: #5f5a5a;
-  /* 4.8:1 on the darker tan, 5.3:1 on the lighter and 5.7:1 on white — the
-     old #8b8585 was 3.0–3.6:1 and failed AA for the 12–13px meta text it sets.
-     The old value lives on as --rule-faint, for strokes only. */
+  /* 4.8:1 on the darker tan, 5.3:1 on the lighter and 5.7:1 on white, so it
+     passes AA for the 12–13px meta text it sets. --rule-faint (3.0–3.6:1)
+     fails AA for text: strokes only. */
   --text-faint: #6b6565;
   --rule-faint: #8b8585;
   --text-inverse: #ffffff;
@@ -74,9 +74,8 @@
   --font-body: 'Onest', system-ui, -apple-system, sans-serif;
 
   /*
-   * Type scale, from the 2026-10-16 comps. Nine sizes and the hero number;
-   * nothing on the page sets type below 12px. The --step-* names below are the
-   * older scale, kept as aliases so the two cannot drift apart.
+   * Type scale: ten sizes and the hero number. The --step-* names below alias
+   * into it where they overlap, so the two cannot drift apart.
    */
   --text-2xs: 0.75rem; /* 12 — chart ticks, notes, footnotes */
   --text-xs: 0.8125rem; /* 13 — meta lines, labels, subheads */
@@ -90,8 +89,8 @@
   --text-3xl: 2.75rem; /* 44 — stat figures */
 
   /*
-   * One reading order for the map's side panel and the story rail beside it
-   * (2026-10-16), so the eye lands in the same places in both:
+   * One reading order for the map's side panel and the story rail beside it,
+   * so the eye lands in the same places in both:
    *   1  section title   18 / Mulish 800 / ink    the open chapter
    *   2  block heading   14 / Mulish 700 / ink    "Top affected counties",
    *                                               the key's label, step titles
@@ -105,7 +104,6 @@
   --step-1: var(--text-xl);
   --step-2: var(--text-2xl);
   --step-3: var(--text-3xl);
-  /* §6.1 specified 76px; raised to ~108px on client direction 2026-09-01. */
   --step-hero: 6.75rem;
 
   /* Space */
@@ -118,10 +116,19 @@
   --space-7: 3rem;
 
   /*
-   * Breakpoints, by convention (custom properties cannot be used in media
-   * queries): "narrow" rules are max-width: 899px and "desktop" checks in JS are
-   * min-width: 900px, so no width matches both. The same pairing holds for the
-   * phone story (max-width: 699px). Do not write max-width: 900px.
+   * Breakpoints. Custom properties cannot be used in media queries, so these
+   * are written out by hand; JS checks import theirs from src/lib/breakpoints.js.
+   *
+   *   max-width: 899px   narrow layout (JS DESKTOP is min-width: 900px, so no
+   *                      width matches both — never write max-width: 900px)
+   *   max-width: 699px   phone story (JS PHONE)
+   *   max-width: 640px   large phone
+   *   max-width: 560px   phone
+   *   max-width: 480px   small phone
+   *   max-width: 360px   smallest phones (iPhone SE)
+   *
+   * A few one-off widths (380, 1023, 1099, 1199, 1279) tune a single layout
+   * and are documented where they are used.
    */
 
   --radius: 6px;

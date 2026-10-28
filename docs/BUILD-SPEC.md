@@ -350,7 +350,7 @@ Recorded so they are not proposed again. Each was ruled out on evidence, not tas
 |---|---|---|
 | export_tool_data.R unwritten | January Advisors | tool-data/ is empty. Build against the §3 shapes with a fixture file; swap the fetch when the export lands. |
 | Children layer undefined | JA + Feeding Texas | Layer strip ships with five entries until d5_* exists. |
-| ~~US House plan unchosen~~ | Feeding Texas | Resolved 2026-09-28: PlanC2333, the 2026 map (feeding-texas-hr1 decisions log). Insights carries US House enrollment counts. |
+| US House plan unchosen | Feeding Texas | Resolved 2026-09-28: PlanC2333, the 2026 map (feeding-texas-hr1 decisions log). Insights carries US House enrollment counts. |
 | District aggregation unsettled | David / JA | Districts route renders from an empty-state until districts.json exists. |
 | Percent/count asymmetry | David + FT | D3 and D4 have no count basis. Until resolved, C-03 is the answer. |
 | Food-bank capacity data | Feeding Texas | Insights tab 4 ships with its banner. |

@@ -39,6 +39,14 @@ export function fmtDollars(v) {
   return `${sign}$${Math.round(a)}`;
 }
 
+/** Counts for axis labels: 1_400_000 → "1.4M", 250_000 → "250K", 2_000 → "2K", 40 → "40". */
+export function fmtCompact(v) {
+  const a = Math.abs(v);
+  if (a >= 1e6) return `${Number((v / 1e6).toFixed(1))}M`;
+  if (a >= 1e3) return `${Number((v / 1e3).toFixed(1))}K`;
+  return String(Math.round(v));
+}
+
 /** Millions, for axis labels: 3518649 → "3.5M". */
 export const fmtMillions = (v) => `${(v / 1e6).toFixed(1)}M`;
 

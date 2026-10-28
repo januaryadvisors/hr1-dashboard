@@ -3,30 +3,9 @@
   display: inline-block;
 }
 
-/* A quiet pill: secondary to the title it sits beside. */
+/* A quiet pill (global .pill-quiet): secondary to the title it sits beside. */
 .trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0.35rem 0.8rem;
   white-space: nowrap;
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  background: transparent;
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-}
-
-.trigger:hover,
-.open {
-  background: var(--surface);
-  border-color: var(--ja-navy);
-}
-
-.label {
-  font-weight: 600;
-  color: var(--text);
 }
 
 .caret {

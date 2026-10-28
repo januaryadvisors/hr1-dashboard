@@ -80,9 +80,8 @@ export function downloadSelection(data, state) {
       layer_value: values.fill.get(c.geoid) ?? null,
       layer_unit: isWindowLayer
         ? 'share of window-start caseload lost'
-        : state.layer === 'composite'
-          ? 'sum of four percentiles, 0–4'
-          : 'percentile within Texas, 0–1',
+        : def.rateLabel ??
+          (state.layer === 'composite' ? 'sum of four percentiles, 0–4' : 'percentile within Texas, 0–1'),
       layer_moe: moeOf(c),
       cumulative_impact: c.cumulative_impact,
       vulnerability_score: c.vulnerability_score,

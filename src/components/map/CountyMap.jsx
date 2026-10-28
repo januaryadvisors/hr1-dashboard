@@ -1,56 +1,47 @@
 /**
- * <CountyMap> — spec §7: "One component, four sizes." Used by the hero map, the
- * four view thumbnails, the Insights small multiples, and the district maps.
+ * <CountyMap> — spec §7: one component for the Map page's hero map and the
+ * chapter bar's thumbnails.
  *
  * §13 step 2: "This is the whole risk of the project; get it right before any
- * chrome." Both render styles read the same data (§6.5):
+ * chrome." Every render style reads the same data (§6.5):
  *
  *   grid     one equal square per county on the precomputed lattice
  *   geo      true county polygons, Texas Albers, ramp fill at percentile
  *   density  centroid bubbles, sqrt-scaled, over a light county outline
  *
- * GRID HISTORY. §6.5's Grid began as this equal-size lattice, became a
- * population-weighted area cartogram on 2026-09-01, and was removed on
- * 2026-09-11. It returned on 2026-10-16 as the equal-size lattice again, for
- * ONE story step only (the index chapter's second step, see config/story.js) —
- * it is not a reader-selectable style. Every county is one tile with room
- * inside it for the listed-assistance bars (<InfraTileBars>). Equal tiles are the honest reading
- * of a percentile: Loving and Harris are one square each. The lattice is drawn
- * inside the shared viewBox, so panels keep their size when the style changes.
+ * THE GRID is not a reader-selectable style: ONE story step uses it (the index
+ * chapter's second step, see config/story.js). Every county is one tile with
+ * room inside it for the listed-assistance bars (<InfraTileBars>). Equal tiles
+ * are the honest reading of a percentile: Loving and Harris are one square
+ * each. The lattice is drawn inside the shared viewBox, so panels keep their
+ * size when the style changes.
  *
  * Both measures draw the SAME kind of map — a choropleth. Rate colours by the
  * layer's own share or percentile; count colours by the raw headcount on
  * quantile breaks. See the note on `counting` below for why that departs from
  * §11, and what it costs.
  */
-import { memo, useMemo, useRef } from 'react';
-/**
- * @typedef {import('../../types').County} County
- * @typedef {import('../../types').InfraKey} InfraKey
- * @typedef {import('../../types').LayerKey} LayerKey
- * @typedef {import('../../types').MapStyle} MapStyle
- * @typedef {import('../../types').Measure} Measure
- */
-/**
- * @typedef {import('../../lib/mapGeometry').MapGeometry} MapGeometry
- */
+import { memo, useMemo } from 'react';
 import { countBinsFor, formatLayerValue } from '../../lib/layerValues';
+import { cx } from '../../lib/cx';
 import { fmtInt } from '../../lib/format';
-/**
- * @typedef {import('../../lib/layerValues').LayerValues} LayerValues
- */
 import { bivariateColor, colorFor } from '../../lib/scales';
 import { radiusScale, relax } from '../../lib/density';
-/**
- * @typedef {import('../../lib/density').Bubble} Bubble
- */
+import { quantileSorted } from '../../lib/stats';
 import { INFRA_GLYPH_ORDER, InfraGlyph } from './InfraGlyph';
 import { INFRA_TYPES, viewForLayer } from '../../config/layers';
 import { InfraTileBars, infraMax } from './InfraBars';
 import styles from './CountyMap.module.css';
 
 /**
- * @typedef {'thumb' | 'small' | 'medium' | 'hero'} MapSize
+ * @typedef {import('../../types').County} County
+ * @typedef {import('../../types').InfraKey} InfraKey
+ * @typedef {import('../../types').LayerKey} LayerKey
+ * @typedef {import('../../types').MapStyle} MapStyle
+ * @typedef {import('../../types').Measure} Measure
+ * @typedef {import('../../lib/mapGeometry').MapGeometry} MapGeometry
+ * @typedef {import('../../lib/layerValues').LayerValues} LayerValues
+ * @typedef {'thumb' | 'hero'} MapSize
  */
 
 /** Partially reported registries, whose null draws grey rather than nothing. */
@@ -59,8 +50,6 @@ const PARTIAL_INFRA = new Set(INFRA_TYPES.filter((t) => t.partial).map((t) => t.
 /** Stroke weights and mark visibility per size. A thumbnail cannot carry marks. */
 const SIZE_SPEC = {
   thumb: { county: 0.15, state: 0.4, marks: false, maxBubble: 11 },
-  small: { county: 0.3, state: 0.7, marks: false, maxBubble: 16 },
-  medium: { county: 0.4, state: 0.9, marks: true, maxBubble: 24 },
   hero: { county: 0.5, state: 1, marks: true, maxBubble: 34 },
 };
 
@@ -107,24 +96,22 @@ function CountyMapInner(props) {
   } = props;
 
   const spec = SIZE_SPEC[size];
-  const svgRef = useRef(null);
 
   /**
-   * Count measure draws a CHOROPLETH of the raw headcount — 2026-09-11 direction.
+   * Count measure draws a CHOROPLETH of the raw headcount.
    *
-   * It used to switch form entirely: neutral polygons with proportional circles
-   * on top, on the §11 reasoning that "Harris at 5.13M residents swamps any fill
-   * scale". That reasoning is about a LINEAR fill scale, and it is correct about
-   * one — 253 of 254 counties would land in the bottom band. The bins below are
-   * quantile breaks instead, so each colour holds the same number of counties
-   * and the map stays readable at both ends. The legend prints the actual edges,
-   * because equal-count bands are only honest if the reader can see them.
+   * §11 calls for proportional symbols because "Harris at 5.13M residents
+   * swamps any fill scale". That is true of a LINEAR fill scale — 253 of 254
+   * counties would land in the bottom band. The bins below are quantile breaks
+   * instead, so each colour holds the same number of counties and the map stays
+   * readable at both ends. The legend prints the actual edges, because
+   * equal-count bands are only honest if the reader can see them.
    *
    * The trade is real and worth stating: on a count choropleth, area is county
    * size and colour is headcount, so a big empty county reads louder than a
-   * small crowded one. That is what the proportional-symbol map avoided. It is
-   * the client's call, and the two measures now differ only in what they encode
-   * rather than in what kind of map they are.
+   * small crowded one. A proportional-symbol map avoids that. It is the
+   * client's call, and the two measures differ only in what they encode rather
+   * than in what kind of map they are.
    */
   const counting = measure === 'count' && !!values.count;
 
@@ -235,9 +222,9 @@ function CountyMapInner(props) {
   };
 
   /**
-   * The <svg> is a rectangle; Texas is not. Relying on the element's mouseleave
-   * meant the tooltip stayed up in the corners and in the gaps between counties,
-   * still showing whatever was hovered last. County shapes are the only things
+   * The <svg> is a rectangle; Texas is not. The element's mouseleave alone would
+   * leave the tooltip up in the corners and in the gaps between counties, still
+   * showing whatever was hovered last. County shapes are the only things
    * in here that take pointer events, so if the target is not one of them the
    * pointer is over empty space and the readout should clear.
    */
@@ -249,8 +236,7 @@ function CountyMapInner(props) {
   /**
    * §6.5: "arrow keys walk counties in reading order on the grid lattice." The
    * lattice drives keyboard order in every style, which is why grid is
-   * precomputed for all of them. Enter/Space did the pinning; it returns with
-   * the reworked selection.
+   * precomputed for all of them.
    */
   const handleKeyDown = (e) => {
     if (!interactive) return;
@@ -297,18 +283,40 @@ function CountyMapInner(props) {
     }
   };
 
+  /*
+     §6.8 / M-08: outline the top fifth of counties on WHAT THE MAP SHOWS —
+     headcount in Count, rate or percentile in Rate. Sorted ascending, the cut
+     is the 80th-percentile value and every county at or above it is in: 51 of
+     254.
+  */
+  const q5Set = useMemo(() => {
+    if (!overlays.q5) return new Set();
+    const sorted = counties
+      .map((c) => fillValue(c))
+      .filter((v) => v != null)
+      .sort((a, b) => a - b);
+    if (!sorted.length) return new Set();
+    const cut = quantileSorted(sorted, 0.8);
+    return new Set(
+      counties.filter((c) => (fillValue(c) ?? -Infinity) >= cut).map((c) => c.geoid),
+    );
+    // fillValue reads `counting` and `values`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counties, values, counting, overlays.q5]);
+
+  const overlayOn = !!(overlays.q5 || overlays.gap);
+  const isFlagged = (c) => (overlays.q5 && q5Set.has(c.geoid)) || (overlays.gap && c.is_gap);
+
   // ------------------------------------------------------------------ render
-  const classFor = (county) => {
-    const parts = [styles.county];
-    if (!county) return parts.join(' ');
-    if (county.geoid === hovered) parts.push(styles.hovered);
-    // Every county is drawn in exactly its key colour: small denominators used
-    // to be dimmed here (§6.5), which made off-key greyed reds (2026-10-16).
-    // With an overlay on, everything it does not pick out steps back, so the
-    // outlined counties read at a glance rather than as a thin line to hunt for.
-    if (overlayOn && !isFlagged(county)) parts.push(styles.overlayDimmed);
-    return parts.join(' ');
-  };
+  // Every county is drawn in exactly its key colour. With an overlay on,
+  // everything it does not pick out steps back, so the outlined counties read
+  // at a glance rather than as a thin line to hunt for.
+  const classFor = (county) =>
+    cx(
+      styles.county,
+      county?.geoid === hovered && styles.hovered,
+      county && overlayOn && !isFlagged(county) && styles.overlayDimmed,
+    );
 
   const label = (county) => {
     if (!county) return undefined;
@@ -320,30 +328,6 @@ function CountyMapInner(props) {
     }
     return `${county.name}: ${rate}`;
   };
-
-  /*
-     §6.8 / M-08: outline the top fifth of counties on WHAT THE MAP SHOWS —
-     headcount in Count, rate or percentile in Rate (client direction
-     2026-10-16; it used to rank by rate in both). Sorted ascending, the cut is
-     the 80th-percentile value and every county at or above it is in: 51 of 254.
-  */
-  const q5Set = useMemo(() => {
-    if (!overlays.q5) return new Set();
-    const sorted = counties
-      .map((c) => fillValue(c))
-      .filter((v) => v != null)
-      .sort((a, b) => a - b);
-    if (!sorted.length) return new Set();
-    const cut = sorted[Math.floor(sorted.length * 0.8)];
-    return new Set(
-      counties.filter((c) => (fillValue(c) ?? -Infinity) >= cut).map((c) => c.geoid),
-    );
-    // fillValue reads `counting` and `values`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [counties, values, counting, overlays.q5]);
-
-  const overlayOn = !!(overlays.q5 || overlays.gap);
-  const isFlagged = (c) => (overlays.q5 && q5Set.has(c.geoid)) || (overlays.gap && c.is_gap);
 
   /** One overlay's outlines: a white halo under the coloured line, so it holds
       its edge against dark fills as well as light ones. */
@@ -360,12 +344,13 @@ function CountyMapInner(props) {
 
   return (
     <svg
-      ref={svgRef}
-      className={`${styles.root} ${interactive ? styles.interactive : ''} ${styles.group} ${
+      className={cx(
+        styles.root,
+        interactive && styles.interactive,
         // Work requirements: most counties sit in the palest class, and white
         // borders between pale fills vanish — dark outlines keep them apart.
-        viewForLayer(layer).key === 'work' ? styles.outlined : ''
-      }`}
+        viewForLayer(layer).key === 'work' && styles.outlined,
+      )}
       viewBox={viewBox}
       role="img"
       aria-label={title}
@@ -377,7 +362,7 @@ function CountyMapInner(props) {
     >
       {/* No <title>: browsers show it as a native grey tooltip over the whole
           map, on top of the county panel. aria-label above names the map for
-          screen readers instead (2026-10-16). */}
+          screen readers instead. */}
 
       {/* ----------------------------------------------------------- GRID */}
       {tiles && (
@@ -441,7 +426,7 @@ function CountyMapInner(props) {
         <path d={geometry.statePath} className={styles.stateOutline} strokeWidth={spec.state} />
       )}
 
-      {/* Bubbles are the density style only, now that count is a choropleth. */}
+      {/* Bubbles are the density style only; count is a choropleth too. */}
       {style === 'density' && (
         <g>
           {bubbles.map((b) => {
@@ -454,9 +439,9 @@ function CountyMapInner(props) {
                 cx={b.x}
                 cy={b.y}
                 r={b.r}
-                className={`${styles.bubble} ${classFor(county)}`}
+                className={cx(styles.bubble, classFor(county))}
                 fill={colorOf(county, value)}
-                // Opaque, so a bubble is exactly its key colour (2026-10-16).
+                // Opaque, so a bubble is exactly its key colour.
                 strokeWidth={spec.county}
                 onMouseEnter={() => handleEnter(b.geoid)}
                 aria-label={label(county)}
@@ -466,9 +451,9 @@ function CountyMapInner(props) {
         </g>
       )}
 
-      {/* Overlays (§6.8 M-08). Outlines, never fills — cumulative impact and Q5
-          are too lopsided to colour a state by (§11). */}
-      {/* Overlays trace whichever geometry is on screen. */}
+      {/* Overlays (§6.8 M-08), tracing whichever geometry is on screen.
+          Outlines, never fills — cumulative impact and Q5 are too lopsided to
+          colour a state by (§11). */}
       {overlays.q5 && outlines(counties.filter((c) => q5Set.has(c.geoid)), styles.overlayQ5)}
       {overlays.gap && outlines(counties.filter((c) => c.is_gap), styles.overlayGap)}
 

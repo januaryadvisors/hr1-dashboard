@@ -1,4 +1,5 @@
 /** <SegmentedControl> — §7. Rate/Count, Style, Map/Insights, geography. */
+import { cx } from '../../lib/cx';
 import styles from './SegmentedControl.module.css';
 
 /**
@@ -6,7 +7,6 @@ import styles from './SegmentedControl.module.css';
  * @typedef {Object} SegmentedOption
  * @property {T} value
  * @property {string} label
- * @property {boolean} [disabled]
  * @property {string} [title]
  */
 
@@ -19,7 +19,6 @@ import styles from './SegmentedControl.module.css';
  * @property {'sm' | 'md'} [size]
  * @property {'navy' | 'ink' | 'onGreen'} [tone] - Fill of the selected option. Ink for the header's
  *   page switch; onGreen for the same switch while the header is the hero's green.
- * @property {boolean} [inert] - Visible but not applicable — §8 requires labelling rather than hiding.
  * @property {string} label
  * @property {string} [className] - Layout from the parent (e.g. stretching to fill a narrow column).
  */
@@ -30,17 +29,18 @@ export function SegmentedControl({
   onChange,
   size = 'md',
   tone = 'navy',
-  inert = false,
   label,
-  className = '',
+  className,
 }) {
   return (
     <div
-      className={`${styles.root} ${size === 'sm' ? styles.sm : ''} ${tone === 'ink' ? styles.ink : ''} ${
-        tone === 'onGreen' ? styles.onGreen : ''
-      } ${
-        inert ? styles.inert : ''
-      } ${className}`}
+      className={cx(
+        styles.root,
+        size === 'sm' && styles.sm,
+        tone === 'ink' && styles.ink,
+        tone === 'onGreen' && styles.onGreen,
+        className,
+      )}
       role="group"
       aria-label={label}
     >
@@ -48,9 +48,8 @@ export function SegmentedControl({
         <button
           key={o.value}
           type="button"
-          className={`${styles.option} ${o.value === value ? styles.active : ''}`}
+          className={cx(styles.option, o.value === value && styles.active)}
           aria-pressed={o.value === value}
-          disabled={o.disabled || inert}
           title={o.title}
           onClick={() => onChange(o.value)}
         >

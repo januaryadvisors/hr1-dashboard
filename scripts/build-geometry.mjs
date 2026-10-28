@@ -2,7 +2,7 @@
 //
 // TopoJSON, quantized, simplified to roughly 40KB. County polygons keyed by geoid,
 // plus a state outline object for the hairline border. CRS stays EPSG:4326; the
-// projection to Texas Albers happens client-side (src/lib/projection.ts).
+// projection to Texas Albers happens client-side (src/lib/projection.js).
 //
 // The 8MB source geojson is NOT committed — set GEOJSON_SRC to re-run.
 // Output IS committed so CI builds standalone.
@@ -11,10 +11,10 @@
 import mapshaper from 'mapshaper';
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import { TX_COUNTIES } from './lib/constants.mjs';
+import { ROOT } from './lib/paths.mjs';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC =
   process.env.GEOJSON_SRC ??
   resolve(ROOT, '../texas-county-choropleth-view/public/tx_counties.geojson');
@@ -48,7 +48,7 @@ const gz = gzipSync(readFileSync(OUT)).length;
 
 // Guard the contract rather than trusting the pipeline.
 const missing = counties.filter((g) => !g.properties?.geoid || !g.properties?.name);
-if (counties.length !== 254) throw new Error(`expected 254 counties, got ${counties.length}`);
+if (counties.length !== TX_COUNTIES) throw new Error(`expected ${TX_COUNTIES} counties, got ${counties.length}`);
 if (missing.length) throw new Error(`${missing.length} counties missing geoid/name`);
 if (!topo.objects.state) throw new Error('state outline object missing');
 

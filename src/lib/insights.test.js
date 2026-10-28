@@ -5,15 +5,9 @@ import {
   shortfallLabels,
   buildFunnel,
   buildScope,
-  countyTrends,
-  excessDecline,
   fitFunnel,
-  funnelBand,
   headlineStats,
   indexTo,
-  lossRank,
-  monthlyChange,
-  participationShare,
   peersFor,
   windowChange,
   windowLoss,
@@ -36,6 +30,7 @@ const county = (
     pop,
     snap_enrolled: enrolled,
     snap_children: children,
+    snap_age: { Kids: children, Adults: enrolled.map((v, i) => v - children[i]) },
     d1_score: 0.5,
     d3_score: 0.5,
     vulnerability_score: 2,
@@ -55,6 +50,7 @@ const COUNTIES = [
 const STATEWIDE = {
   meta: { texas_population: 155_000, months: ['2025-07', '2025-08', '2025-09'] },
   enrolled: [1600, 1485, 1340],
+  age_series: { Kids: [640, 594, 536], Adults: [960, 891, 804] },
 };
 
 const byGeoid = new Map(COUNTIES.map((c) => [c.geoid, c]));
@@ -67,6 +63,11 @@ describe('buildScope', () => {
     expect(s.population).toBe(50_000);
     expect(s.enrolled).toEqual([500, 490, 480]);
     expect(s.county?.geoid).toBe('48003');
+  });
+
+  it('carries the scope’s own age bands', () => {
+    expect(buildScope(COUNTIES, byGeoid, STATEWIDE, '48003').ageSeries.Kids).toEqual([200, 196, 192]);
+    expect(buildScope(COUNTIES, byGeoid, STATEWIDE, null).ageSeries).toBe(STATEWIDE.age_series);
   });
 
   it('resolves null to Texas, using the published statewide series', () => {
@@ -87,19 +88,14 @@ describe('buildScope', () => {
   });
 
   it('sums the statewide child series from the counties', () => {
-    // statewide.json has no monthly child series — only the age bands, which are
-    // a snapshot. Summing the counties is the same arithmetic the fixture
-    // builder asserts reconciles.
+    // The counties reconcile to the statewide caseload, which the data build
+    // asserts, so their sum is the statewide child series.
     const s = buildScope(COUNTIES, byGeoid, STATEWIDE, null);
     expect(s.children).toEqual([400 + 200 + 40, 360 + 196 + 38, 320 + 192 + 24]);
   });
 });
 
 describe('series helpers', () => {
-  it('leaves the first month of a change series null', () => {
-    expect(monthlyChange([100, 90, 85])).toEqual([null, -10, -5]);
-  });
-
   it('rebases to 100 at the reference month', () => {
     expect(indexTo([200, 180, 150], 0)).toEqual([100, 90, 75]);
   });
@@ -111,14 +107,6 @@ describe('series helpers', () => {
 
   it('returns nulls rather than Infinity when the reference month is zero', () => {
     expect(indexTo([0, 50], 0)).toEqual([null, null]);
-  });
-
-  it('computes participation as a share of residents', () => {
-    expect(participationShare([50, 25], 100)).toEqual([0.5, 0.25]);
-  });
-
-  it('guards a zero population instead of dividing by it', () => {
-    expect(participationShare([50], 0)).toEqual([0]);
   });
 });
 
@@ -133,40 +121,6 @@ describe('windowChange', () => {
 
   it('has no percentage when there was nothing to start with', () => {
     expect(windowChange([0, 10], 0, 1).pct).toBeNull();
-  });
-});
-
-describe('lossRank', () => {
-  it('ranks 1 for the steepest percentage loss, not the largest count', () => {
-    // Gamma lost 40 people (-40%); Alpha lost 200 (-20%). Rank is by percent.
-    const r = lossRank(COUNTIES, '48005', STATEWIDE.enrolled, 0, 2);
-    expect(r?.rank).toBe(1);
-    expect(r?.total).toBe(3);
-    expect(r?.pct).toBeCloseTo(-0.4);
-  });
-
-  it('reports the statewide figure and the county median separately', () => {
-    const r = lossRank(COUNTIES, '48001', STATEWIDE.enrolled, 0, 2);
-    // The two disagree, which is exactly why both are quoted: the statewide
-    // number is dominated by the metros, the median describes a typical county.
-    expect(r?.statePct).toBeCloseTo((1340 - 1600) / 1600);
-    expect(r?.medianPct).toBeCloseTo(-0.2);
-    expect(r?.statePct).not.toBeCloseTo(r?.medianPct ?? 0, 3);
-  });
-
-  /** 24 Harris districts all print −17.1%; rounding noise must not rank them. */
-  it('gives units that print the same figure the same rank', () => {
-    const tie = [
-      county('48001', 'A', 1000, [1000, 1000, 800]), // −20.0%
-      county('48003', 'B', 1000, [10000, 10000, 8001]), // −19.99%, prints −20.0%
-      county('48005', 'C', 1000, [1000, 1000, 900]), // −10.0%
-    ];
-    expect(lossRank(tie, '48003', [12000, 12000, 9701], 0, 2)).toMatchObject({ rank: 1, tied: 1 });
-    expect(lossRank(tie, '48005', [12000, 12000, 9701], 0, 2)).toMatchObject({ rank: 3, tied: 0 });
-  });
-
-  it('returns null for a county that is not in the set', () => {
-    expect(lossRank(COUNTIES, '48999', STATEWIDE.enrolled, 0, 2)).toBeNull();
   });
 });
 
@@ -225,7 +179,7 @@ describe('buildFunnel', () => {
   });
 
   /**
-   * The whole point of the chart: the same percentage is unremarkable on a
+   * The point of the limits: the same percentage is unremarkable on a
    * small caseload and an outlier on a big one, because the limits widen to the
    * left. Both counties sit 12 points below the mean.
    */
@@ -248,40 +202,17 @@ describe('buildFunnel', () => {
     const f = buildFunnel(withEmpty, 0, 2);
     expect(f.points.some((p) => p.geoid === '48007')).toBe(false);
   });
-
-  it('widens the band as caseload falls', () => {
-    const f = buildFunnel(funnelCounties, 0, 2);
-    const band = funnelBand(f, 100, 10_000, 20);
-    const width = (b) => b.hi - b.lo;
-    expect(width(band[0])).toBeGreaterThan(width(band[band.length - 1]));
-  });
-
-  it('brackets the centre line at every caseload', () => {
-    const f = buildFunnel(funnelCounties, 0, 2);
-    for (const b of funnelBand(f, 100, 10_000, 20)) {
-      expect(b.lo).toBeLessThan(f.center);
-      expect(b.hi).toBeGreaterThan(f.center);
-    }
-  });
 });
 
 describe('ageBandRows', () => {
-  const sw = {
-    meta: { months: ['a', 'b', 'c'], policy_start: 'a' },
-    enrolled: [300, 280, 250],
-    age_bands: [
-      { band: 'Kids', july_enrolled: 100, latest_enrolled: 90, pct_change: -0.1 },
-      { band: 'Adults', july_enrolled: 200, latest_enrolled: 160, pct_change: -0.2 },
-    ],
-    age_series: { Kids: [100, 98, 90], Adults: [200, 182, 160] },
-  };
+  const ageSeries = { Kids: [100, 98, 90], Adults: [200, 182, 160] };
 
-  it('reads the window from the monthly series, steepest first', () => {
-    const rows = ageBandRows(sw, 0, 1);
-    expect(rows.map((r) => r.label)).toEqual(['Adults', 'Kids']);
-    expect(rows[0]).toMatchObject({ from: 200, to: 182 });
-    expect(rows[0].pctChange).toBeCloseTo(-0.09);
-    expect(rows[1].pctChange).toBeCloseTo(-0.02);
+  it('reads the window from the monthly series, in band order', () => {
+    const rows = ageBandRows(ageSeries, 0, 1);
+    expect(rows.map((r) => r.label)).toEqual(['Kids', 'Adults']);
+    expect(rows[1]).toMatchObject({ from: 200, to: 182 });
+    expect(rows[1].pctChange).toBeCloseTo(-0.09);
+    expect(rows[0].pctChange).toBeCloseTo(-0.02);
   });
 });
 
@@ -335,9 +266,6 @@ describe('district scope', () => {
     const peers = peersFor(s, COUNTIES, districtCounts);
     expect(peers.units.map((u) => u.geoid)).toEqual(['txhouse-1', 'txhouse-2']);
     expect(peers.noun).toBe('House districts');
-    const r = lossRank(peers.units, s.key, STATEWIDE.enrolled, 0, 2);
-    expect(r?.rank).toBe(2);
-    expect(r?.total).toBe(2);
   });
 
   it('compares a county with counties', () => {
@@ -347,19 +275,7 @@ describe('district scope', () => {
 });
 
 describe('headline figures', () => {
-  // Two counties on straight lines: one keeps its trend, one drops 100 off it.
   const months = ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05'];
-  const counties = [
-    { snap_enrolled: [100, 110, 120, 130, 140] },
-    { snap_enrolled: [500, 500, 500, 500, 400] },
-  ];
-  const trends = countyTrends(counties, [0, 2]);
-
-  it('projects each county on its own trend', () => {
-    // Projected at month 4: 140 + 500 = 640; actual 540.
-    expect(excessDecline(trends, 4)).toBeCloseTo(540 / 640 - 1);
-    expect(excessDecline(trends, 2)).toBeCloseTo(0);
-  });
 
   it('writes the three figures for the window given', () => {
     const statewide = {

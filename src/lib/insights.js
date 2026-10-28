@@ -14,19 +14,16 @@
  * are no district domain scores — §9 forbids weighting percentiles into
  * districts — so the domain chapter says so instead of drawing.
  *
- * WHAT CAN AND CANNOT BE SCOPED
- * County monthly enrollment and child enrollment exist per county and reconcile
- * to the statewide totals exactly (see scripts/build-county-data.mjs), so
- * anything built on them scopes cleanly. The age bands and the
- * people-vs-households split ship STATEWIDE ONLY — HHSC publishes them by county,
- * but §3.3 keeps them out of counties.json for payload size. `statewideOnly` on
- * a ChartCard carries that distinction to the UI so a statewide chart is
- * labelled as one instead of quietly implying it describes the county on screen.
+ * Every series on a Scope — enrollment, children, payments and the
+ * five age bands — exists per county and per district and reconciles to the
+ * statewide totals exactly (see scripts/build-county-data.mjs), so every chart
+ * on the page describes the place picked.
  *
  * @typedef {import('../types').County} County
  * @typedef {import('../types').Statewide} Statewide
  */
 import { fmtDollars, fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
+import { changeShare, windowEnds } from './series.js';
 
 /**
  * @typedef {Object} Scope
@@ -36,8 +33,8 @@ import { fmtDollars, fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
  * @property {number} population - Resident population — the participation-rate denominator.
  * @property {number[]} enrolled - Monthly enrolled individuals, parallel to meta.months.
  * @property {number[] | null} children - Monthly enrolled children, or null where the series is missing.
- * @property {number[] | null} seniors - Monthly enrolled people 65 and older, or null where missing.
  * @property {number[] | null} payments - Monthly SNAP benefits paid, whole dollars, or null where missing.
+ * @property {Record<string, number[]>} ageSeries - Monthly enrolled per age band, keyed "Under 5" … "65+".
  * @property {County | null} county - The county record when kind is 'county', else null.
  * @property {import('../data/load').DistrictUnit | null} district - The district when kind is 'district', else null.
  */
@@ -58,8 +55,8 @@ export function buildScope(
       population: district.pop,
       enrolled: district.snap_enrolled,
       children: district.snap_children,
-      seniors: district.snap_seniors ?? null,
       payments: district.snap_payments ?? null,
+      ageSeries: district.snap_age,
       county: null,
       district,
     };
@@ -75,8 +72,8 @@ export function buildScope(
         population: county.pop,
         enrolled: county.snap_enrolled,
         children: county.snap_children ?? null,
-        seniors: county.snap_seniors ?? null,
         payments: county.snap_payments ?? null,
+        ageSeries: county.snap_age,
         county,
         district: null,
       };
@@ -104,8 +101,8 @@ export function buildScope(
     population: statewide.meta.texas_population,
     enrolled: statewide.enrolled,
     children: sumCounties('snap_children'),
-    seniors: sumCounties('snap_seniors'),
     payments: sumCounties('snap_payments'),
+    ageSeries: statewide.age_series,
     county: null,
     district: null,
   };
@@ -146,9 +143,8 @@ export function peersFor(scope, counties, districtCounts) {
  * positive for a loss. null when either end is missing.
  */
 export function windowLoss(series, i0, i1) {
-  const a = series?.[i0];
-  const b = series?.[i1];
-  return a == null || b == null ? null : a - b;
+  const ends = windowEnds(series, i0, i1);
+  return ends ? ends.start - ends.end : null;
 }
 
 /**
@@ -190,11 +186,6 @@ export function benefitShortfall(payments, i0, i1) {
   return { total, monthly: base - payments[i1], base, baseFrom };
 }
 
-/** Month-over-month change, null at the first month where there is no prior. */
-export function monthlyChange(series) {
-  return series.map((v, i) => (i === 0 ? null : v - series[i - 1]));
-}
-
 /**
  * Rebase to 100 at `refIndex`.
  *
@@ -210,11 +201,6 @@ export function indexTo(series, refIndex) {
   return series.map((v) => (v / base) * 100);
 }
 
-/** Enrolled as a share of residents, per month. */
-export function participationShare(series, population) {
-  return population > 0 ? series.map((v) => v / population) : series.map(() => 0);
-}
-
 /**
  * @typedef {Object} WindowChange
  * @property {number} start
@@ -226,12 +212,7 @@ export function participationShare(series, population) {
 export function windowChange(series, i0, i1) {
   const start = series[i0] ?? 0;
   const end = series[i1] ?? 0;
-  return {
-    start,
-    end,
-    absolute: end - start,
-    pct: start > 0 ? (end - start) / start : null,
-  };
+  return { start, end, absolute: end - start, pct: changeShare({ start, end }) };
 }
 
 /**
@@ -243,98 +224,17 @@ export function windowChange(series, i0, i1) {
  */
 
 /**
- * Enrolled individuals per age band across a window, steepest loss first.
+ * Enrolled individuals per age band across a window, youngest band first.
  *
- * Reads the monthly band series, so any brush window gets its real numbers.
- * Without `age_series` (an older statewide.json) it falls back to the published
- * policy-window change scaled by the window's share of the statewide loss —
- * an approximation, which is why the monthly series ships.
- *
+ * @param {Record<string, number[]>} ageSeries - A Scope's ageSeries, or statewide.age_series.
  * @returns {AgeRow[]}
  */
-export function ageBandRows(statewide, i0, i1) {
-  const series = statewide.age_series;
-  if (series) {
-    return statewide.age_bands
-      .map((b) => {
-        const s = series[b.band];
-        const from = s?.[i0] ?? 0;
-        const to = s?.[i1] ?? 0;
-        return { label: b.band, from, to, pctChange: from > 0 ? (to - from) / from : 0 };
-      })
-      .sort((a, b) => a.pctChange - b.pctChange);
-  }
-
-  const months = statewide.meta.months;
-  const p0 = months.indexOf(statewide.meta.policy_start);
-  const fullSpan = statewide.enrolled[months.length - 1] - statewide.enrolled[p0];
-  const share = fullSpan === 0 ? 0 : (statewide.enrolled[i1] - statewide.enrolled[i0]) / fullSpan;
-  return statewide.age_bands.map((b) => ({
-    label: b.band,
-    from: b.july_enrolled,
-    to: b.july_enrolled * (1 + b.pct_change * share),
-    pctChange: b.pct_change * share,
-  }));
-}
-
-// -------------------------------------------------------------------- ranks
-
-/**
- * @typedef {Object} LossRank
- * @property {number} rank - 1 = steepest percentage loss. Competition ranking: units that share a figure share a rank.
- * @property {number} tied - How many OTHER units share this unit's figure at the precision shown (0.1 points).
- * @property {number} total
- * @property {number} pct - The unit's own signed percentage change.
- * @property {number} statePct - The statewide figure, for the comparison sentence.
- * @property {number} medianPct - Median unit's percentage change — the typical county or district, not the total.
- */
-
-/** The precision the page prints a percentage at — 0.1 points — as an integer key. */
-const shownPct = (pct) => Math.round(pct * 1000);
-
-/**
- * Where a county or district sits among its peers on percentage loss over the
- * window.
- *
- * Both a statewide figure and a median are returned because they answer
- * different questions and routinely disagree: the statewide number is dominated
- * by the metros, the median describes the typical unit. Quoting only one of
- * them is how a stat page ends up misleading.
- *
- * TIES ARE TIES. Units whose figures print the same share a rank, and `tied`
- * says how many others share it. This matters most for districts: all 24 House
- * districts inside Harris inherit Harris County's −17.1%, and ordering them by
- * apportionment rounding would hand a legislator "31st steepest" for a figure
- * that 23 other districts have too.
- */
-export function lossRank(
-  units,
-  geoid,
-  stateSeries,
-  i0,
-  i1,
-) {
-  const rows = units
-    .map((c) => ({
-      geoid: c.geoid,
-      pct: windowChange(c.snap_enrolled, i0, i1).pct,
-    }))
-    .filter((r) => r.pct != null)
-    // Steepest loss (most negative) first.
-    .sort((a, b) => a.pct - b.pct);
-
-  const self = rows.find((r) => r.geoid === geoid);
-  if (!self) return null;
-
-  const key = shownPct(self.pct);
-  return {
-    rank: 1 + rows.filter((r) => shownPct(r.pct) < key).length,
-    tied: rows.filter((r) => shownPct(r.pct) === key).length - 1,
-    total: rows.length,
-    pct: self.pct,
-    statePct: windowChange(stateSeries, i0, i1).pct ?? 0,
-    medianPct: rows[Math.floor(rows.length / 2)].pct,
-  };
+export function ageBandRows(ageSeries, i0, i1) {
+  return Object.entries(ageSeries).map(([label, s]) => {
+    const from = s[i0] ?? 0;
+    const to = s[i1] ?? 0;
+    return { label, from, to, pctChange: changeShare({ start: from, end: to }) ?? 0 };
+  });
 }
 
 // ------------------------------------------------------------------- funnel
@@ -409,17 +309,12 @@ export function fitFunnel(points) {
 }
 
 /**
- * A funnel plot: percentage change against the caseload it was measured on.
+ * Percentage change against the caseload it was measured on, with control
+ * limits that widen as caseload shrinks — statewide.json's `funnel`, written by
+ * the data build.
  *
- * The point of this chart is to stop a reader over-reading small counties. A
- * 300-person caseload can swing 20% on sixty households, so the control limits
- * widen to the left; a county only counts as unusual if it sits outside the
- * limits FOR ITS OWN SIZE. On a plain bar chart of percentage change the top ten
- * would be ten tiny counties every time.
- *
- * The limits are refitted for the window being shown (see fitFunnel). A fixed
- * curve fitted to Jul 2025 → latest would be the wrong spread for a six-month
- * window, and the brush makes any window a first-class view.
+ * A 300-person caseload can swing 20% on sixty households, so a county only
+ * counts as unusual if it sits outside the limits FOR ITS OWN SIZE.
  */
 export function buildFunnel(counties, i0, i1) {
   const raw = [];
@@ -435,8 +330,8 @@ export function buildFunnel(counties, i0, i1) {
     outside: Math.abs(p.pct - fit.center) > 2 * fit.sdAt(p.caseload),
   }));
 
-  // The fitted curve sampled densely in log space, so funnelBand's linear
-  // interpolation between samples is indistinguishable from the curve itself.
+  // The fitted curve sampled densely in log space, so straight lines between
+  // samples are indistinguishable from the curve itself.
   const caseloads = raw.map((p) => p.caseload);
   const lo = Math.log10(Math.max(1, Math.min(...caseloads, 10)));
   const hi = Math.log10(Math.max(10, ...caseloads));
@@ -448,95 +343,7 @@ export function buildFunnel(counties, i0, i1) {
   return { points, center: fit.center, limits, fit: { a: fit.a, b: fit.b } };
 }
 
-/** The sd curve as {caseload, sd} pairs dense enough to draw a smooth band. */
-export function funnelBand(
-  data,
-  minCaseload,
-  maxCaseload,
-  steps = 60,
-) {
-  const limits = data.limits;
-  if (!limits.length) return [];
-
-  const sdAt = (caseload) => {
-    if (caseload <= limits[0].caseload) return limits[0].sd;
-    const last = limits[limits.length - 1];
-    if (caseload >= last.caseload) return last.sd;
-    for (let k = 1; k < limits.length; k++) {
-      const a = limits[k - 1];
-      const b = limits[k];
-      if (caseload <= b.caseload) {
-        const t = (caseload - a.caseload) / (b.caseload - a.caseload);
-        return a.sd + (b.sd - a.sd) * t;
-      }
-    }
-    return last.sd;
-  };
-
-  // Even steps in log space, because caseload spans three orders of magnitude.
-  const lo = Math.log10(Math.max(1, minCaseload));
-  const hi = Math.log10(Math.max(10, maxCaseload));
-  return Array.from({ length: steps + 1 }, (_, i) => {
-    const caseload = 10 ** (lo + ((hi - lo) * i) / steps);
-    const sd = sdAt(caseload);
-    return { caseload, lo: data.center - 2 * sd, hi: data.center + 2 * sd };
-  });
-}
-
 // ------------------------------------------------------- headline figures
-
-/**
- * @typedef {Object} CountyTrend
- * @property {number[]} enrolled - The county's monthly series.
- * @property {number} mx - Mean month index over the trend window.
- * @property {number} my - Mean enrolled over the trend window.
- * @property {number} slope - Enrolled per month, least squares over the trend window.
- */
-
-/**
- * Each county's own pre-policy linear trend — the notebook's "sharper cut"
- * (snap-enrollment-trends.qmd). Fitted once; excessDecline() then projects it to
- * any month without refitting, so the hero can follow the brush.
- *
- * @param {{ snap_enrolled: number[] }[]} counties
- * @param {[number, number]} trend - First and last month index of the fit.
- * @returns {CountyTrend[]}
- */
-export function countyTrends(counties, [t0, t1]) {
-  return counties.map((c) => {
-    const n = t1 - t0 + 1;
-    let mx = 0;
-    let my = 0;
-    for (let i = t0; i <= t1; i++) {
-      mx += i;
-      my += c.snap_enrolled[i];
-    }
-    mx /= n;
-    my /= n;
-    let sxy = 0;
-    let sxx = 0;
-    for (let i = t0; i <= t1; i++) {
-      sxy += (i - mx) * (c.snap_enrolled[i] - my);
-      sxx += (i - mx) ** 2;
-    }
-    return { enrolled: c.snap_enrolled, mx, my, slope: sxx > 0 ? sxy / sxx : 0 };
-  });
-}
-
-/**
- * Statewide enrollment at month `i` against the sum of every county's own
- * trend projected to `i`: −0.284 means 28.4% below where the counties were
- * heading. Summed before dividing, so the metros weigh what they weigh.
- */
-export function excessDecline(trends, i) {
-  let actual = 0;
-  let projected = 0;
-  for (const t of trends) {
-    actual += t.enrolled[i];
-    projected += t.my + t.slope * (i - t.mx);
-  }
-  return projected > 0 ? actual / projected - 1 : null;
-}
 
 /** How a band reads in a sentence: "18–59" → "adults 18–59". */
 function bandPhrase(band) {
@@ -547,8 +354,7 @@ function bandPhrase(band) {
 
 /**
  * The hero band's three statewide figures, for the brush window [i0, i1].
- * Computed, not hand-written (client direction 2026-10-16): drag the window
- * and all three follow, in the same sentence shapes the editorial copy used.
+ * Computed, so dragging the window moves all three.
  *
  * @param {import('../types').Statewide} statewide
  * @param {number[] | null} payments - Statewide SNAP benefits paid each month (the counties' sum).
@@ -561,18 +367,14 @@ export function headlineStats(statewide, payments, i0, i1) {
   const out = [];
 
   /*
-     1. The steepest age band, against everyone on SNAP (2026-10-16). It was
-     against the 65+ band, with the window's start month spelled out; the
-     whole caseload is the steadier comparison — it is the hero number's own
-     rate — and the window is already on screen.
+     1. The steepest age band, against everyone on SNAP: the whole caseload is
+     the steadier comparison, and it is the hero number's own rate.
   */
-  const rows = ageBandRows(statewide, i0, i1);
+  const rows = ageBandRows(statewide.age_series, i0, i1);
   if (rows.length) {
-    const steep = rows[0];
+    const steep = rows.reduce((a, b) => (b.pctChange < a.pctChange ? b : a));
     const band = bandPhrase(steep.label);
-    const all = statewide.enrolled[i0] > 0
-      ? (statewide.enrolled[i1] - statewide.enrolled[i0]) / statewide.enrolled[i0]
-      : null;
+    const all = changeShare(windowEnds(statewide.enrolled, i0, i1));
     const body =
       all == null
         ? 'The steepest drop of any age group.'
@@ -586,9 +388,8 @@ export function headlineStats(statewide, payments, i0, i1) {
   }
 
   /*
-     2. SNAP money that did not reach SNAP-authorized stores over the window
-     (2026-10-16; it was the excess decline against each county's own trend).
-     The same arithmetic as the Insights report and the Map story's figure.
+     2. SNAP money that did not reach SNAP-authorized stores over the window —
+     the same arithmetic as the Insights report and the Map story's figure.
   */
   const short = benefitShortfall(payments, i0, i1);
   if (short) {

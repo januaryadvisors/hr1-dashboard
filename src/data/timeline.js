@@ -1,19 +1,8 @@
 /**
- * Content for the hero band's right column.
- *
- * Two sources, deliberately separate:
- *
- *   timeline.json   editorial notes. The three topline figures it used to hold
- *                   are computed for the brush window since 2026-10-16
- *                   (src/lib/insights.js headlineStats); `stats` is read only
- *                   for an older file that still carries them.
- *   bulletins.json  the dated feed. GENERATED from Texas HHS "Texas Works"
- *                   policy bulletins and quarterly revisions by
- *                   scripts/fetch-texas-works.mjs, refreshed on a schedule by
- *                   .github/workflows/refresh-bulletins.yml.
- *
- * Keeping them apart means the scheduled job never touches hand-written copy,
- * and a human edit never gets clobbered by a scrape.
+ * The dated feed in the hero band's right column: bulletins.json, GENERATED
+ * from Texas HHS "Texas Works" policy bulletins and quarterly revisions by
+ * scripts/fetch-texas-works.mjs and refreshed on a schedule by
+ * .github/workflows/refresh-bulletins.yml.
  *
  * The SNAP / H.R. 1 tags are classified HERE rather than in the scraper, for two
  * reasons: the taxonomy is a display decision and should not need a re-scrape to
@@ -26,7 +15,11 @@
  * every reader.
  */
 
+import { fetchOptionalJson } from './fetchJson';
+
 /**
+ * One of the hero band's figures (src/lib/insights.js headlineStats).
+ *
  * @typedef {Object} TimelineStat
  * @property {string} [label] - What the figure is of, set above it.
  * @property {string} value
@@ -59,11 +52,8 @@
 
 /**
  * @typedef {Object} TimelineContent
- * @property {TimelineStat[]} stats
  * @property {TimelineItem[]} feed
  */
-
-const EMPTY = { stats: [], feed: [] };
 
 /**
  * A TEXT MATCH on the bulletin's title and body — not an editorial judgment
@@ -99,26 +89,11 @@ export function classify(item) {
   return tags;
 }
 
-async function getJson(file) {
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}data/${file}`);
-    if (!res.ok) return null;
-    return (await res.json());
-  } catch {
-    return null;
-  }
-}
-
 export async function loadTimeline() {
-  const [editorial, bulletins] = await Promise.all([
-    getJson('timeline.json'),
-    getJson('bulletins.json'),
-  ]);
-
-  // Either source missing degrades to an empty half rather than a blank column.
+  const bulletins = await fetchOptionalJson('bulletins.json');
+  // A missing feed degrades to an empty column rather than an error.
   return {
-    stats: editorial?.stats ?? EMPTY.stats,
-    feed: (bulletins?.feed ?? EMPTY.feed)
+    feed: (bulletins?.feed ?? [])
       .map((item) => ({ ...item, tags: classify(item) }))
       .sort((a, b) => (b.date ?? b.month).localeCompare(a.date ?? a.month)),
   };

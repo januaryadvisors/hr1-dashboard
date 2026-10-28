@@ -1,8 +1,8 @@
 /**
  * <IndexedLines> — several series rebased to 100 at a reference month.
  *
- * §8 tab 2's "Age-band indexed lines", and the chart that answers the one
- * question a legislator asks about their own county: **is it worse than Texas?**
+ * The chart that answers the one question a legislator asks about their own
+ * county: **is it worse than Texas?**
  *
  * Levels cannot answer that. Harris has sixty times the caseload of a rural
  * county, so on a shared level axis every rural line sits flat against the
@@ -10,10 +10,15 @@
  * shape, which is the comparison being claimed.
  *
  * The 100 line is drawn solid and labelled, because "below the line" is the
- * whole reading.
+ * whole reading. Gridlines run every 10 points (indexAxis) and at each year,
+ * and the months from the reference month on are shaded like <LineChart>'s
+ * window, with the "JUL 2025 = 100" label at the top of the shading.
  */
+import { scaleLinear } from 'd3-scale';
+import { endLabelMargin, indexAxis, lastFinite, linePath, seriesColor, stackLabels } from '../../lib/chart';
 import { fmtMonth, fmtPctDelta } from '../../lib/format';
-import { lastFinite } from './LineChart';
+import { YearGrid } from './YearGrid';
+import { YGrid } from './YGrid';
 import styles from './charts.module.css';
 
 /**
@@ -30,92 +35,41 @@ import styles from './charts.module.css';
  * @property {string[]} months
  * @property {IndexedSeries[]} series
  * @property {number} refIndex - Index of the month everything is rebased to; gets the 100 marker.
- * @property {boolean} [refLabelRight] - Put the "JUL 2025 = 100" label at the right end of the 100
- *   line instead of the left, where a full-history chart's lines cross it. The printed Children
- *   chart uses it (2026-10-16).
  * @property {number} [height]
  * @property {number} [viewWidth]
  * @property {string} title
  */
 
-const PALETTE = [
-  'var(--ja-navy)',
-  'var(--ja-burgundy)',
-  'var(--ja-teal)',
-  '#288c46',
-  'var(--ja-orange)',
-];
+/** Minimum vertical distance between two end labels. */
+const LABEL_GAP = 11;
 
 export function IndexedLines({
   months,
   series,
   refIndex,
-  refLabelRight = false,
   height = 250,
   viewWidth: W = 1000,
   title,
 }) {
-  /*
-   * Right margin sized to the longest label plus its percentage suffix. Fixed at
-   * 116 it clipped "Children under 18 −12.5%" mid-number, which is worse than no
-   * label at all — a truncated figure still reads as a figure.
-   */
-  const longest = series.reduce((n, s) => Math.max(n, s.label.length), 0);
-  const M = { top: 16, right: Math.max(70, Math.ceil(longest * 7) + 46), bottom: 22, left: 48 };
+  // Sized for the longest label plus its percentage suffix.
+  const right = endLabelMargin(series.map((s) => s.label), { perChar: 7, extra: 46, min: 70 });
+  const M = { top: 16, right, bottom: 22, left: 48 };
 
   const all = series.flatMap((s) => s.values).filter((v) => v != null);
   if (!all.length || months.length < 2) return null;
 
-  const lo = Math.min(100, ...all);
-  const hi = Math.max(100, ...all);
-  const pad = (hi - lo) * 0.1 || 2;
-  const yMin = lo - pad;
-  const yMax = hi + pad;
+  const axis = indexAxis(all);
+  const x = scaleLinear().domain([0, months.length - 1]).range([M.left, W - M.right]);
+  const y = scaleLinear().domain(axis.domain).range([height - M.bottom, M.top]);
 
-  const x = (i) => M.left + (i / (months.length - 1)) * (W - M.left - M.right);
-  const y = (v) =>
-    M.top + (1 - (v - yMin) / (yMax - yMin)) * (height - M.top - M.bottom);
-
-  const path = (values) => {
-    let d = '';
-    let open = false;
-    values.forEach((v, i) => {
-      if (v == null) {
-        open = false;
-        return;
-      }
-      d += `${open ? 'L' : 'M'}${x(i).toFixed(2)} ${y(v).toFixed(2)}`;
-      open = true;
-    });
-    return d;
-  };
-
-  /**
-   * End labels are stacked to avoid collisions. Series ending within ~11 units
-   * of each other would otherwise print on top of one another, which on a
-   * five-band age chart happens every time.
-   */
   const ends = series
-    .map((s, si) => ({ si, last: lastFinite(s.values) }))
-    .filter((e) => e.last != null)
-    .map((e) => ({ si: e.si, lastIndex: e.last.i, value: e.last.v }))
-    .sort((a, b) => a.value - b.value);
-
-  // Walk from the highest-ending series down, pushing each label at least 11
-  // below the one above it — then lift the whole stack if that ran it off the
-  // bottom. (This used to push each label ABOVE the previous one, so the stack
-  // climbed out of the top of the chart and printed in reverse value order.)
-  const placed = new Map();
-  let lastY = -Infinity;
-  for (let k = ends.length - 1; k >= 0; k--) {
-    const e = ends[k];
-    let ty = y(e.value);
-    if (ty - lastY < 11) ty = lastY + 11;
-    placed.set(e.si, ty);
-    lastY = ty;
-  }
-  const overflow = lastY - (height - 4);
-  if (overflow > 0) for (const [si, ty] of placed) placed.set(si, ty - overflow);
+    .map((s, si) => ({ s, si, last: lastFinite(s.values) }))
+    .filter((e) => e.last != null);
+  const labelY = stackLabels(
+    ends.map((e) => y(e.last.v)),
+    LABEL_GAP,
+    height - 4,
+  );
 
   // Sorted so the emphasised series paints on top of the rest.
   const order = series
@@ -124,61 +78,58 @@ export function IndexedLines({
 
   return (
     <svg className={styles.svg} viewBox={`0 0 ${W} ${height}`} role="img" aria-label={title}>
-      {[yMin, yMax].map((v) => (
-        <text key={v} x={M.left - 5} y={y(v) + 3} textAnchor="end" className={styles.axis}>
-          {v.toFixed(0)}
-        </text>
-      ))}
+      <rect
+        x={x(refIndex)}
+        y={M.top}
+        width={x(months.length - 1) - x(refIndex)}
+        height={height - M.top - M.bottom}
+        className={styles.windowBand}
+      />
+      <line x1={x(refIndex)} x2={x(refIndex)} y1={M.top} y2={height - M.bottom} className={styles.windowEdge} />
+      <text x={x(refIndex) + 4} y={M.top + 9} className={styles.annotation}>
+        {fmtMonth(months[refIndex])} = 100
+      </text>
+
+      <YGrid
+        ticks={axis.ticks.filter((v) => v !== 100)}
+        y={y}
+        x1={M.left}
+        x2={W - M.right}
+        format={String}
+        gap={5}
+      />
 
       {/* The 100 line: everything below it is a loss since the reference month. */}
       <line x1={M.left} x2={W - M.right} y1={y(100)} y2={y(100)} className={styles.zeroLine} />
       <text x={M.left - 5} y={y(100) + 3} textAnchor="end" className={styles.axis}>
         100
       </text>
-      <text
-        x={refLabelRight ? W - M.right - 4 : M.left + 4}
-        // Right: up in the plot's top corner, clear of the lines, which have
-        // fallen well below 100 by the end of a full-history chart.
-        y={refLabelRight ? M.top + 8 : y(100) - 5}
-        textAnchor={refLabelRight ? 'end' : 'start'}
-        className={styles.axisLabel}
-      >
-        {fmtMonth(months[refIndex] ?? months[0])} = 100
-      </text>
 
-      {[0, months.length - 1].map((i) => (
-        <text key={i} x={x(i)} y={height - 6} textAnchor={i === 0 ? 'start' : 'end'} className={styles.axis}>
-          {fmtMonth(months[i])}
-        </text>
+      <YearGrid months={months} x={x} top={M.top} bottom={height - M.bottom} labelY={height - 6} />
+
+      {order.map(({ s, si }) => (
+        <path
+          key={s.label}
+          d={linePath(s.values, x, y)}
+          fill="none"
+          stroke={seriesColor(s, si)}
+          strokeWidth={s.emphasis ? 2.4 : 1.3}
+          strokeOpacity={s.emphasis ? 1 : 0.85}
+          strokeDasharray={s.dashed ? '4 3' : undefined}
+        />
       ))}
 
-      {order.map(({ s, si }) => {
-        const color = s.color ?? PALETTE[si % PALETTE.length];
-        return (
-          <path
-            key={s.label}
-            d={path(s.values)}
-            fill="none"
-            stroke={color}
-            strokeWidth={s.emphasis ? 2.4 : 1.3}
-            strokeOpacity={s.emphasis ? 1 : 0.85}
-            strokeDasharray={s.dashed ? '4 3' : undefined}
-          />
-        );
-      })}
-
-      {ends.map((e) => {
-        const s = series[e.si];
-        const color = s.color ?? PALETTE[e.si % PALETTE.length];
-        const ty = placed.get(e.si) ?? y(e.value);
+      {ends.map(({ s, si, last }, k) => {
+        const color = seriesColor(s, si);
+        const ty = labelY[k];
         return (
           <g key={s.label}>
             {/* Leader line, because the label may have been nudged off its
                 series to avoid a collision. */}
             <line
-              x1={x(e.lastIndex)}
+              x1={x(last.i)}
               x2={W - M.right + 2}
-              y1={y(e.value)}
+              y1={y(last.v)}
               y2={ty}
               stroke={color}
               strokeWidth={0.5}
@@ -191,7 +142,7 @@ export function IndexedLines({
               className={s.emphasis ? styles.endLabelStrong : styles.endLabel}
             >
               {s.label}
-              <tspan className={styles.endLabelValue}> {fmtPctDelta((e.value - 100) / 100, 1)}</tspan>
+              <tspan className={styles.endLabelValue}> {fmtPctDelta((last.v - 100) / 100, 1)}</tspan>
             </text>
           </g>
         );

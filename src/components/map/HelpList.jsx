@@ -2,6 +2,7 @@
  * <HelpList> — the enrollment help listed in a county, in words.
  */
 import { INFRA_TYPES } from '../../config/layers';
+import { cx } from '../../lib/cx';
 import { fmtInt } from '../../lib/format';
 import { INFRA_BAR_ORDER } from './InfraBars';
 import { InfraGlyph } from './InfraGlyph';
@@ -34,14 +35,14 @@ function helpLine(county, key) {
 }
 
 /**
- * Enrollment help listed in a county, as text (2026-10-16 — it was a bar
- * chart). One line per registry, each with its map-key symbol. Used by the
+ * Enrollment help listed in a county, as text. One line per registry, each
+ * with its map-key symbol. Used by the
  * Insights report box; the map tooltip keeps the bar chart (<InfraColumnChart>).
  * `className` sets the layout and size.
  */
-export function HelpList({ county, className = '' }) {
+export function HelpList({ county, className }) {
   return (
-    <ul className={`${styles.list} ${className}`}>
+    <ul className={cx(styles.list, className)}>
       {INFRA_BAR_ORDER.map((key) => INFRA_TYPES.find((t) => t.key === key))
         .filter((t) => t?.available)
         .map((t) => {

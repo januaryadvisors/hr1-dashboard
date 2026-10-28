@@ -8,6 +8,7 @@
  * with the chapter and step named above it. Every segment is a button, so it
  * doubles as the chapter bar's jump targets.
  */
+import { cx } from '../../lib/cx';
 import { stepLetter } from './StoryRail';
 import styles from './StoryProgress.module.css';
 
@@ -19,7 +20,7 @@ import styles from './StoryProgress.module.css';
  *   onSelect: (chapter: number, step: number) => void,
  *   aside?: import('react').ReactNode,
  * }} props - `aside` takes the place of the step count at the right of the
- *   label row — the phone's Jump to menu (2026-10-16). The bar below already
+ *   label row — the phone's Jump to menu. The bar below already
  *   shows where in the story the reader is.
  */
 export function StoryProgress({ chapters, activeChapter, activeStep, onSelect, aside }) {
@@ -27,7 +28,7 @@ export function StoryProgress({ chapters, activeChapter, activeStep, onSelect, a
   return (
     <nav className={styles.root} aria-label="Story progress">
       <div className={styles.labelRow}>
-        <span className={`${styles.num} tabular`}>
+        <span className={cx(styles.num, 'tabular')}>
           {String(activeChapter + 1).padStart(2, '0')}
         </span>
         <span className={styles.label}>{chapter.label}</span>
@@ -44,7 +45,7 @@ export function StoryProgress({ chapters, activeChapter, activeStep, onSelect, a
         {chapters.map((c, ci) => (
           <span
             key={c.key}
-            className={`${styles.group} ${ci === activeChapter ? styles.groupCurrent : ''}`}
+            className={cx(styles.group, ci === activeChapter && styles.groupCurrent)}
             style={{ flexGrow: c.steps.length }}
           >
             {c.steps.map((title, si) => {
@@ -53,7 +54,7 @@ export function StoryProgress({ chapters, activeChapter, activeStep, onSelect, a
                 <button
                   key={title}
                   type="button"
-                  className={`${styles.seg} ${on ? styles.segOn : ''}`}
+                  className={cx(styles.seg, on && styles.segOn)}
                   aria-label={`${c.label}, step ${stepLetter(si)}: ${title}`}
                   aria-current={ci === activeChapter && si === activeStep ? 'step' : undefined}
                   onClick={() => onSelect(ci, si)}

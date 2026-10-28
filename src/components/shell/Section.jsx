@@ -1,11 +1,6 @@
 /**
- * <Section> — a page section: one bold line, then the content.
- *
- * Started life carrying the comps' numbered eyebrow ("02 — PLACE") and a lede
- * under the title. Both removed on client direction 2026-09-11 — the numbering
- * and the ledes were restating what the charts already said, and on a page this
- * long they read as filler between the reader and the data. The component stays
- * so the heading treatment lives in one place.
+ * <Section> — a page section: one bold line, an optional subtitle, then the
+ * content. Keeps the heading treatment in one place.
  *
  * `tone` alternates the band's ground between the two tans, so consecutive
  * sections read as separate territory without a rule between them. The band
@@ -13,27 +8,24 @@
  *
  * @typedef {import('react').ReactNode} ReactNode
  */
+import { cx } from '../../lib/cx';
 import styles from './Section.module.css';
 
 /**
  * @typedef {Object} SectionProps
  * @property {string} title
- * @property {string} [subtitle] - One short line under the title (2026-10-16 comps).
+ * @property {string} [subtitle] - One short line under the title.
  * @property {'base' | 'alt'} [tone] - Alternating ground. 'alt' is the half-step darker tan.
- * @property {ReactNode} [aside] - Rendered on the title's right, e.g. a control that belongs to the section.
  * @property {string} [id] - Anchor for in-page jumps.
  * @property {ReactNode} children
  */
 
-export function Section({ title, subtitle, tone = 'base', aside, id, children }) {
+export function Section({ title, subtitle, tone = 'base', id, children }) {
   return (
-    <section id={id} className={`${styles.root} ${tone === 'alt' ? styles.alt : ''}`}>
-      <div className={styles.head}>
-        <div>
-          <h2 className={styles.title}>{title}</h2>
-          {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
-        </div>
-        {aside && <div className={styles.headAside}>{aside}</div>}
+    <section id={id} className={cx(styles.root, tone === 'alt' && styles.alt)}>
+      <div>
+        <h2 className={styles.title}>{title}</h2>
+        {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
       </div>
       {children}
     </section>

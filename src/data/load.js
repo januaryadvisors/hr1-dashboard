@@ -1,14 +1,14 @@
 /**
  * Data loading — spec §2: "Static JSON fetched once, cached in context."
  *
- * The four files are the §3 contract. counties.json and statewide.json are
- * built from the analysis repo's data-clean/ parquets by
- * scripts/build-county-data.mjs — real HHSC enrollment and build_scores.R
- * output, no synthetic values. districts.json is expected to 404 until the
- * aggregation method is settled (§3.4, §12), which is a normal state and not an
- * error.
+ * counties.json and statewide.json are the §3 contract, built from the analysis
+ * repo's data-clean/ parquets by scripts/build-county-data.mjs — real HHSC
+ * enrollment and build_scores.R output, no synthetic values.
  */
 import { feature } from 'topojson-client';
+import { fetchJson, fetchOptionalJson } from './fetchJson';
+
+export { MissingDataError } from './fetchJson';
 /**
  * @typedef {import('geojson').Feature} Feature
  * @typedef {import('geojson').FeatureCollection} FeatureCollection
@@ -19,39 +19,6 @@ import { feature } from 'topojson-client';
  * @typedef {import('../types').Statewide} Statewide
  * @typedef {import('../types').Topology} Topology
  */
-
-// BASE_URL carries vite's `base`, so this works at / in dev and at
-// /hr1-dashboard/ on Pages.
-const dataUrl = (file) => `${import.meta.env.BASE_URL}data/${file}`;
-
-export class MissingDataError extends Error {
-  file;
-  constructor(file) {
-    super(`${file} has not been exported yet.`);
-    this.name = 'MissingDataError';
-    this.file = file;
-  }
-}
-
-async function getJson(file) {
-  let res;
-  try {
-    res = await fetch(dataUrl(file));
-  } catch {
-    throw new MissingDataError(file);
-  }
-  if (res.status === 404) throw new MissingDataError(file);
-  if (!res.ok) throw new Error(`Failed to load ${file} (${res.status})`);
-
-  // A dev server with SPA fallback answers a missing .json with index.html, so a
-  // 200 is not proof the file exists.
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new MissingDataError(file);
-  }
-}
 
 /**
  * @typedef {Object} CountyGeometry
@@ -74,54 +41,24 @@ function parseGeometry(topo) {
  * @property {Map<string, County>} byGeoid
  * @property {Statewide} statewide
  * @property {CountyGeometry} geometry
- * @property {SnapObserved | null} medicaid - Observed Medicaid enrollment, or null when the file is absent.
- * @property {boolean} hasMedicaid - Whether the Medicaid view has data to draw. False hides the view.
  * @property {DistrictCounts | null} districtCounts - TX House / Senate / US House enrollment counts for the Insights
  *   scope picker, or null when district-counts.json is absent (the picker then offers counties only).
  * @property {boolean} isFixture - True when either payload carries `fixture: true`. The real build never sets it;
- *   kept so a hand-dropped fixture file still labels itself in downloads.
+ *   a hand-dropped fixture file still labels itself in downloads.
  */
-
-/**
- * Attach observed Medicaid enrollment to the county records.
- *
- * The Medicaid series is published on its OWN month axis (Feb 2022 – Jan 2026,
- * with seven months HHSC never posted) while every other series on a County is
- * indexed against statewide.meta.months. Aligning here rather than at the point
- * of use means `medicaid_enrolled[i]` and `snap_enrolled[i]` are the same month,
- * so the brush, the loss layers and the tooltip all work on it unmodified.
- *
- * Months outside the Medicaid range, and months HHSC skipped, are null — not
- * zero and not carried forward. A loss layer reading a null endpoint renders
- * the county as no-data, which is the truth.
- */
-function attachMedicaid(counties, statewide, medicaid) {
-  if (!medicaid?.months?.length) return false;
-  const at = new Map(medicaid.months.map((m, i) => [m, i]));
-  const axis = statewide.meta.months;
-
-  for (const county of counties) {
-    const series = medicaid.counties?.[county.geoid];
-    if (!series) continue;
-    county.medicaid_enrolled = axis.map((m) => {
-      const i = at.get(m);
-      return i == null ? null : series.caseload[i];
-    });
-  }
-  return true;
-}
 
 /**
  * @typedef {Object} DistrictUnit
  * @property {string} geoid - The unit key, e.g. "txhouse-133". NOT a Census GEOID — those collide with county
- *   FIPS (SLDL 48133 is also Eastland County). Named geoid so the county helpers (lossRank, buildFunnel,
- *   search) take a district unchanged.
+ *   FIPS (SLDL 48133 is also Eastland County). Named geoid so the county helpers (buildFunnel, search)
+ *   take a district unchanged.
  * @property {'txhouse' | 'txsenate' | 'ushouse'} plan
  * @property {number} number
  * @property {string} name - "House District 133".
  * @property {number} pop
  * @property {number[]} snap_enrolled - Parallel to statewide meta.months.
  * @property {number[]} snap_children
+ * @property {Record<string, number[]>} snap_age - Monthly enrolled per age band, keyed like statewide age_series.
  * @property {number} newly_subject_persons - PUMS-modelled, apportioned.
  * @property {boolean} exact - Built entirely from whole counties, so the counts are sums, not estimates.
  * @property {number} allocated_share - Share of the Jul 2025 caseload apportioned from split counties.
@@ -150,14 +87,12 @@ function prepareDistricts(raw, statewide) {
 }
 
 export async function loadDataset() {
-  const [counties, statewide, topo, medicaid, districtsRaw] = await Promise.all([
-    getJson('counties.json'),
-    getJson('statewide.json'),
-    getJson('geometry.json'),
-    // Optional by design: the Medicaid view hides itself if the file is absent.
-    getJson('medicaid-observed.json').catch(() => null),
+  const [counties, statewide, topo, districtsRaw] = await Promise.all([
+    fetchJson('counties.json'),
+    fetchJson('statewide.json'),
+    fetchJson('geometry.json'),
     // Optional too: without it the Insights picker offers counties only.
-    getJson('district-counts.json').catch(() => null),
+    fetchOptionalJson('district-counts.json'),
   ]);
 
   const geometry = parseGeometry(topo);
@@ -178,26 +113,31 @@ export async function loadDataset() {
     );
   }
 
-  const hasMedicaid = attachMedicaid(counties, statewide, medicaid);
-
   return {
     counties,
     byGeoid,
     statewide,
     geometry,
-    medicaid: hasMedicaid ? medicaid : null,
-    hasMedicaid,
     districtCounts: prepareDistricts(districtsRaw, statewide),
     isFixture: Boolean(counties[0]?.fixture || statewide.fixture),
   };
 }
 
-/** districts.json is optional by design (§3.4). Absent → null, never a throw. */
-export async function loadDistricts() {
-  try {
-    return await getJson('districts.json');
-  } catch (err) {
-    if (err instanceof MissingDataError) return null;
-    throw err;
-  }
+let districtShapes = null;
+
+/**
+ * District outlines per chamber ({ txhouse, txsenate, ushouse }, each a list of
+ * features keyed by district-counts.json's geoid), fetched the first time a
+ * district is picked rather than with the rest of the data. null if the file is
+ * absent.
+ */
+export function loadDistrictShapes() {
+  districtShapes ??= fetchOptionalJson('district-geometry.json').then(
+    (topo) =>
+      topo &&
+      Object.fromEntries(
+        Object.entries(topo.objects).map(([plan, object]) => [plan, feature(topo, object).features]),
+      ),
+  );
+  return districtShapes;
 }

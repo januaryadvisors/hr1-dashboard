@@ -6,7 +6,7 @@
 }
 
 .county {
-  stroke: #ffffff;
+  stroke: var(--surface);
   transition: fill 120ms linear;
 }
 
@@ -21,8 +21,8 @@
   stroke-width: 1.5;
 }
 
-/* Dark county outlines on the Work requirements map (2026-10-16), the D1
-   ramp's own navy at partial strength. Hover still wins. */
+/* Dark county outlines on the Work requirements map, the D1 ramp's own navy
+   at partial strength. Hover still wins. */
 .outlined .county {
   stroke: rgba(14, 52, 100, 0.5);
 }
@@ -31,15 +31,14 @@
   stroke: var(--ja-ink);
 }
 
-
 .stateOutline {
   fill: none;
   stroke: var(--ja-navy);
   pointer-events: none;
 }
 
-/* Overlay on: the counties it does not pick out fade back (2026-10-16), so
-   the outlined ones carry the map. Opacity rather than a grey fill, so the
+/* Overlay on: the counties it does not pick out fade back, so the outlined
+   ones carry the map. Opacity rather than a grey fill, so the
    choropleth is still readable underneath. */
 .overlayDimmed {
   opacity: 0.28;
@@ -49,15 +48,14 @@
    separates from its neighbours on dark fills too. */
 .overlayHalo {
   fill: none;
-  stroke: #ffffff;
+  stroke: var(--surface);
   stroke-width: 4.5;
   stroke-linejoin: round;
   pointer-events: none;
 }
 
-/* Red border, per client direction 2026-09-01 (was ink). Solid and brighter
-   than the gap outline's dashes, so the two overlays stay distinguishable
-   when both are on. */
+/* Solid and brighter than the gap outline's dashes, so the two overlays stay
+   distinguishable when both are on. */
 .overlayQ5 {
   fill: none;
   stroke: var(--overlay-q5);
@@ -77,7 +75,7 @@
 
 .neutralBase {
   fill: #f7f6f6;
-  stroke: #ffffff;
+  stroke: var(--surface);
   stroke-width: 0.4;
 }
 
@@ -89,7 +87,3 @@
 .mark {
   pointer-events: none;
 }
-
-/* Keyboard focus on the map uses the global outline (global.css). A custom
-   .focusRing stroke used to suppress it, but nothing ever drew that ring, so
-   the focused map showed no indicator at all. */

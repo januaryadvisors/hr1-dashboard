@@ -5,22 +5,22 @@
  * crosshairs, or a none-listed floor strip on a zero-inflated y axis; the
  * preset's concern corner is tinted and counted. Points scale by population.
  *
- * MEDIAN-CENTRED AXES, 2026-10-16. Each axis runs from the 2nd to the 98th
- * percentile with the Texas median at its midpoint, so the crosshair sits in the
- * middle of the plot and the four quadrants are the same size. On a plain linear
- * axis from zero the cloud bunched into one corner — most counties lost a
- * similar share and a few lost far more — and the quadrants were unreadable.
- * The two halves of an axis have different units per pixel as a result, so the
- * ends and the median are labelled with their values; the few counties past
- * the 2nd/98th percentiles sit on the edge, and the end labels say ≤ / ≥.
+ * MEDIAN-CENTRED AXES. Each axis runs from the 2nd to the 98th percentile with
+ * the Texas median at its midpoint, so the crosshair sits in the middle of the
+ * plot and the four quadrants are the same size. On a plain linear axis from
+ * zero the cloud bunches into one corner — most counties lose a similar share
+ * and a few lose far more — and the quadrants are unreadable. The two halves of
+ * an axis have different units per pixel as a result, so the ends and the
+ * median are labelled with their values; the few counties past the 2nd/98th
+ * percentiles sit on the edge, and the end labels say ≤ / ≥.
  *
- * Hovering or pinning a county on the map highlights it here with a ring and a
- * label. The 254 base points are memoised into their own layer so a hover
- * repaints only the two-element highlight overlay, not the whole cloud — which
- * is what keeps map-hover smooth.
+ * The `hovered` county is highlighted with a ring and a label. The base points
+ * are memoised into their own layer so a hover repaints only the highlight
+ * overlay, not the whole cloud — which is what keeps hovering smooth.
  */
 import { memo, useMemo } from 'react';
 import { splitQuadrants } from '../../config/metrics';
+import { median } from '../../lib/stats';
 import styles from './charts.module.css';
 
 /**
@@ -57,10 +57,7 @@ function pivotScale(lo, mid, hi, r0, r1) {
  */
 
 /** Base cloud. Depends only on the data and the scales, never on hover state. */
-const Points = memo(function Points({
-  points,
-  scales,
-}) {
+const Points = memo(function Points({ points, scales }) {
   return (
     <g>
       {points.map((p) => (
@@ -125,7 +122,7 @@ export function ScatterChart({
     // On a floor-split axis only the listed (positive) values are scaled; the
     // zeros ride in the strip below, which is where the crosshair is drawn.
     const yVals = asc(points.map((p) => p.y).filter((v) => ySplit !== 'any' || v > 0));
-    const yMid = ySplit === 'any' ? (yVals.length ? quantile(yVals, 0.5) : 1) : split.my;
+    const yMid = ySplit === 'any' ? (median(yVals) ?? 1) : split.my;
     const yLo = yVals.length ? Math.min(quantile(yVals, 0.02), yMid) : 0;
     const yHi = yVals.length ? Math.max(quantile(yVals, 0.98), yMid) : 1;
 
@@ -138,10 +135,10 @@ export function ScatterChart({
         x,
         y: (v) => (FLOOR && v <= 0 ? bottom - FLOOR + FLOOR_DOTS : yPos(v)),
         /*
-           Radii are PIXELS, not viewBox units — both callers now author their
-           viewBox at the element's real size, so a 3px dot is 3px on screen.
-           Floored at 3 rather than 2 so the smallest counties stay a visible
-           mark (and a big enough hover target) instead of a speck.
+           Radii are PIXELS, not viewBox units — the caller authors the viewBox
+           at the element's real size, so a 3px dot is 3px on screen. Floored
+           at 3 so the smallest counties stay a visible mark (and a big enough
+           hover target) instead of a speck.
         */
         r: (w) => 3 + Math.sqrt(w / maxWeight) * 9,
       },
@@ -224,12 +221,8 @@ export function ScatterChart({
       onMouseLeave={() => onHover?.(null)}
     >
       {/*
-        ALL FOUR QUADRANTS, labelled, with the finding tinted — 2026-09-11.
-
-        Only the one "gap" corner used to be drawn, which left the other three
-        as unexplained empty space and made the chart look like it had a
-        highlight rather than a structure. A quadrant chart that labels one
-        corner is asking the reader to infer the other three.
+        All four quadrants, labelled, with the finding tinted: a quadrant chart
+        that labels one corner asks the reader to infer the other three.
 
         The dashed crosshair below sits on the MEDIAN of the plotted counties,
         so every quadrant holds roughly a quarter of them by construction. That
@@ -380,10 +373,9 @@ export function ScatterChart({
         {xLabel}
       </text>
       {/*
-        Centred on the plot's height and rotated about its own origin. It used
-        to anchor at the top-left and run downward, which pushed a long label
-        ("Share of child caseload lost") off the bottom of the viewBox — the
-        axis names are caller-supplied now, so the label cannot be sized for.
+        Centred on the plot's height and rotated about its own origin, so a
+        long caller-supplied name grows in both directions instead of running
+        off the bottom of the viewBox.
       */}
       <text
         className={styles.axisLabel}

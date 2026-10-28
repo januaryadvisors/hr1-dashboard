@@ -1,10 +1,9 @@
 /**
  * <ChapterNav> — the chapter bar above the story map.
  *
- * Replaces the scrolling strip of view cards. The strip was a layer picker that
- * happened to sit above the map; this is the story's table of contents, so every
- * chapter is visible at once (no carousel), the one the reader is in is
- * unmistakable, and each card carries a progress bar with one segment per step.
+ * The story's table of contents: every chapter is visible at once (no
+ * carousel), the one the reader is in is unmistakable, and each card carries a
+ * progress bar with one segment per step.
  *
  * TWO TARGETS PER CARD. The card itself jumps to the chapter's first step; each
  * progress segment is its own button and jumps to that step, so the second step
@@ -19,6 +18,7 @@
  *
  * @typedef {import('react').ReactNode} ReactNode
  */
+import { cx } from '../../lib/cx';
 import { stepLetter } from './StoryRail';
 import styles from './ChapterNav.module.css';
 
@@ -46,7 +46,7 @@ export function ChapterNav({ items, activeChapter, activeStep, onSelect }) {
           const current = i === activeChapter;
           const done = i < activeChapter;
           return (
-            <li key={item.key} className={`${styles.card} ${current ? styles.current : ''}`}>
+            <li key={item.key} className={cx(styles.card, current && styles.current)}>
               <button
                 type="button"
                 className={styles.main}
@@ -70,7 +70,7 @@ export function ChapterNav({ items, activeChapter, activeStep, onSelect }) {
                     <button
                       key={title}
                       type="button"
-                      className={`${styles.seg} ${on ? styles.segOn : ''} ${here ? styles.segHere : ''}`}
+                      className={cx(styles.seg, on && styles.segOn, here && styles.segHere)}
                       aria-label={`${item.label}, step ${stepLetter(s)}: ${title}`}
                       aria-current={here ? 'step' : undefined}
                       title={`${stepLetter(s)}. ${title}`}

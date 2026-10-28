@@ -16,6 +16,7 @@
  * @typedef {import('react').ReactNode} ReactNode
  */
 import { useEffect, useRef, useState } from 'react';
+import { cx } from '../../lib/cx';
 import { StepSources, stepLetter } from './StoryRail';
 import styles from './StepCaption.module.css';
 
@@ -59,7 +60,7 @@ export function StepCaption({ index, step, chart, counties, onPrev = null, onNex
         <div className={styles.actions}>
           <button
             type="button"
-            className={`${styles.action} ${sheet === 'more' ? styles.actionOn : ''}`}
+            className={cx('pill pill-navy', sheet === 'more' && 'pill-on')}
             aria-expanded={sheet === 'more'}
             onClick={() => toggle('more')}
           >
@@ -67,7 +68,7 @@ export function StepCaption({ index, step, chart, counties, onPrev = null, onNex
           </button>
           <button
             type="button"
-            className={`${styles.action} ${sheet === 'counties' ? styles.actionOn : ''}`}
+            className={cx('pill pill-navy', sheet === 'counties' && 'pill-on')}
             aria-expanded={sheet === 'counties'}
             onClick={() => toggle('counties')}
           >

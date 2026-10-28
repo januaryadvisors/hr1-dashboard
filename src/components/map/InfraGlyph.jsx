@@ -1,10 +1,9 @@
 /**
  * Assistance-infrastructure glyphs (§6.6).
  *
- * §6.6 required four glyphs "deliberately distinguishable without colour". They
- * still are — square, triangle, circle, diamond — and since 2026-09-01 each also
- * carries its own hue, so a reader can tell them apart at a glance instead of
- * squinting at outlines.
+ * §6.6 requires four glyphs "deliberately distinguishable without colour":
+ * square, triangle, circle, diamond. Each also carries its own hue, so a reader
+ * can tell them apart at a glance instead of squinting at outlines.
  *
  * All four are FILLED and the same visual size. Each gets a thin white halo,
  * because these sit on top of a choropleth and have to stay legible over both
@@ -24,8 +23,8 @@ export const INFRA_COLOR = {
 };
 
 /**
- * "No data" grey — a partially reported registry's county that no reporting source covers
- * (food bank, 2026-10-16). Drawn rather than left blank, so a missing mark is
+ * "No data" grey — a partially reported registry's county that no reporting
+ * source covers (food bank). Drawn rather than left blank, so a missing mark is
  * never read as a confirmed "none".
  */
 export const NO_DATA_COLOR = '#B9B5B2';

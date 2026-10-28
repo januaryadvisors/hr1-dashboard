@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLayerValues, formatLayerValue, fractionOf } from './layerValues';
+import { buildLayerValues, formatLayerValue } from './layerValues';
 import {
   binIndex,
   bivariateColor,
@@ -94,7 +94,7 @@ describe('windowed loss layers', () => {
   });
 });
 
-describe('score layers still read their columns', () => {
+describe('score layers read their columns', () => {
   it('reads the percentile column and the count field', () => {
     const v = buildLayerValues(COUNTIES, 'd1', 0, 1);
     expect(v.fill.get('a')).toBe(0.5);
@@ -113,24 +113,6 @@ describe('formatting keeps the three units apart', () => {
     expect(formatLayerValue('composite', 2.345)).toBe('2.35');
     expect(formatLayerValue('loss', 0.152)).toBe('−15.2%');
     expect(formatLayerValue('loss', null)).toBe('—');
-  });
-});
-
-describe('rank-list bar fractions', () => {
-  it('scales a loss share against the layer’s own top band', () => {
-    const v = buildLayerValues(COUNTIES, 'loss', 0, 1);
-    const top = v.bins[v.bins.length - 2];
-    expect(fractionOf('loss', top, v)).toBeCloseTo(1);
-    expect(fractionOf('loss', top / 2, v)).toBeCloseTo(0.5);
-  });
-
-  it('clamps rather than overflowing past the top band', () => {
-    const v = buildLayerValues(COUNTIES, 'loss', 0, 1);
-    expect(fractionOf('loss', 0.99, v)).toBe(1);
-  });
-
-  it('puts the composite on its 0–4 scale', () => {
-    expect(fractionOf('composite', 2)).toBe(0.5);
   });
 });
 
@@ -160,7 +142,7 @@ describe('views and layers cannot drift apart', () => {
   });
 
   it('sends a domain with no view of its own to the default view', () => {
-    // d2 and d4 lost their strip cards in the rework but still open a valid page.
+    // d2 and d4 have no strip card of their own but still open a valid page.
     expect(viewForLayer('d2').key).toBe('loss');
     expect(viewForLayer('d4').key).toBe('loss');
   });
@@ -230,9 +212,9 @@ describe('the bivariate colour scheme', () => {
   });
 
   /**
-   * The invariant the first draft of this scheme got wrong: a darker red than
-   * blue made "work is unreachable here" look as urgent as "unreachable AND a
-   * big exposed caseload". Lightness must encode how much of BOTH, nothing else.
+   * A darker red than blue would make "work is unreachable here" look as urgent
+   * as "unreachable AND a big exposed caseload". Lightness must encode how much
+   * of BOTH, nothing else.
    */
   it('keeps the two single-high corners at the same lightness', () => {
     const g = bivariatePalette(3);
@@ -327,9 +309,8 @@ describe('per-view tooltip specs', () => {
   });
 
   /**
-   * The index panel is the longest of the four — five domain bands plus four
-   * capacity rows — and the caseload line was the one element on it that said
-   * nothing about the index. Dropped 2026-09-11.
+   * The index panel is the longest — five domain bands plus four capacity rows —
+   * and a caseload line would say nothing about the index.
    */
   it('gives the vulnerability index no chart at all', () => {
     expect(spec('composite').chart).toBe('none');

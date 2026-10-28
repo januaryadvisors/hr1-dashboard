@@ -17,27 +17,20 @@
 //
 // Usage:  npm run build:marketplace   (FT_DATA overrides the input folder)
 
-import { writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet';
-import { compressors } from 'hyparquet-compressors';
+import { resolve } from 'node:path';
+import { writeJson } from './lib/io.mjs';
+import { yearMonth } from './lib/months.mjs';
+import { readParquet } from './lib/parquet.mjs';
+import { ROOT } from './lib/paths.mjs';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const FT_DATA = resolve(ROOT, process.env.FT_DATA ?? '../feeding-texas-hr1/data-clean');
 const OUT = resolve(ROOT, 'public/data/marketplace.json');
 
-const read = async (name) =>
-  parquetReadObjects({ file: await asyncBufferFromFile(resolve(FT_DATA, name)), compressors });
-
-const pad = (m) => String(m).padStart(2, '0');
-
-const eff = (await read('marketplace_effectuated_statewide.parquet'))
-  .map((r) => ({ month: `${r.year}-${pad(r.month)}`, value: Number(r.effectuated_enr) }))
+const eff = (await readParquet('marketplace_effectuated_statewide.parquet'))
+  .map((r) => ({ month: yearMonth(r.year, r.month), value: Number(r.effectuated_enr) }))
   .sort((a, b) => a.month.localeCompare(b.month));
 
 const selections = new Map();
-for (const r of await read('marketplace_county.parquet')) {
+for (const r of await readParquet('marketplace_county.parquet')) {
   const y = Number(r.year);
   selections.set(y, (selections.get(y) ?? 0) + (Number(r.plan_selections) || 0));
 }
@@ -66,7 +59,7 @@ const out = {
   oep,
 };
 
-writeFileSync(OUT, `${JSON.stringify(out)}\n`);
+writeJson(OUT, out);
 console.log(
   `marketplace.json: ${eff.length} months (${eff[0].month} → ${eff.at(-1).month}), ` +
     `OEP ${oep[0].year}–${oep.at(-1).year}`,

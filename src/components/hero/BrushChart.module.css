@@ -1,7 +1,7 @@
 /*
- * The period card, set on the green band — 2026-10-16 comps. A darker green
- * panel rather than a white card, so the band reads as one piece: cream for the
- * history, gold for the window on the map, cream grips to drag.
+ * The period card, set on the green band. A darker green panel rather than a
+ * white card, so the band reads as one piece: cream for the history, gold for
+ * the window on the map, cream grips to drag.
  */
 .card {
   padding: var(--space-5);
@@ -148,7 +148,7 @@
   }
 }
 
-@media (max-width: 359px) {
+@media (max-width: 360px) {
   .presets {
     display: grid;
     grid-template-columns: 1fr 1fr;

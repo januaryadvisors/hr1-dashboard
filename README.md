@@ -1,7 +1,9 @@
 # Texas SNAP & H.R. 1 — county vulnerability dashboard
 
 D1 of the Feeding Texas engagement: county and legislative-district mapping of
-H.R. 1's impact on SNAP, Medicaid and Marketplace coverage in Texas.
+H.R. 1's impact on SNAP and ACA Marketplace coverage in Texas. The engagement
+also covers Medicaid, but the analysis repo has no Medicaid data, so neither
+does the dashboard.
 
 **Live:** https://januaryadvisors.github.io/hr1-dashboard/ — `noindex` while D1 is
 a working draft.
@@ -56,10 +58,9 @@ contract — see `src/types.js`.
 | `counties.json` | **Real.** Built from the analysis repo — see below |
 | `statewide.json` | **Real.** Sum of the 254 counties, plus age bands, funnel, provenance |
 | `snap-observed.json` | **Real.** The rail chart; same rows as the hero, so they agree to the person |
-| `medicaid-observed.json` | Real. Scraped from HHSC (`npm run fetch:medicaid`) |
-| `district-counts.json` | **Real, partly estimated.** TX House / Senate enrollment counts for the Insights scope picker — see below |
-| `districts.json` | Absent by design — reserved for *scored* districts; the Districts route renders an empty state (§3.4) |
-| `timeline.json` | Hero-column topline figures. Editorial — edit freely |
+| `district-counts.json` | **Real, partly estimated.** TX House / Senate / US House enrollment counts for the Insights scope picker — see below |
+| `district-geometry.json` | **Real.** TopoJSON outlines of the three district plans, from the analysis repo's `tool-data/` |
+| `marketplace.json` | **Real.** Statewide ACA Marketplace series for the story's last chapter, from the analysis repo |
 | `bulletins.json` | **Generated.** Texas Works bulletins + quarterly revisions |
 
 ### Building the county data
@@ -110,9 +111,7 @@ What the real data does **not** have, and how the page handles it:
 
 Statewide figures everywhere are the **sum of the 254 counties**; HHSC's
 call-center and state-office rows (~3,300 people) are excluded, matching the
-analysis. `fetch-snap-stats.mjs` sums them in, which is one reason it is no
-longer part of `fetch:data` — running it overwrites the rail's file with a
-series that stops at Aug 2025.
+analysis.
 
 To refresh after HHSC publishes a new month: add the Tableau export to the
 analysis repo's `data-raw/snap/` under any `.csv` name (it is renamed there). Its
@@ -313,22 +312,16 @@ The Insights page is **scopeable**: `state.scope` holds a geoid, mirrors to
 address bar after picking a county — there is no separate export step to drift
 out of sync.
 
-Two rules when adding a chart there:
+Every series a `Scope` carries — enrollment, children, seniors, payments and
+the five age bands — exists per county and per district, so every chart there
+describes the place picked. Keep it that way: these reports get handed to
+legislators who will repeat the numbers, and a statewide figure repeated as a
+county figure is the failure mode.
 
-- **If the data is statewide only, say so on the chart.** Pass `statewideOnly`
-  to `ChartCard` and it renders a "Statewide figure" badge whenever a county is
-  scoped. Age bands and people-vs-households are statewide (§3.3) and §3 forbids
-  synthesising county versions. These reports get handed to legislators who will
-  repeat the numbers; a statewide figure repeated as a county figure is the
-  failure mode, and the reader cannot catch it themselves.
-- **Quote the statewide figure and the county median, not one of them.**
-  `lossRank` returns both because they disagree, and picking the flattering one
-  is how a stat page misleads.
-
-The funnel's limits are **fitted per window** (`fitFunnel` in
-`src/lib/insights.js`, ported from the analysis notebook), and outliers are only
-coloured while the band catches ≤10% of counties — 17 of 254 on the policy
-window. See §Q2 and §U of the deviations doc.
+The map at the bottom draws the scope's peers — every county, or every district
+of the picked district's chamber — from `geometry.json` or
+`district-geometry.json` (`npm run build:district-geometry`, from the analysis
+repo's `tool-data/boundaries_*.geojson`), with the picked place outlined.
 
 ### The policy feed filter
 

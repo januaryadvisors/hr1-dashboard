@@ -14,16 +14,20 @@
  *
  * Run locally:  node scripts/fetch-texas-works.mjs
  *
- * SAFETY: if either source fails, or parses to zero entries, this exits non-zero
- * WITHOUT writing. A scrape that silently produces an empty feed is worse than a
- * stale one.
+ * SAFETY: if the two sources together yield zero entries (both failed, or the
+ * markup changed), this exits 1 WITHOUT writing: a scrape that silently produces
+ * an empty feed is worse than a stale one. If only one source fails, it writes
+ * the other's entries and exits 2, so the scheduled Action stops before
+ * committing a partial feed.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { FETCH_TIMEOUT_MS, onHost } from './lib/urls.mjs';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { decodeEntities, stripTags } from './lib/html.mjs';
+import { writeJson } from './lib/io.mjs';
+import { monthNumber, yearMonth } from './lib/months.mjs';
+import { ROOT } from './lib/paths.mjs';
+import { fetchText, onHost } from './lib/urls.mjs';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, 'public/data/bulletins.json');
 
 const ORIGIN = 'https://fhb.hhs.texas.gov';
@@ -33,26 +37,9 @@ const SOURCES = {
 };
 
 const MAX_ENTRIES = 40;
-const UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
 
-const ENTITIES = {
-  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'",
-  '&nbsp;': ' ', '&mdash;': '—', '&ndash;': '–', '&rsquo;': '’', '&#160;': ' ',
-};
-const decode = (s) => s.replace(/&[a-z#0-9]+;/gi, (m) => ENTITIES[m] ?? m);
-const text = (s) => decode(s.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 /** Absolute https URL on the handbook's own host, or null — see lib/urls.mjs. */
-const absolute = (href) => onHost(decode(href), SOURCES.bulletins, new URL(ORIGIN).hostname);
-
-async function get(url) {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': UA, Accept: 'text/html' },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
-  return res.text();
-}
+const absolute = (href) => onHost(decodeEntities(href), SOURCES.bulletins, new URL(ORIGIN).hostname);
 
 /**
  * "08-14-2026" and "08-07-26" both appear on the page. Two-digit years are
@@ -79,8 +66,8 @@ function parseBulletins(html) {
     const cells = [...row[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => c[1]);
     if (cells.length < 3) continue; // header row
 
-    const date = isoDate(text(cells[0]));
-    const number = text(cells[1]);
+    const date = isoDate(stripTags(cells[0]));
+    const number = stripTags(cells[1]);
     if (!date || !number) continue;
 
     // A cell can hold several titles, sometimes all pointing at one PDF.
@@ -89,7 +76,7 @@ function parseBulletins(html) {
     for (const a of cells[2].matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
       const href = absolute(a[1]);
       if (!href) continue; // off-host or not https — see lib/urls.mjs
-      const title = text(a[2]).replace(/\s*\(PDF\)\s*$/i, '').replace(/^\d+\.\s*/, '');
+      const title = stripTags(a[2]).replace(/\s*\(PDF\)\s*$/i, '').replace(/^\d+\.\s*/, '');
       if (!title) continue;
       if (!byHref.has(href)) byHref.set(href, []);
       const titles = byHref.get(href);
@@ -115,14 +102,10 @@ function parseBulletins(html) {
 /** Quarterly revisions are a plain list of links, with the period in the label. */
 function parseRevisions(html) {
   const out = [];
-  const MONTHS = {
-    january: '01', february: '02', march: '03', april: '04', may: '05', june: '06',
-    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12',
-  };
 
   for (const a of html.matchAll(/<a\s+[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
     const href = a[1];
-    const label = text(a[2]);
+    const label = stripTags(a[2]);
     // e.g. "26-3, July Quarterly Revision"
     const m = label.match(/^(\d{2})-(\d),\s*([A-Za-z]+)\s+Quarterly Revision$/);
     if (!m || !href.includes('quarterly-revision')) continue;
@@ -130,18 +113,18 @@ function parseRevisions(html) {
     if (!url) continue;
 
     const [, fy, , monthName] = m;
-    const mm = MONTHS[monthName.toLowerCase()];
+    const mm = monthNumber(monthName);
     if (!mm) continue;
 
     // The label carries a state FISCAL year, which starts in September — so a
     // July revision in FY26 falls in calendar 2026, an October one in 2025.
     const fiscalYear = 2000 + Number(fy);
-    const year = Number(mm) >= 9 ? fiscalYear - 1 : fiscalYear;
-    const date = `${year}-${mm}-01`;
+    const year = mm >= 9 ? fiscalYear - 1 : fiscalYear;
+    const month = yearMonth(year, mm);
 
     out.push({
-      date,
-      month: `${year}-${mm}`,
+      date: `${month}-01`,
+      month,
       number: m[1] + '-' + m[2],
       title: `${monthName} quarterly revision`,
       body: 'Handbook revisions folded into the Texas Works Handbook.',
@@ -158,14 +141,14 @@ let bulletins = [];
 let revisions = [];
 
 try {
-  bulletins = parseBulletins(await get(SOURCES.bulletins));
+  bulletins = parseBulletins(await fetchText(SOURCES.bulletins));
   console.log(`policy bulletins:    ${bulletins.length}`);
 } catch (err) {
   errors.push(`bulletins: ${err.message}`);
 }
 
 try {
-  revisions = parseRevisions(await get(SOURCES.revisions));
+  revisions = parseRevisions(await fetchText(SOURCES.revisions));
   console.log(`quarterly revisions: ${revisions.length}`);
 } catch (err) {
   errors.push(`revisions: ${err.message}`);
@@ -207,19 +190,16 @@ try {
 const seen = new Set(previous.map((e) => `${e.number}|${e.url}`));
 const added = feed.filter((e) => !seen.has(`${e.number}|${e.url}`));
 
-writeFileSync(
+writeJson(
   OUT,
-  `${JSON.stringify(
-    {
-      // No generated-at timestamp: it would make every run a diff even when
-      // nothing changed, and the Action commits on diff.
-      sources: SOURCES,
-      note: 'Generated by scripts/fetch-texas-works.mjs. Do not edit by hand.',
-      feed,
-    },
-    null,
-    2,
-  )}\n`,
+  {
+    // No generated-at timestamp: it would make every run a diff even when
+    // nothing changed, and the Action commits on diff.
+    sources: SOURCES,
+    note: 'Generated by scripts/fetch-texas-works.mjs. Do not edit by hand.',
+    feed,
+  },
+  2,
 );
 
 console.log(`\nwrote ${feed.length} entries to public/data/bulletins.json`);
@@ -227,4 +207,4 @@ if (added.length) {
   console.log(`new since last run: ${added.length}`);
   for (const e of added.slice(0, 6)) console.log(`  ${e.date}  ${e.number}  ${e.body.slice(0, 60)}`);
 }
-if (errors.length) process.exit(2); // wrote a partial feed
+if (errors.length) process.exit(2);

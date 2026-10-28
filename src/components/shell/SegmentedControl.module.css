@@ -19,7 +19,7 @@
   white-space: nowrap;
 }
 
-.option:hover:not(.active):not(:disabled) {
+.option:hover:not(.active) {
   color: var(--text);
 }
 
@@ -42,18 +42,13 @@
   color: var(--on-green-muted);
 }
 
-.onGreen .option:hover:not(.active):not(:disabled) {
+.onGreen .option:hover:not(.active) {
   color: var(--on-green);
 }
 
 .onGreen .active {
   color: var(--ja-ink);
   background: var(--on-green);
-}
-
-.option:disabled {
-  color: var(--text-faint);
-  cursor: not-allowed;
 }
 
 .sm .option {
@@ -68,9 +63,4 @@
   .sm .option {
     padding-inline: 0.45rem;
   }
-}
-
-/* §8: the control stays visible but goes inert where it does not apply. */
-.inert {
-  opacity: 0.55;
 }

@@ -153,8 +153,8 @@
 .statsQuad {
   grid-template-columns: repeat(2, 1fr);
   gap: 0;
-  /* Tighter than the three-up row (2026-10-16): four figures should read as
-     one block, not take the panel over. */
+  /* Tighter than the three-up row: four figures should read as one block, not
+     take the panel over. */
   padding: var(--space-1) 0;
 }
 
@@ -267,7 +267,7 @@
  * Fill alone cannot mark the active band. The lowest class of each axis IS the
  * scheme's near-neutral corner (#EAE7E5), which is indistinguishable from the
  * inactive grey — so a county in the bottom third on both axes, which is most
- * of them, showed no highlight at all. The ring is what actually says "here".
+ * of them, would show no highlight at all. The ring is what says "here".
  */
 .bivariateBandActive {
   box-shadow: 0 0 0 1.2px var(--ja-ink);

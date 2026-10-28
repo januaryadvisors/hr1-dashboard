@@ -1,5 +1,5 @@
 /**
- * Link hygiene for the scrapers.
+ * Link hygiene and fetching for the scrapers.
  *
  * Every link these scripts follow or publish comes from an HTML page they do
  * not control. A link is kept only if it resolves to https on the one host the
@@ -26,3 +26,17 @@ export function onHost(href, base, host) {
 
 /** Abort a request that has not finished in this long. */
 export const FETCH_TIMEOUT_MS = 30_000;
+
+/** A browser User-Agent: the HHS hosts refuse some non-browser clients. */
+export const UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36';
+
+/** GET an HTML page as text; throws on a non-2xx status or the timeout. */
+export async function fetchText(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': UA, Accept: 'text/html' },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+  return res.text();
+}

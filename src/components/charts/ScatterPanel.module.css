@@ -160,15 +160,16 @@
   list-style: none;
 }
 
-.flag,
-.flagAlert {
+.flag {
   font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--text-faint);
 }
 
 .flagAlert {
+  font-size: var(--text-xs);
   font-weight: 500;
+  line-height: 1.4;
   color: var(--ja-burgundy);
 }
 

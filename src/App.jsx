@@ -1,13 +1,18 @@
-/** §2: react-router, three routes — /map, /insights/:tab, /districts. */
-import { Navigate, Route, Routes } from 'react-router-dom';
+/** §2: react-router — /map and /insights/:tab. /districts redirects to the Insights page, which reads district scopes. */
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppHeader } from './components/shell/AppHeader';
 import { AppProvider } from './state/AppContext';
 import { Callout } from './components/shell/Callout';
 import { MissingDataError } from './data/load';
 import MapPage from './pages/MapPage';
 import InsightsPage from './pages/InsightsPage';
-import DistrictsPage from './pages/DistrictsPage';
 import styles from './App.module.css';
+
+/** Keeps the query string, so a /districts?district=… link opens that district. */
+function DistrictsRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/insights/decline', search }} replace />;
+}
 
 function Shell() {
   return (
@@ -18,7 +23,7 @@ function Shell() {
           <Route path="/map" element={<MapPage />} />
           <Route path="/insights" element={<Navigate to="/insights/decline" replace />} />
           <Route path="/insights/:tab" element={<InsightsPage />} />
-          <Route path="/districts" element={<DistrictsPage />} />
+          <Route path="/districts" element={<DistrictsRedirect />} />
           <Route path="*" element={<Navigate to="/map" replace />} />
         </Routes>
       </main>

@@ -43,9 +43,8 @@ describe('bulletin classification', () => {
 
   it('tags the coverage side of the handbook', () => {
     // Texas Works runs Medicaid and CHIP off the same handbook as SNAP, so a
-    // sizeable share of the feed is coverage policy. It used to fall through
-    // untagged, which made the filters look like they covered the feed when they
-    // covered two thirds of it.
+    // sizeable share of the feed is coverage policy. Untagged, the filters would
+    // look like they covered the feed when they covered two thirds of it.
     expect(
       classify(item('Bulletin 26-14', 'Removal of Fixed Certification Periods for CHIP')),
     ).toEqual(['health']);

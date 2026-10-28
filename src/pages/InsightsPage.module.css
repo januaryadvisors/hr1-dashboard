@@ -1,6 +1,6 @@
 .page {
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
+  grid-template-columns: 170px minmax(0, 1fr);
   gap: var(--space-6);
   /* Matches the map page's gutter, so switching tabs does not shift the page. */
   max-width: 1680px;
@@ -50,7 +50,7 @@
   min-width: 0;
 }
 
-/* One section per former chapter, stacked down the page. scroll-margin keeps
+/* The sections, stacked down the page. scroll-margin keeps
    an anchor jump from parking the title under the sticky header. */
 .section {
   display: flex;
@@ -79,39 +79,12 @@
   color: var(--text-muted);
 }
 
-/*
- * TWO CHARTS PER ROW — 2026-09-11 direction.
- *
- * `align-items: start` so a short card does not stretch to match a tall one
- * beside it; the cards are separate readings, not a table.
- */
-.chartGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-  align-items: start;
-  min-width: 0;
-}
-
-/* For a chart that genuinely cannot read at half width. */
-.wide {
-  grid-column: 1 / -1;
-}
-
 .chartBlock {
   min-width: 0;
   padding: var(--space-4);
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
-}
-
-.chartHead {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  align-items: baseline;
-  justify-content: space-between;
 }
 
 .chartTitle {
@@ -126,39 +99,6 @@
   font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--text-muted);
-}
-
-.footnote {
-  max-width: 88ch;
-  margin-top: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--hairline);
-  font-size: var(--text-xs);
-  line-height: 1.45;
-  color: var(--text-faint);
-}
-
-/*
- * "Statewide figure" on a chart the data cannot scope below state level.
- *
- * Amber, matching every other caution on the page. This is the one label that
- * has to survive a redesign: the whole point of a county report is that someone
- * will repeat the numbers, and a statewide figure repeated as a county figure is
- * the failure mode.
- */
-.badge {
-  flex: 0 0 auto;
-  padding: 0.1rem 0.45rem;
-  font-family: var(--font-display);
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #8a5a00;
-  background: var(--caution-bg);
-  border: 1px solid var(--caution-border);
-  border-radius: var(--radius-pill);
-  cursor: help;
 }
 
 .fixtureNote {
@@ -203,12 +143,11 @@
     background: #fff;
   }
   /*
-   * ONE PAGE, TWO CARDS A ROW (2026-10-16). The report is one grid on paper:
-   * the sections and their grids dissolve (display: contents) so all seven
-   * cards pack two to a row, every card half the page wide — including the
-   * ones that span both columns on screen. The section headings come off: each
-   * card names itself, and a heading spanning a row would leave half-empty
-   * rows behind it. The charts redraw at print sizes (InsightsPage.jsx).
+   * ONE PAGE, TWO CARDS A ROW. The report is one grid on paper: the
+   * sections dissolve (display: contents) so the cards pack two to a row,
+   * every card half the page wide. The section headings come off: each card
+   * names itself, and a heading spanning a row would leave half-empty rows
+   * behind it. The charts redraw at print sizes (InsightsPage.jsx).
    */
   .content {
     display: grid;
@@ -219,12 +158,10 @@
   .content > * {
     grid-column: 1 / -1;
   }
-  .content .section,
-  .content .chartGrid {
+  .content .section {
     display: contents;
   }
-  .content .chartBlock,
-  .content .wide {
+  .content .chartBlock {
     grid-column: auto;
   }
   .sectionTitle,
@@ -252,19 +189,5 @@
     break-inside: avoid;
     page-break-inside: avoid;
     border-color: #ccc;
-  }
-  /* Amber on a mono printer has to survive as something; a heavy rule does.
-     Small, so the badge does not crowd a half-width card's title. */
-  .badge {
-    padding: 0 4px;
-    font-size: 7px;
-    border-width: 1.5px;
-  }
-}
-
-/* Two charts side by side stop being readable below about 360px each. */
-@media (max-width: 899px) {
-  .chartGrid {
-    grid-template-columns: minmax(0, 1fr);
   }
 }

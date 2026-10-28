@@ -6,7 +6,6 @@ import {
   initialState,
   reducer,
   toSearchParams,
-
 } from './appState';
 /**
  * @typedef {import('./appState').AppState} AppState
@@ -20,20 +19,11 @@ const roundTrip = (state) =>
 
 describe('initial state matches the spec defaults', () => {
   it('starts on Benefits lost, geo, count, since-H.R.-1', () => {
-    // §6.4 said D1; superseded 2026-09-10 by the four-view rework.
     expect(defaults.layer).toBe('loss');
     expect(defaults.style).toBe('geo'); // §6.5
-    // Count, not rate, since 2026-09-11: the first question a reader brings to
-    // this page is how many people.
     expect(defaults.measure).toBe('count');
     expect(defaults.window).toEqual(['2025-07', '2026-05']); // §6.2
     expect(defaults.infra).toEqual(ALL_INFRA);
-  });
-
-  it('has no advanced disclosure to open', () => {
-    // Removed 2026-09-11: Measure moved above the map and the infrastructure
-    // picker is gated on the view, so there was nothing left behind the toggle.
-    expect(defaults).not.toHaveProperty('advanced');
   });
 });
 
@@ -47,8 +37,8 @@ describe('reducer', () => {
 
   /**
    * Only sourced registries can be switched on — a mark type with no data
-   * behind it would draw "none listed" everywhere by omission. All four are
-   * sourced since 2026-10-16; an unknown key must still be ignored.
+   * behind it would draw "none listed" everywhere by omission — and an unknown
+   * key is ignored.
    */
   it('offers only the sourced registries', () => {
     expect(ALL_INFRA).toEqual(['food_bank', 'cms_navigator', 'chw', 'cpp']);
@@ -126,7 +116,7 @@ describe('URL mirroring', () => {
     expect(s.window).toEqual(defaults.window);
   });
 
-  it('falls back to geo on a link to the removed cartogram', () => {
+  it('does not take the story-only tile grid from a link', () => {
     const s = fromSearchParams(new URLSearchParams('style=grid'), defaults, MONTHS);
     expect(s.style).toBe('geo');
   });
@@ -193,7 +183,7 @@ describe('URL mirroring', () => {
     });
   });
 
-  it('accepts every layer a view can show, including pre-rework links', () => {
+  it('accepts every layer a view can show', () => {
     for (const layer of ['loss', 'child_loss', 'd1', 'd3', 'work_both', 'composite']) {
       expect(fromSearchParams(new URLSearchParams(`layer=${layer}`), defaults, MONTHS).layer).toBe(
         layer,
@@ -202,8 +192,8 @@ describe('URL mirroring', () => {
   });
 
   it('sends a layer no view can show back to the default', () => {
-    // d2 and d4 lost their strip cards in the four-view rework. Accepting them
-    // would highlight one view's card while drawing another view's map.
+    // d2 and d4 have no view of their own. Accepting them would highlight one
+    // view's card while drawing another view's map.
     for (const layer of ['d2', 'd4', 'd5']) {
       expect(fromSearchParams(new URLSearchParams(`layer=${layer}`), defaults, MONTHS).layer).toBe(
         defaults.layer,

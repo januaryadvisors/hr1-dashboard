@@ -1,0 +1,14 @@
+/* Two pills side by side in <JumpMenu>'s floating corner. */
+.root {
+  composes: root from './JumpMenu.module.css';
+  display: flex;
+  gap: var(--space-2);
+}
+
+.visible {
+  composes: visible from './JumpMenu.module.css';
+}
+
+.exit {
+  composes: trigger from './JumpMenu.module.css';
+}

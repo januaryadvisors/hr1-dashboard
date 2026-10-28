@@ -3,24 +3,14 @@
 // The canvas is the source of truth. This markdown exists so the spec is
 // diffable in review and greppable from code comments (§ references all over
 // src/ point at it). Regenerate after any spec change:
-//     node scripts/extract-spec.mjs
+//     npm run build:spec
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import { decodeEntities, stripTags } from './lib/html.mjs';
+import { ROOT } from './lib/paths.mjs';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = resolve(ROOT, 'Build Spec.dc.html');
 const OUT = resolve(ROOT, 'docs/BUILD-SPEC.md');
-
-const ENTITIES = {
-  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'",
-  '&nbsp;': ' ', '&mdash;': '—', '&ndash;': '–', '&rsquo;': '’',
-  '&lsquo;': '‘', '&ldquo;': '“', '&rdquo;': '”', '&times;': '×',
-};
-const unescape = (s) =>
-  s.replace(/&[a-z#0-9]+;/gi, (m) => ENTITIES[m] ?? m);
-
-const stripTags = (s) => unescape(s.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 
 let s = readFileSync(SRC, 'utf8');
 s = s.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, '');
@@ -54,7 +44,7 @@ s = s.replace(/<p[^>]*>([\s\S]*?)<\/p>/g, (_, i) => {
   return t ? `\n\n${t}\n\n` : '\n';
 });
 s = s.replace(/<[^>]+>/g, '');
-s = unescape(s);
+s = decodeEntities(s);
 
 // Collapse the whitespace the HTML indentation leaves behind, without touching
 // table rows or list items.

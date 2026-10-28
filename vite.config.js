@@ -21,18 +21,21 @@ import react from '@vitejs/plugin-react';
  * makes the asset URLs absolute.
  *
  * Trade-off: the HTTP status stays 404 even though the page renders correctly.
- * That is invisible to users and irrelevant here (the site is noindex). Getting a
- *a true 200 needs the redirect-through-query-string trick, which makes the URL
+ * That is invisible to users and irrelevant here (the site is noindex). Getting
+ * a true 200 needs the redirect-through-query-string trick, which makes the URL
  * visibly flicker — not worth it.
  */
 function githubPagesSpaFallback() {
+  let outDir;
   return {
     name: 'github-pages-spa-fallback',
     apply: 'build',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
     closeBundle() {
-      const dist = resolve(__dirname, 'dist');
-      copyFileSync(resolve(dist, 'index.html'), resolve(dist, '404.html'));
-      this.info?.('wrote dist/404.html (SPA fallback for deep links)');
+      copyFileSync(resolve(outDir, 'index.html'), resolve(outDir, '404.html'));
+      this.info?.(`wrote ${outDir}/404.html (SPA fallback for deep links)`);
     },
   };
 }

@@ -1,10 +1,10 @@
 /**
- * The whole app state — spec §4. One reducer, ten fields, every one except
- * `hovered` mirrored to a query param so any view is a shareable link.
+ * The whole app state — spec §4. One reducer; every field except `hovered` and
+ * `hoverOrigin` mirrored to a query param so any view is a shareable link.
  *
- * NOTE: there is deliberately no `view` field. The four views are a function of
+ * NOTE: there is deliberately no `view` field. The views are a function of
  * `layer` (config/layers.js viewForLayer), so the view cannot drift out of sync
- * with the layer being drawn and old `?layer=` links keep working.
+ * with the layer being drawn and a `?layer=` link opens the matching view.
  *
  * Spec §2 is explicit: no Redux, no Zustand.
  */
@@ -51,18 +51,17 @@ export const ALL_INFRA = INFRA_TYPES.filter((t) => t.available).map((t) => t.key
 export function initialState(policyStart, latest) {
   return {
     /*
-       COUNT by default — 2026-09-11 direction. §6.5 opened on Rate, on the
-       argument that a share is comparable across counties of wildly different
-       size. It is, but the first question a reader brings to this page is how
-       many people, and a percentage answers a question they have not asked yet.
+       COUNT by default, not §6.5's Rate. A share is comparable across counties
+       of wildly different size, but the first question a reader brings to this
+       page is how many people, and a percentage answers a question they have
+       not asked yet.
     */
     measure: 'count',
-    /**
-     * §6.4 made D1 the default. Superseded 2026-09-10: the map opens on the
-     * Benefits-lost view, which is observed enrollment change rather than a
-     * modelled exposure percentile — the first thing a reader sees is now a
-     * fact, not an index.
-     */
+    /*
+       The Benefits-lost view, not §6.4's D1: observed enrollment change rather
+       than a modelled exposure percentile, so the first thing a reader sees is
+       a fact, not an index.
+    */
     layer: 'loss',
     // §6.5: Geo is the default style.
     style: 'geo',
@@ -118,9 +117,9 @@ export function reducer(state, action) {
  * §6.5: "hovered ?? pinned is the county every readout reads from. One selector,
  * used everywhere."
  *
- * Click-to-pin was removed on 2026-09-01 to be reworked, so for now this is just
- * `hovered`. The selector stays — every readout goes through it, so restoring a
- * persistent selection means changing this one line, not hunting call sites.
+ * There is no pinned selection, so this is `hovered`. Every readout goes through
+ * it, so adding a persistent selection means changing this one line, not
+ * hunting call sites.
  */
 export const activeGeoid = (state) => state.hovered;
 
@@ -128,20 +127,18 @@ export const activeGeoid = (state) => state.hovered;
 
 const MEASURES = ['rate', 'count'];
 /*
-   'grid' — the area cartogram — was removed on 2026-09-11. It stays out of this
-   list rather than being silently accepted, so an old ?style=grid link falls
-   back to geo instead of rendering nothing.
+   The reader's styles only. The tile grid is drawn by one story step and is not
+   a style a link can ask for, so ?style=grid falls back to geo.
 */
 const STYLES = ['geo', 'density'];
 /**
  * The layers a view can actually put on screen.
  *
- * Deliberately NOT every key in `LayerKey`. d2 and d4 still score and still
- * appear in every tooltip, but the four-view rework left them without a view of
- * their own — and accepting `?layer=d2` would highlight the Benefits-lost card
- * while drawing a citizenship map, which is a page contradicting itself. Such a
- * link degrades to the default view instead, the same way any other
- * unrecognised param does.
+ * Deliberately NOT every key in `LayerKey`. d2 and d4 score and appear in every
+ * tooltip but have no view of their own — and accepting `?layer=d2` would
+ * highlight the Benefits-lost card while drawing a citizenship map, which is a
+ * page contradicting itself. Such a link degrades to the default view instead,
+ * the same way any other unrecognised param does.
  */
 const LAYER_KEYS = VIEWS.flatMap((v) => v.metrics);
 const MONTH_RE = /^\d{4}-\d{2}$/;

@@ -4,14 +4,12 @@ import {
   METRICS,
   metricById,
   presetById,
-  PRESET_FOR_VIEW,
   SCATTER_PRESETS,
   splitQuadrants,
 } from './metrics';
 /**
  * @typedef {import('./metrics').MetricContext} MetricContext
  */
-import { VIEWS } from './layers';
 /**
  * @typedef {import('../types').County} County
  */
@@ -177,21 +175,15 @@ describe('scatter presets', () => {
       const wy = worst(metricById(p.y));
       for (const q of p.quadrants.filter((c) => c.concern)) {
         const [qx, qy] = q.corner.split('-');
-        // children-share is the deliberate exception: its finding is the
-        // DISPROPORTION, so low overall loss against high child loss.
-        if (p.id === 'children-share') continue;
         if (wx) expect(qx).toBe(wx);
         if (wy) expect(qy).toBe(wy);
       }
     }
   });
 
-  it('gives every map view a preset, and every preset id resolves', () => {
-    for (const v of VIEWS) {
-      const id = PRESET_FOR_VIEW[v.key];
-      expect(id).toBeTruthy();
-      expect(presetById(id).id).toBe(id);
-    }
+  it('opens on vulnerability against capacity, and every preset id resolves', () => {
+    expect(SCATTER_PRESETS[0].id).toBe('vulnerability-capacity');
+    for (const p of SCATTER_PRESETS) expect(presetById(p.id).id).toBe(p.id);
   });
 
   it('falls back to a real preset for an unknown id', () => {
@@ -200,14 +192,9 @@ describe('scatter presets', () => {
 
   /**
    * THE GUARD THAT MATTERS: run every preset against the committed county data
-   * and check its quadrants are not degenerate.
-   *
-   * This is not hypothetical. The children preset originally paired child loss
-   * share against overall loss share — the obvious reading of the question —
-   * and the fixtures derive one from the other, so the two correlated at
-   * r = 0.9998 and the concern quadrant held exactly ZERO counties. The chart
-   * rendered, the tests passed, and the section's whole finding was an empty
-   * box. Nothing but real data catches that.
+   * and check its quadrants are not degenerate. Two closely correlated axes can
+   * leave the concern quadrant with ZERO counties while the chart renders and
+   * every other test passes; nothing but real data catches that.
    *
    * Reads public/data/counties.json, which is committed precisely so CI can
    * build standalone (see README). If a regenerated fixture trips this, the
@@ -223,27 +210,6 @@ describe('scatter presets', () => {
     const months = statewide.meta.months;
     const ctx = { i0: months.indexOf(statewide.meta.policy_start), i1: months.length - 1 };
 
-    /*
-       Attach observed Medicaid exactly as src/data/load.js does.
-
-       counties.json does not carry it — it is a separate published file aligned
-       onto the statewide month axis at load time — so without this every
-       Medicaid metric reads null here and the preset looks degenerate when it is
-       not. Which is how this guard first fired.
-    */
-    const medicaid = JSON.parse(
-      await readFile(new URL('../../public/data/medicaid-observed.json', import.meta.url), 'utf8'),
-    );
-    const at = new Map(medicaid.months.map((m, i) => [m, i]));
-    for (const c of counties) {
-      const series = medicaid.counties[c.geoid];
-      if (!series) continue;
-      c.medicaid_enrolled = months.map((m) => {
-        const i = at.get(m);
-        return i == null ? null : series.caseload[i];
-      });
-    }
-
     for (const preset of SCATTER_PRESETS) {
       const mx = metricById(preset.x);
       const my = metricById(preset.y);
@@ -254,8 +220,8 @@ describe('scatter presets', () => {
       expect(points.length, `${preset.id}: no plottable counties`).toBeGreaterThan(200);
 
       // The same split the chart draws — a median on most axes, none/any on a
-      // zero-inflated capacity axis. A median there left the concern corner
-      // empty on the real data, which is what this test caught.
+      // zero-inflated capacity axis, where a median would leave the concern
+      // corner empty.
       const split = splitQuadrants(points, preset.ySplit);
 
       for (const q of preset.quadrants) {

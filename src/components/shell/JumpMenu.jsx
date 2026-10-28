@@ -12,7 +12,9 @@
  * navigation, and a disclosure keeps normal Tab order without roving focus.
  * Escape and a click outside both close it.
  */
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { cx } from '../../lib/cx';
+import { useDismiss } from '../../lib/useDismiss';
 import styles from './JumpMenu.module.css';
 
 /**
@@ -32,9 +34,9 @@ import styles from './JumpMenu.module.css';
  */
 
 /**
- * `inline` (2026-10-16) is the phone version: it sits in the story's progress
- * bar instead of floating, always shown, as a compact "Jump to" whose list
- * drops down — the progress bar already names the chapter on screen.
+ * `inline` is the phone version: it sits in the story's progress bar instead
+ * of floating, always shown, as a compact "Jump to" whose list drops down —
+ * the progress bar already names the chapter on screen.
  *
  * @param {{ groups: JumpGroup[], currentLabel: string, visible?: boolean, inline?: boolean }} props
  */
@@ -48,34 +50,18 @@ export function JumpMenu({ groups, currentLabel, visible = true, inline = false 
     if (!visible) setOpen(false);
   }, [visible]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onDown = (e) => {
-      if (!rootRef.current?.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        rootRef.current?.querySelector('button')?.focus();
-      }
-    };
-    document.addEventListener('pointerdown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useDismiss(rootRef, open, close);
 
   return (
     <div
-      className={`${styles.root} ${inline ? styles.inline : ''} ${visible ? styles.visible : ''}`}
+      className={cx(styles.root, inline && styles.inline, visible && styles.visible)}
       ref={rootRef}
       aria-hidden={visible ? undefined : true}
     >
       <button
         type="button"
-        className={`${styles.trigger} ${open ? styles.triggerOpen : ''}`}
+        className={cx('pill', inline && 'pill-sm', styles.trigger, open && styles.triggerOpen)}
         aria-expanded={open}
         aria-controls={listId}
         onClick={() => setOpen((v) => !v)}
@@ -94,9 +80,11 @@ export function JumpMenu({ groups, currentLabel, visible = true, inline = false 
                 <li key={item.key}>
                   <button
                     type="button"
-                    className={`${styles.item} ${item.current ? styles.itemCurrent : ''} ${
-                      item.indent ? styles.indent : ''
-                    }`}
+                    className={cx(
+                      styles.item,
+                      item.current && styles.itemCurrent,
+                      item.indent && styles.indent,
+                    )}
                     aria-current={item.current ? 'location' : undefined}
                     onClick={() => {
                       setOpen(false);
@@ -104,7 +92,7 @@ export function JumpMenu({ groups, currentLabel, visible = true, inline = false 
                     }}
                   >
                     {item.prefix && (
-                      <span className={`${styles.prefix} tabular`}>{item.prefix}</span>
+                      <span className={cx(styles.prefix, 'tabular')}>{item.prefix}</span>
                     )}
                     <span>{item.label}</span>
                   </button>
@@ -118,25 +106,3 @@ export function JumpMenu({ groups, currentLabel, visible = true, inline = false 
   );
 }
 
-/**
- * <StoryExits> — the desktop's two ways out of the story (2026-10-19: they
- * replaced the floating Jump to there; phones keep the inline menu). Same pill,
- * same corner, same show-inside-the-story rule as <JumpMenu>.
- *
- * @param {{ onTop: () => void, onSkip: () => void, visible?: boolean }} props
- */
-export function StoryExits({ onTop, onSkip, visible = true }) {
-  return (
-    <div
-      className={`${styles.root} ${styles.exits} ${visible ? styles.visible : ''}`}
-      aria-hidden={visible ? undefined : true}
-    >
-      <button type="button" className={styles.trigger} onClick={onTop}>
-        <span className={styles.exitLabel}>Back to top</span>
-      </button>
-      <button type="button" className={styles.trigger} onClick={onSkip}>
-        <span className={styles.exitLabel}>Skip the story</span>
-      </button>
-    </div>
-  );
-}

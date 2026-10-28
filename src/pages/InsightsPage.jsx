@@ -1,129 +1,96 @@
 /**
- * Insights page — spec §8. One scrolling page of four sections (2026-10-16).
+ * Insights page — spec §8. One scrolling page of four sections.
  *
  * SCOPED. Every chart reads from a `Scope` (src/lib/insights.js) — Texas, or one
  * county — so the page doubles as a county stat page for sharing with people who
  * will never touch the map: `/insights/decline?county=48201` is the link, and it
  * is just the address bar after picking a county.
  *
- * Each chart declares whether it can be scoped. The age bands and the
- * people-vs-households split are published statewide only (§3.3) and §3 forbids
- * synthesising county versions, so those carry a visible "Statewide" badge
- * instead of quietly implying they describe the county on screen. That badge is
- * the most important thing on this page: the whole purpose is to hand numbers to
- * someone who will repeat them, and a statewide figure repeated as a county
- * figure is the failure mode.
+ * Every chart describes the place picked, the age bands included — the whole
+ * purpose is to hand numbers to someone who will repeat them, so none of them
+ * may quietly be the statewide figure.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../state/AppContext';
-import { Callout } from '../components/shell/Callout';
-import { ColumnChart } from '../components/charts/ColumnChart';
+import { loadDistrictShapes } from '../data/load';
 import { DumbbellChart } from '../components/charts/DumbbellChart';
-import { FunnelPlot } from '../components/charts/FunnelPlot';
 import { IndexedLines } from '../components/charts/IndexedLines';
 import { LineChart } from '../components/charts/LineChart';
+import { LossMap } from '../components/charts/LossMap';
+import { DistrictMethod } from '../components/shell/DistrictMethod';
 import { ScopeBar } from '../components/shell/ScopeBar';
 import {
   ageBandRows,
-  buildFunnel,
   buildScope,
   peersFor,
   indexTo,
-  monthlyChange,
-  participationShare,
   benefitShortfall,
   windowChange,
   windowLoss,
 } from '../lib/insights';
-import { fmtDelta, fmtInt, fmtMonthBody, fmtMonthFull, fmtPct } from '../lib/format';
+import { PHONE } from '../lib/breakpoints';
+import { cx } from '../lib/cx';
+import { fmtInt, fmtMillions, fmtMonthBody, fmtMonthFull, fmtPct } from '../lib/format';
+import { buildLayerValues } from '../lib/layerValues';
+import { scrollBelowHeader } from '../lib/layout';
+import { useLoaded } from '../lib/useLoaded';
+import { useMediaQuery } from '../lib/useMediaQuery';
 import styles from './InsightsPage.module.css';
 
 /*
- * Charts are TWO PER ROW as of 2026-09-11, so each renders around 460px wide
- * rather than filling the column.
- *
- * The viewBox is authored near that width on purpose: these charts scale to
- * their container, so a viewBox twice the rendered width halves the apparent
- * size of every axis label. At 940 in a half-width card the 9px axis type came
- * out at about 4px.
+ * Each chart fills the column, around 900px wide, and its viewBox is authored
+ * near that width on purpose: the charts scale to their container, so a viewBox
+ * twice the rendered width would halve the apparent size of every axis label.
+ * On a phone the column is a third as wide, so the charts are drawn narrower.
  */
-const VIEW_WIDTH = 470;
+const VIEW_WIDTH = 960;
+const PHONE_VIEW_WIDTH = 470;
 
-/**
- * ONE PAGE, FOUR SECTIONS — 2026-10-16. It was five tabbed chapters, each led
- * by a written claim; the client's direction is one scrolling page that shows
- * the numbers and lets them speak. The left column is now a section index, and
- * the old tab slugs in /insights/:tab land on the matching section.
- *
- * Dropped in the same pass: the four-domains chapter, the capacity chapter
- * (and its scatter), the ten-largest-losses chart and the placeholder cards.
- */
+/** The page's sections, in order. The left column indexes them. */
 const SECTIONS = [
   { id: 'enrollment', title: 'Enrollment' },
   { id: 'who', title: 'Who is falling off' },
-  { id: 'children', title: 'Children against the whole caseload' },
-  { id: 'size', title: 'Change against caseload size' },
+  { id: 'map', title: 'Across Texas' },
 ];
 
-/** The old tab slugs, so a shared /insights/<tab> link still lands somewhere sensible. */
-const LEGACY_TAB = { decline: 'enrollment', who: 'who', 'rate-count': 'size' };
+/** The section each /insights/:tab slug opens at, so a shared tab link lands somewhere sensible. */
+const TAB_SECTION = { decline: 'enrollment', who: 'who' };
 
-/** Viewbox width for a chart that spans both columns — about its rendered width. */
-const WIDE_VIEW_WIDTH = 960;
+/** useLoaded's loader while no district is picked: nothing to fetch. */
+const loadNothing = () => Promise.resolve(null);
 
 /**
  * PRINT SIZES. On paper every card is half the page wide and the whole report
  * aims for one Letter page, so while printing each chart is drawn at about its
  * printed width (a half-width card on a 0.4in-margin page is ~350px) and short.
- * Drawn at the screen sizes and scaled down, the wide charts' 12px axis type
- * printed at ~4px.
+ * Drawn at the screen sizes and scaled down, the 12px axis type would print at
+ * ~4px.
  */
 const PRINT_VIEW_WIDTH = 350;
 const PRINT_CHART_H = 112;
 
-/** Marks a chart the data cannot scope below state level. */
-function StatewideBadge({ scoped }) {
-  if (!scoped) return null;
+function ChartCard({ title, subhead, children }) {
   return (
-    <span className={styles.badge} title="Published statewide only — see §3.3">
-      Statewide figure
-    </span>
-  );
-}
-
-function ChartCard({
-  title,
-  subhead,
-  footnote,
-  statewideOnly = false,
-  scoped = false,
-  /** Spans both columns. For a chart that genuinely cannot read at half width. */
-  wide = false,
-  children,
-}) {
-  return (
-    <section className={`${styles.chartBlock} ${wide ? styles.wide : ''}`}>
-      <div className={styles.chartHead}>
-        <h2 className={styles.chartTitle}>{title}</h2>
-        {statewideOnly && <StatewideBadge scoped={scoped} />}
-      </div>
+    <section className={styles.chartBlock}>
+      <h2 className={styles.chartTitle}>{title}</h2>
       {subhead && <p className={styles.chartSubhead}>{subhead}</p>}
       {children}
-      {footnote && <p className={styles.footnote}>{footnote}</p>}
     </section>
   );
 }
 
 export default function InsightsPage() {
   const { tab } = useParams();
-  const { data, state, dispatch } = useApp();
+  const { data, projection, statePath, state, dispatch } = useApp();
   const { counties, byGeoid, statewide } = data;
   const months = statewide.meta.months;
 
-  const i0 = months.indexOf(state.window[0]);
-  const i1 = months.indexOf(state.window[1]);
+  /** H.R. 1 to the latest month, always. The Map page's period slider does not reach this page. */
+  const win = useMemo(() => [statewide.meta.policy_start, months.at(-1)], [statewide, months]);
+  const i0 = months.indexOf(win[0]);
+  const i1 = months.length - 1;
 
   const { districtCounts } = data;
   const scope = useMemo(
@@ -144,24 +111,19 @@ export default function InsightsPage() {
   /** Statewide series, always available as the comparison line. */
   const stateIndexed = useMemo(() => indexTo(statewide.enrolled, i0), [statewide.enrolled, i0]);
   const scopeIndexed = useMemo(() => indexTo(scope.enrolled, i0), [scope.enrolled, i0]);
-  const childIndexed = useMemo(
-    () => (scope.children ? indexTo(scope.children, i0) : null),
-    [scope.children, i0],
-  );
 
-  /** The report box's four figures — the same for every place. */
+  /** The report box's three figures — the same for every place. */
   const figures = useMemo(() => {
     const shortfall = benefitShortfall(scope.payments, i0, i1);
     return {
       people: windowLoss(scope.enrolled, i0, i1),
       children: windowLoss(scope.children, i0, i1),
-      seniors: windowLoss(scope.seniors, i0, i1),
       shortfall,
       baseFromLabel: shortfall ? fmtMonthBody(months[shortfall.baseFrom]) : null,
-      sinceLabel:
-        state.window[0] === statewide.meta.policy_start ? 'H.R. 1' : fmtMonthBody(state.window[0]),
+      // A no-break space, so a wrapped line never ends on "H.R.".
+      sinceLabel: 'H.R.\u00a01',
     };
-  }, [scope, i0, i1, months, state.window, statewide.meta.policy_start]);
+  }, [scope, i0, i1, months]);
 
   /**
    * Print / save as PDF: the browser's own dialog, with the page's print
@@ -171,7 +133,7 @@ export default function InsightsPage() {
    */
   const printReport = () => {
     const previous = document.title;
-    document.title = `${scope.label} — SNAP and H.R. 1, ${fmtMonthBody(state.window[0])} to ${fmtMonthBody(state.window[1])}`;
+    document.title = `${scope.label} — SNAP and H.R. 1, ${fmtMonthBody(win[0])} to ${fmtMonthBody(win[1])}`;
     const restore = () => {
       document.title = previous;
       window.removeEventListener('afterprint', restore);
@@ -196,15 +158,34 @@ export default function InsightsPage() {
       window.removeEventListener('afterprint', after);
     };
   }, []);
-  /** Chart sizes for the medium: screen, or a half-width card on paper. */
-  const vw = printing ? PRINT_VIEW_WIDTH : VIEW_WIDTH;
-  const wideVw = printing ? PRINT_VIEW_WIDTH : WIDE_VIEW_WIDTH;
+  const phone = useMediaQuery(PHONE);
+  /** Chart sizes for the medium: screen, phone, or a half-width card on paper. */
+  const vw = printing ? PRINT_VIEW_WIDTH : phone ? PHONE_VIEW_WIDTH : VIEW_WIDTH;
   const chartH = (screen) => (printing ? PRINT_CHART_H : screen);
 
-  const funnel = useMemo(() => buildFunnel(peers.units, i0, i1), [peers, i0, i1]);
-  const funnelOutside = funnel.points.filter((p) => p.outside).length;
-  /** A 2-sd band should catch ~5%; past 10% it is not describing this window. */
-  const funnelCalibrated = funnelOutside <= funnel.points.length * 0.1;
+  /** The map's shapes: every county, or every district of the picked one's chamber. */
+  const districtShapes = useLoaded(scope.district ? loadDistrictShapes : loadNothing);
+  const mapShapes = useMemo(() => {
+    const features = scope.district ? districtShapes?.[scope.district.plan] : data.geometry.counties;
+    if (!features) return null;
+    return features.map((f) => ({
+      key: f.properties.geoid,
+      name: scope.district
+        ? (districtCounts.byId.get(f.properties.geoid)?.name ?? f.properties.geoid)
+        : `${f.properties.name} County`,
+      d: projection.path(f) ?? '',
+    }));
+  }, [scope.district, districtShapes, districtCounts, data.geometry.counties, projection]);
+  /** The picked place's boundary for the report box: its own shape, or Texas. */
+  const outline = useMemo(() => {
+    const base = { statePath, canvas: projection, label: scope.label };
+    if (scope.kind === 'state') return { ...base, d: null, bounds: null };
+    const features = scope.district ? districtShapes?.[scope.district.plan] : data.geometry.counties;
+    const f = features?.find((x) => x.properties.geoid === scope.key);
+    return f ? { ...base, d: projection.path(f), bounds: projection.path.bounds(f) } : null;
+  }, [scope, districtShapes, data.geometry.counties, projection, statePath]);
+
+  const mapValues = useMemo(() => buildLayerValues(peers.units, 'loss', i0, i1), [peers, i0, i1]);
 
   // ------------------------------------------------------------ section index
   /** Which section is in view, for the index's highlight. */
@@ -227,21 +208,18 @@ export default function InsightsPage() {
 
   const goTo = (id) => {
     const el = document.getElementById(id);
-    if (!el) return;
-    const header =
-      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 0;
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - header - 16, behavior: 'smooth' });
+    if (el) scrollBelowHeader(el);
   };
 
-  // An old tab link lands on its section, once.
+  // A tab link lands on its section, once.
   useEffect(() => {
-    const id = LEGACY_TAB[tab];
+    const id = TAB_SECTION[tab];
     if (id && id !== SECTIONS[0].id) requestAnimationFrame(() => goTo(id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const lost = change.absolute;
-  const since = fmtMonthFull(state.window[0]);
+  const since = fmtMonthFull(win[0]);
   const where = isScoped ? ` in ${scope.label}` : '';
   const headline =
     lost < 0
@@ -252,8 +230,28 @@ export default function InsightsPage() {
 
   const texasLine = { label: 'Texas', color: 'var(--text-faint)', dashed: true };
 
-  /** November 2025, when Texas's new rules took effect — the label reads the data. */
-  const novChange = monthlyChange(statewide.enrolled)[months.indexOf('2025-11')];
+  /**
+   * The picked place's share lost against Texas's, for the map's subhead. The
+   * two are compared as printed, so "higher" never sits between equal figures.
+   */
+  const placeShare = mapValues.fill.get(scope.key);
+  const placeAgainstTexas = (() => {
+    if (placeShare == null) return `${scope.label} is outlined.`;
+    const here = fmtPct(placeShare, 1);
+    const texas = fmtPct(mapValues.statewideShare, 1);
+    const relation =
+      here === texas
+        ? 'the same as'
+        : placeShare > mapValues.statewideShare
+          ? 'higher than'
+          : 'lower than';
+    return `${scope.label}, outlined, is ${here}, ${relation} the ${texas} for Texas.`;
+  })();
+
+  /** Under 10,000 residents, an age band can be a few dozen people. */
+  const smallNumbers = scope.county?.small_denominator
+    ? ' Small numbers: a few people move these a long way.'
+    : '';
 
   return (
     <div className={styles.page}>
@@ -262,7 +260,7 @@ export default function InsightsPage() {
           <a
             key={sec.id}
             href={`#${sec.id}`}
-            className={`${styles.tab} ${inView === sec.id ? styles.tabActive : ''}`}
+            className={cx(styles.tab, inView === sec.id && styles.tabActive)}
             aria-current={inView === sec.id ? 'location' : undefined}
             onClick={(e) => {
               e.preventDefault();
@@ -280,224 +278,106 @@ export default function InsightsPage() {
           scope={scope}
           change={change}
           districtCounts={districtCounts}
-          window={state.window}
+          window={win}
           figures={figures}
           onSelect={(geoid) => dispatch({ type: 'setScope', geoid })}
           onPrint={printReport}
+          outline={outline}
         />
 
         {/* ---------------------------------------------------- 1 Enrollment */}
         <section id="enrollment" className={styles.section}>
           <h2 className={styles.sectionTitle}>Enrollment</h2>
-          {/* The number, plainly — no written claim (2026-10-16). */}
+          {/* The number, plainly — no written claim. */}
           <p className={styles.headline}>{headline}</p>
-          <div className={styles.chartGrid}>
-            {/*
-              Counties and Texas cannot share a count axis — a county's line
-              would lie flat along the bottom of Texas's 3.5M scale — so once a
-              place is picked both lines are indexed to the window's start.
-            */}
-            <ChartCard
-              title="Enrolled individuals"
-              subhead={
-                isScoped
-                  ? `${scope.label} against Texas, indexed (${fmtMonthBody(state.window[0])} = 100)`
-                  : 'Enrolled individuals, monthly'
-              }
-            >
-              {isScoped ? (
-                <IndexedLines
-                  months={months}
-                  refIndex={i0}
-                  series={[
-                    { ...texasLine, values: stateIndexed },
-                    {
-                      label: scope.label,
-                      values: scopeIndexed,
-                      color: 'var(--ja-burgundy)',
-                      emphasis: true,
-                    },
-                  ]}
-                  viewWidth={vw}
-                  height={chartH(250)}
-                  title={`${scope.label} indexed against Texas`}
-                />
-              ) : (
-                <LineChart
-                  months={months}
-                  series={[{ label: 'Texas', values: statewide.enrolled }]}
-                  shade={state.window}
-                  formatY={(v) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : fmtInt(v))}
-                  viewWidth={vw}
-                  height={chartH(240)}
-                  title="Enrolled individuals in Texas"
-                />
-              )}
-            </ChartCard>
-
-            <ChartCard
-              title="Month-over-month change"
-              subhead={`Change in enrolled individuals, ${scope.label}`}
-            >
-              <ColumnChart
-                months={months.slice(i0, i1 + 1)}
-                values={monthlyChange(scope.enrolled).slice(i0, i1 + 1)}
-                annotations={
-                  isScoped || !Number.isFinite(novChange)
-                    ? []
-                    : [{ month: '2025-11', label: `NOV ${fmtDelta(novChange / 1000)}k` }]
-                }
-                viewWidth={vw}
-                height={chartH(220)}
-              />
-            </ChartCard>
-
-            <ChartCard
-              title="Share of residents enrolled"
-              subhead={
-                isScoped
-                  ? `Enrolled as a share of the population, ${scope.label} and Texas`
-                  : "Enrolled as a share of Texas's population"
-              }
-              wide
-            >
-              <LineChart
+          {/*
+            Counties and Texas cannot share a count axis — a county's line
+            would lie flat along the bottom of Texas's 3.5M scale — so once a
+            place is picked both lines are indexed to the window's start.
+          */}
+          <ChartCard
+            title="Residents who lost SNAP"
+            subhead={
+              isScoped
+                ? `Enrolled individuals, ${scope.label} against Texas, indexed (${fmtMonthBody(win[0])} = 100)`
+                : 'Enrolled individuals, monthly'
+            }
+          >
+            {isScoped ? (
+              <IndexedLines
                 months={months}
+                refIndex={i0}
                 series={[
-                  ...(isScoped
-                    ? [
-                        {
-                          ...texasLine,
-                          values: participationShare(statewide.enrolled, statewide.meta.texas_population),
-                        },
-                      ]
-                    : []),
+                  { ...texasLine, values: stateIndexed },
                   {
                     label: scope.label,
-                    values: participationShare(scope.enrolled, scope.population),
-                    color: 'var(--ja-teal)',
+                    values: scopeIndexed,
+                    color: 'var(--ja-burgundy)',
+                    emphasis: true,
                   },
                 ]}
-                shade={state.window}
-                formatY={(v) => fmtPct(v, 1)}
-                viewWidth={wideVw}
-                height={chartH(260)}
-                title={`Share of residents enrolled in ${scope.label}`}
+                viewWidth={vw}
+                height={chartH(300)}
+                title={`${scope.label} indexed against Texas`}
               />
-            </ChartCard>
-          </div>
+            ) : (
+              <LineChart
+                months={months}
+                series={[{ label: 'Texas', values: statewide.enrolled }]}
+                shade={win}
+                formatY={(v) => (v >= 1e6 ? fmtMillions(v) : fmtInt(v))}
+                viewWidth={vw}
+                height={chartH(300)}
+                title="Enrolled individuals in Texas"
+              />
+            )}
+          </ChartCard>
         </section>
 
         {/* --------------------------------------------- 2 Who is falling off */}
         <section id="who" className={styles.section}>
           <h2 className={styles.sectionTitle}>Who is falling off</h2>
-          <div className={styles.chartGrid}>
-            <ChartCard
-              title="Age bands, indexed"
-              subhead="Enrolled individuals by age band, indexed to 100 at the window start"
-              statewideOnly
-              scoped={isScoped}
-            >
-              <IndexedLines
-                months={statewide.age_series ? months.slice(i0, i1 + 1) : [state.window[0], state.window[1]]}
-                refIndex={0}
-                series={statewide.age_bands.map((b) => ({
-                  label: b.band,
-                  // Monthly, from the band series, when the data carries it.
-                  values: statewide.age_series
-                    ? indexTo(statewide.age_series[b.band].slice(i0, i1 + 1), 0)
-                    : [100, 100 * (1 + b.pct_change)],
-                }))}
-                viewWidth={vw}
-                height={chartH(240)}
-                title="Age bands indexed to the window start"
-              />
-            </ChartCard>
-
-            <ChartCard
-              title="Change by age band"
-              subhead={`Enrolled individuals by age band, ${fmtMonthBody(state.window[0])} → ${fmtMonthBody(state.window[1])}`}
-              statewideOnly
-              scoped={isScoped}
-            >
-              <DumbbellChart
-                rows={ageBandRows(statewide, i0, i1)}
-                viewWidth={vw}
-                rowH={printing ? 17 : 32}
-              />
-            </ChartCard>
-          </div>
+          <ChartCard
+            title="Residents who lost SNAP, by age group"
+            subhead={`Enrolled individuals by age band, ${scope.label}, ${fmtMonthBody(win[0])} → ${fmtMonthBody(win[1])}.${smallNumbers}`}
+          >
+            <DumbbellChart
+              rows={ageBandRows(scope.ageSeries, i0, i1)}
+              viewWidth={vw}
+              rowH={printing ? 17 : 34}
+              ticks={printing || phone ? 4 : 8}
+            />
+          </ChartCard>
         </section>
 
-        {/* ----------------------------- 3 Children against the whole caseload */}
-        {childIndexed && (
-          <section id="children" className={styles.section}>
-            <h2 className={styles.sectionTitle}>Children against the whole caseload</h2>
-            <div className={styles.chartGrid}>
-              <ChartCard
-                title={`Children and all enrolled, ${scope.label}`}
-                subhead={`Indexed, ${fmtMonthBody(state.window[0])} = 100`}
-                wide
-              >
-                <IndexedLines
-                  months={months}
-                  refIndex={i0}
-                  series={[
-                    {
-                      label: 'All enrolled',
-                      values: scopeIndexed,
-                      color: 'var(--text-faint)',
-                      dashed: true,
-                    },
-                    {
-                      label: 'Children under 18',
-                      values: childIndexed,
-                      color: 'var(--ja-burgundy)',
-                      emphasis: true,
-                    },
-                  ]}
-                  viewWidth={wideVw}
-                  height={chartH(280)}
-                  refLabelRight={printing}
-                  title={`Children against all enrolled in ${scope.label}`}
-                />
-              </ChartCard>
-            </div>
-          </section>
-        )}
-
-        {/* ------------------------------------ 4 Change against caseload size */}
-        <section id="size" className={styles.section}>
-          <h2 className={styles.sectionTitle}>Change against caseload size</h2>
-          {/*
-            Kept on one line, but NOT removed: the published limits describe
-            sampling noise only, so the band catches far more than the ~5% a
-            calibrated one would. Without this the chart reads as "110
-            outliers", which is not a finding this page supports. Full
-            reasoning in docs/SPEC-DEVIATIONS.md §Q2.
-          */}
-          {!funnelCalibrated && (
-            <Callout tone="caution" title="Limits are not calibrated for this window">
-              {funnelOutside} of {funnel.points.length} {peers.noun} fall outside the fitted limits,
-              so the chart does not mark outliers. See §Q2.
-            </Callout>
-          )}
-          <div className={styles.chartGrid}>
-            <ChartCard
-              title="Percentage change against caseload size"
-              subhead={`Percent change against caseload size, one point per ${peers.singular}. The band is the spread expected at that size (2 sd, fitted to this window); ${funnelOutside} of ${funnel.points.length} ${peers.noun} fall outside it.`}
-              wide
-            >
-              <FunnelPlot
-                data={funnel}
-                markOutliers={funnelCalibrated}
+        {/* --------------------------------------------------- 3 Across Texas */}
+        <section id="map" className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            {isScoped ? `How does ${scope.label} compare to Texas?` : 'Across Texas'}
+          </h2>
+          <ChartCard
+            title={`No longer on SNAP since H.R. 1, by ${peers.singular}`}
+            subhead={
+              `Share of each ${peers.singular}'s ${fmtMonthBody(win[0])} caseload no longer enrolled in ` +
+              `${fmtMonthBody(win[1])}, on the same scale for every map.` +
+              (scope.district ? ' Districts inside one split county share its rate.' : '') +
+              (isScoped ? ` ${placeAgainstTexas}` : '')
+            }
+          >
+            {mapShapes && (
+              <LossMap
+                shapes={mapShapes}
+                fill={mapValues.fill}
+                lost={mapValues.count}
                 highlight={isScoped ? scope.key : null}
-                viewWidth={wideVw}
-                height={chartH(420)}
+                canvas={projection}
+                title={`Share no longer on SNAP by ${peers.singular}${isScoped ? `, ${scope.label} outlined` : ''}`}
               />
-            </ChartCard>
-          </div>
+            )}
+          </ChartCard>
         </section>
+
+        {scope.district && <DistrictMethod district={scope.district} />}
 
         {data.isFixture && (
           <p className={styles.fixtureNote}>

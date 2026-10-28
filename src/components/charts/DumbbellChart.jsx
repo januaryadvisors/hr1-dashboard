@@ -1,11 +1,14 @@
 /**
  * <DumbbellChart> — §7 / §6.8 "Who is falling off".
  * A rounded arrow from the window's start to its latest month, with a faint
- * tick where it began; percent change right-aligned. Redrawn 2026-10-16: the
- * blue start dot is gone (the tick says the same without a second colour), and
- * the arrow is a thicker rounded shaft with an open chevron head.
+ * tick where it began; percent change right-aligned. Rows draw in the order
+ * given — youngest band first. The axis runs from zero to a round number past
+ * the largest band, gridded every round step (200K, 50K, 5…), so it fits Texas
+ * and a small county alike.
  */
-import { fmtInt, fmtPctDelta } from '../../lib/format';
+import { scaleLinear } from 'd3-scale';
+import { cx } from '../../lib/cx';
+import { fmtCompact, fmtPctDelta } from '../../lib/format';
 import styles from './charts.module.css';
 
 /**
@@ -16,27 +19,26 @@ import styles from './charts.module.css';
  * @property {number} pctChange
  */
 
-export function DumbbellChart({
-  rows,
-  xMax = 1.6e6,
-  height,
-  viewWidth: W = 1000,
-  rowH = 32,
-}) {
+/**
+ * @param {{ rows: DumbbellRow[], viewWidth?: number, rowH?: number, ticks?: number }} props
+ *   `ticks` is roughly how many gridlines to draw.
+ */
+export function DumbbellChart({ rows, viewWidth: W = 1000, rowH = 32, ticks = 8 }) {
   const M = { top: 14, right: 84, bottom: 22, left: 72 };
-  const h = height ?? M.top + rows.length * rowH + M.bottom;
+  const h = M.top + rows.length * rowH + M.bottom;
 
-  const x = (v) => M.left + (v / xMax) * (W - M.left - M.right);
+  const largest = Math.max(1, ...rows.flatMap((r) => [r.from, r.to]));
+  const x = scaleLinear().domain([0, largest]).nice(ticks).range([M.left, W - M.right]);
   const y = (i) => M.top + i * rowH + rowH / 2;
 
   return (
     <svg className={styles.svg} viewBox={`0 0 ${W} ${h}`} role="img"
       aria-label="Change in enrolled individuals by age band">
-      {[0, xMax / 2, xMax].map((v) => (
+      {x.ticks(ticks).map((v) => (
         <g key={v}>
           <line x1={x(v)} x2={x(v)} y1={M.top} y2={h - M.bottom} className={styles.gridline} />
           <text x={x(v)} y={h - 8} textAnchor="middle" className={styles.axis}>
-            {v === 0 ? '0' : fmtInt(v)}
+            {fmtCompact(v)}
           </text>
         </g>
       ))}
@@ -92,7 +94,7 @@ export function DumbbellChart({
               x={W - M.right + 62}
               y={y(i) + 4}
               textAnchor="end"
-              className={`${styles.dumbbellValue} tabular`}
+              className={cx(styles.dumbbellValue, 'tabular')}
               fill={tone}
             >
               {fmtPctDelta(r.pctChange)}

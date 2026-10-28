@@ -5,10 +5,10 @@
  * and in every thumbnail and opens its tooltip — the same path a mouse hover
  * takes, so there is one highlight mechanism rather than two.
  *
- * That highlight is transient: moving the pointer over the map replaces it. A
- * selection that survives is what the reworked click-to-select will add.
+ * That highlight is transient: moving the pointer over the map replaces it.
  */
 import { useMemo, useRef, useState } from 'react';
+import { cx } from '../../lib/cx';
 /**
  * @typedef {import('../../types').County} County
  */
@@ -28,6 +28,12 @@ const MAX_RESULTS = 8;
  * @property {string} [emptyText]
  * @property {string} [className] - Extra class on the root, for a caller that needs a different width.
  * @property {number} [maxResults] - Rows listed before the list stops. Defaults to 8; the list scrolls.
+ * @property {string} [initialLabel] - The name of the place already picked, shown in the field on mount.
+ * @property {boolean} [pill] - Fully rounded, to sit in a row of pill buttons.
+ * @property {boolean} [browse] - Open on focus with every item listed, before
+ *   anything is typed, so a reader can see what there is to pick from. Typing
+ *   narrows it as usual. Also lists everything again when the field still holds
+ *   the last pick, so reopening it is not a list of one.
  *
  * Items may carry `keywords`: a list of names that match but are not
  * highlighted — a district's counties, so "Travis" finds every district in
@@ -44,14 +50,24 @@ export function CountySearch({
   emptyText = 'No county matches that.',
   className,
   maxResults = MAX_RESULTS,
+  browse = false,
+  initialLabel,
+  pill = false,
 }) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialLabel ?? '');
+  /** The label last committed to the field, so browse can tell a pick from a search. */
+  const [picked, setPicked] = useState(initialLabel ?? null);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef(null);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
+    if (browse && (!q || query === picked)) {
+      return [...counties]
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+        .map((c) => ({ county: c, at: Infinity, kw: 0 }));
+    }
     if (!q) return [];
     // Prefix matches first — typing "wil" should reach Williamson before Wilbarger
     // only if it sorts there, but a prefix must always beat a mid-word hit.
@@ -76,16 +92,20 @@ export function CountySearch({
       );
 
     return scored.slice(0, maxResults);
-  }, [counties, query, maxResults]);
+  }, [counties, query, maxResults, browse, picked]);
 
   const commit = (geoid, label) => {
     onSelect(geoid);
-    if (label) setQuery(label);
+    if (label) {
+      setQuery(label);
+      setPicked(label);
+    }
     setOpen(false);
   };
 
   const clear = () => {
     setQuery('');
+    setPicked(null);
     setOpen(false);
     onSelect(null);
     inputRef.current?.focus();
@@ -95,6 +115,11 @@ export function CountySearch({
     if (e.key === 'Escape') {
       e.preventDefault();
       clear();
+      return;
+    }
+    if (e.key === 'ArrowDown' && !open && browse) {
+      e.preventDefault();
+      setOpen(true);
       return;
     }
     if (!results.length) return;
@@ -114,11 +139,17 @@ export function CountySearch({
     }
   };
 
-  const showList = open && query.trim().length > 0;
+  const showList = open && (browse || query.trim().length > 0);
 
   return (
-    <div className={className ? `${styles.root} ${className}` : styles.root}>
-      <div className={styles.field}>
+    <div className={cx(styles.root, pill && styles.pill, className)}>
+      {/* A click on the icon or the caret lands on the field, not the input. */}
+      <div
+        className={styles.field}
+        onClick={(e) => {
+          if (e.target !== inputRef.current && !e.target.closest('button')) inputRef.current?.focus();
+        }}
+      >
         <svg className={styles.icon} width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
           <circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
           <path d="M10 10L14.5 14.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -139,15 +170,31 @@ export function CountySearch({
             setOpen(true);
             setActiveIndex(0);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={(e) => {
+            setOpen(true);
+            if (browse) {
+              setActiveIndex(0);
+              // A reader who starts typing replaces the last pick, not appends to it.
+              e.target.select();
+            }
+          }}
+          // A field that is already focused gets no second focus event.
+          onClick={() => setOpen(true)}
           // Delay so a click on an option lands before the list unmounts.
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onKeyDown={onKeyDown}
         />
-        {query && (
+        {query ? (
           <button type="button" className={styles.clear} aria-label="Clear search" onClick={clear}>
             ✕
           </button>
+        ) : (
+          browse && (
+            // Says "this is a dropdown" before the field is touched.
+            <svg className={styles.caret} width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+              <path d="M2 3.5L5 6.5L8 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          )
         )}
       </div>
 
@@ -165,7 +212,7 @@ export function CountySearch({
                 key={r.county.geoid}
                 role="option"
                 aria-selected={i === activeIndex}
-                className={`${styles.option} ${i === activeIndex ? styles.active : ''}`}
+                className={cx(styles.option, i === activeIndex && styles.active)}
                 onMouseEnter={() => setActiveIndex(i)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => commit(r.county.geoid, r.county.name)}
@@ -175,7 +222,7 @@ export function CountySearch({
                   <span className={styles.match}>{hit}</span>
                   {after}
                 </span>
-                <span className={`${styles.optionValue} tabular`}>
+                <span className={cx(styles.optionValue, 'tabular')}>
                   {renderValue(r.county)}
                 </span>
               </li>

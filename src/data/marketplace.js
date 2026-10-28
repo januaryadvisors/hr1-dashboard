@@ -5,6 +5,7 @@
  * files. Optional in the same way as snap-observed.json: a missing file leaves
  * the chapter's charts empty rather than failing the page.
  */
+import { fetchOptionalJson } from './fetchJson';
 
 /**
  * @typedef {Object} MarketplaceData
@@ -17,13 +18,7 @@
  */
 
 export async function loadMarketplace() {
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}data/marketplace.json`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!Array.isArray(data?.effectuated?.months) || data.effectuated.months.length < 2) return null;
-    return data;
-  } catch {
-    return null;
-  }
+  const data = await fetchOptionalJson('marketplace.json');
+  if (!Array.isArray(data?.effectuated?.months) || data.effectuated.months.length < 2) return null;
+  return data;
 }

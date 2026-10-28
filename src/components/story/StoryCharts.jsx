@@ -4,15 +4,17 @@
  * Every chart here is a picture to read, not a control: no hover, no tabs, no
  * tooltips — the rail sets `pointer-events: none` on them as well. Each one is
  * authored at the rail's content width (W) so its type renders at the size it
- * was written at, and takes its numbers as props: nothing is computed or typed
- * in here, so the copy beside a chart and the chart itself read from the same
- * figures in MapPage.
+ * was written at, and takes its data as props, so the copy beside a chart and
+ * the chart itself read from the same figures in MapPage.
  *
  * @typedef {import('react').ReactNode} ReactNode
  */
 import { useId } from 'react';
 import { scaleBand, scaleLinear } from 'd3-scale';
-import { line } from 'd3-shape';
+import { linePath, stackLabels } from '../../lib/chart';
+import { cx } from '../../lib/cx';
+import { median } from '../../lib/stats';
+import { YGrid } from '../charts/YGrid';
 import styles from './StoryCharts.module.css';
 
 const W = 380;
@@ -72,29 +74,18 @@ export function LineFigure({
     .range([pad.left, W - pad.right]);
   const y = scaleLinear().domain(yDomain).range([height - pad.bottom, pad.top]);
   const at = (m) => months.indexOf(m);
-  const path = (values, from = 0, to = values.length - 1) =>
-    line()
-      .defined((d) => d[1] != null)
-      .x((d) => x(d[0]))
-      .y((d) => y(d[1]))(values.map((v, i) => [i, v]).slice(from, to + 1));
+  const path = (values, from, to) => linePath(values, x, y, from, to);
 
   const split = splitAt ? at(splitAt) : -1;
   const last = months.length - 1;
 
-  /*
-     End labels, nudged apart. Lines that finish close together (the 18–59 and
-     children series end two points apart) would print their labels on top of
-     each other; each one is pushed down to clear the one above it.
-  */
-  const ends = endLabels
-    ? series
-        .map((s) => ({ s, v: s.values[last], y: y(s.values[last] ?? 0) }))
-        .sort((a, b) => a.y - b.y)
-        .reduce((acc, e) => {
-          const prev = acc[acc.length - 1];
-          acc.push({ ...e, ly: prev ? Math.max(e.y, prev.ly + 10) : e.y });
-          return acc;
-        }, [])
+  // End labels, nudged apart where lines finish close together.
+  const labelY = endLabels
+    ? stackLabels(
+        series.map((s) => y(s.values[last] ?? 0)),
+        10,
+        height - 4,
+      )
     : [];
 
   const first = series[0];
@@ -110,14 +101,16 @@ export function LineFigure({
         />
       )}
 
-      {yTicks.map((t) => (
-        <g key={t}>
-          <line className={styles.grid} x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} />
-          <text className={styles.tick} x={pad.left - 6} y={y(t)} dy="0.32em" textAnchor="end">
-            {yFormat(t)}
-          </text>
-        </g>
-      ))}
+      <YGrid
+        ticks={yTicks}
+        y={y}
+        x1={pad.left}
+        x2={W - pad.right}
+        format={yFormat}
+        dy="0.32em"
+        lineClassName={styles.grid}
+        labelClassName={styles.tick}
+      />
       {xTicks.map((t) =>
         at(t.month) >= 0 ? (
           <text
@@ -185,14 +178,15 @@ export function LineFigure({
         <circle cx={x(last)} cy={y(first.values[last])} r={3} style={{ fill: endDot }} />
       )}
 
-      {ends.map((e) => (
-        <text key={e.s.key} className={styles.endLabel} x={W - pad.right + 6} y={e.ly} dy="0.32em">
-          <tspan style={{ fill: e.s.color }} className={styles.endLabelName}>
-            {e.s.label}
-          </tspan>{' '}
-          {e.v == null ? '' : Math.round(e.v)}
-        </text>
-      ))}
+      {endLabels &&
+        series.map((s, k) => (
+          <text key={s.key} className={styles.endLabel} x={W - pad.right + 6} y={labelY[k]} dy="0.32em">
+            <tspan style={{ fill: s.color }} className={styles.endLabelName}>
+              {s.label}
+            </tspan>{' '}
+            {s.values[last] == null ? '' : Math.round(s.values[last])}
+          </text>
+        ))}
     </svg>
   );
 }
@@ -261,14 +255,16 @@ export function ShortfallFigure({
         </pattern>
       </defs>
 
-      {yTicks.map((t) => (
-        <g key={t}>
-          <line className={styles.grid} x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} />
-          <text className={styles.tick} x={pad.left - 6} y={y(t)} dy="0.32em" textAnchor="end">
-            {yFormat(t)}
-          </text>
-        </g>
-      ))}
+      <YGrid
+        ticks={yTicks}
+        y={y}
+        x1={pad.left}
+        x2={W - pad.right}
+        format={yFormat}
+        dy="0.32em"
+        lineClassName={styles.grid}
+        labelClassName={styles.tick}
+      />
 
       {values.map((v, i) => (
         <g key={labels[i]}>
@@ -350,11 +346,6 @@ export function StripFigure({
     for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
     return ((h % 1000) / 1000 - 0.5) * rowH * 0.62;
   };
-  const median = (pts) => {
-    const s = pts.map((p) => p.v).sort((a, b) => a - b);
-    const n = s.length;
-    return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
-  };
 
   return (
     <svg className={styles.svg} viewBox={`0 0 ${W} ${height}`} role="img" aria-label={title}>
@@ -372,7 +363,7 @@ export function StripFigure({
 
       {groups.map((g, gi) => {
         const cy = pad.top + rowH * (gi + 0.5);
-        const m = median(g.points);
+        const m = median(g.points.map((p) => p.v));
         return (
           <g key={g.label}>
             <text className={styles.rowLabel} x={0} y={cy - 2}>
@@ -391,16 +382,20 @@ export function StripFigure({
                 r={2.6}
               />
             ))}
-            <line
-              className={styles.medianTick}
-              x1={x(m)}
-              x2={x(m)}
-              y1={cy - rowH * 0.36}
-              y2={cy + rowH * 0.36}
-            />
-            <text className={styles.medianLabel} x={x(m) + 4} y={cy - rowH * 0.36 + 2}>
-              median {medianFormat(m)}
-            </text>
+            {m != null && (
+              <>
+                <line
+                  className={styles.medianTick}
+                  x1={x(m)}
+                  x2={x(m)}
+                  y1={cy - rowH * 0.36}
+                  y2={cy + rowH * 0.36}
+                />
+                <text className={styles.medianLabel} x={x(m) + 4} y={cy - rowH * 0.36 + 2}>
+                  median {medianFormat(m)}
+                </text>
+              </>
+            )}
           </g>
         );
       })}
@@ -425,11 +420,11 @@ export function GroupBarsFigure({ rows }) {
           <span className={styles.groupLabel}>{r.label}</span>
           <span className={styles.groupTrack}>
             <span
-              className={`${styles.groupBar} ${r.highlight ? styles.groupBarOn : ''}`}
+              className={cx(styles.groupBar, r.highlight && styles.groupBarOn)}
               style={{ width: `${(Math.abs(r.value) / max) * 100}%` }}
             />
           </span>
-          <span className={`${styles.groupValue} tabular`}>{r.display}</span>
+          <span className={cx(styles.groupValue, 'tabular')}>{r.display}</span>
         </div>
       ))}
     </div>
@@ -456,9 +451,11 @@ export function YearBarsFigure({ rows, height = 130, title }) {
       {rows.map((r) => (
         <g key={r.label}>
           <rect
-            className={`${styles.yearBar} ${r.tone === 'warn' ? styles.yearWarn : ''} ${
-              r.tone === 'alert' ? styles.yearAlert : ''
-            }`}
+            className={cx(
+              styles.yearBar,
+              r.tone === 'warn' && styles.yearWarn,
+              r.tone === 'alert' && styles.yearAlert,
+            )}
             x={x(r.label)}
             width={x.bandwidth()}
             y={y(r.value)}
@@ -497,7 +494,6 @@ export function IndexRecipe({ domains }) {
               {d.measures.length} {d.measures.length === 1 ? 'measure' : 'measures'}
             </span>
           </div>
-          {/* Two columns, one measure per cell (2026-10-16). */}
           <ul className={styles.recipeMeasures}>
             {d.measures.map((m) => (
               <li key={m}>{m}</li>

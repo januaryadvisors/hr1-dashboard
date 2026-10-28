@@ -9,7 +9,6 @@ import {
   useMemo,
   useReducer,
   useState,
-
 } from 'react';
 /**
  * @typedef {import('react').ReactNode} ReactNode
@@ -20,19 +19,16 @@ import { loadDataset } from '../data/load';
  * @typedef {import('../data/load').Dataset} Dataset
  */
 import { createProjection } from '../lib/projection';
+import { projectRings } from '../lib/mapGeometry';
 /**
  * @typedef {import('../lib/projection').Projection} Projection
+ * @typedef {import('../lib/mapGeometry').Ring} Ring
  */
-/**
- * @typedef {import('../lib/cartogram').Ring} Ring
- */
-import { projectRings } from '../lib/mapGeometry';
 import {
   fromSearchParams,
   initialState,
   reducer,
   toSearchParams,
-
 } from './appState';
 /**
  * @typedef {import('./appState').Action} Action
@@ -43,7 +39,7 @@ import {
  * @typedef {Object} AppContextValue
  * @property {Dataset} data
  * @property {Projection} projection
- * @property {Map<string, Ring[]>} baseRings - Projected outer rings per county — the base every render mode starts from.
+ * @property {Map<string, Ring[]>} baseRings - Projected outer rings per county — the base every map style starts from.
  * @property {string} statePath - The true state outline, drawn in every style.
  * @property {AppState} state
  * @property {AppState} defaults
@@ -105,8 +101,8 @@ function Ready({ data, children }) {
   const projection = useMemo(() => createProjection(data.geometry.state), [data.geometry.state]);
 
   /**
-   * Projected geometry, built once. Path strings and the cartogram are derived
-   * per render mode in MapPage — see src/lib/mapGeometry.js.
+   * Projected geometry, built once. MapPage derives the path strings from it —
+   * see src/lib/mapGeometry.js.
    */
   const baseRings = useMemo(
     () => projectRings(data.geometry.counties, projection),

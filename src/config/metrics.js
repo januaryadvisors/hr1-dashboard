@@ -18,8 +18,10 @@
  * @typedef {import('../types').County} County
  * @typedef {import('../types').ViewKey} ViewKey
  */
-import { fmtInt, fmtPct, fmtPctDelta } from '../lib/format';
-import { SCORED_INFRA } from './layers';
+import { fmtInt, fmtPct, fmtPctDelta, fmtPercentile } from '../lib/format';
+import { changeShare, lossShare, lostCount, valueAt, windowEnds } from '../lib/series';
+import { median } from '../lib/stats';
+import { domainByKey, SCORED_INFRA } from './layers';
 
 /**
  * @typedef {Object} MetricContext
@@ -45,20 +47,10 @@ import { SCORED_INFRA } from './layers';
  */
 
 /** Offered on every view. */
-const ALL = ['loss', 'work', 'vulnerability', 'children'];
+const ALL = ['loss', 'work', 'vulnerability', 'children', 'aca'];
 
-const seriesAt = (m, i) => {
-  const v = m?.[i];
-  return typeof v === 'number' ? v : null;
-};
-
-/** Signed change as a share of the start value. Negative is a loss. */
-const pctChange = (m, ctx) => {
-  const start = seriesAt(m, ctx.i0);
-  const end = seriesAt(m, ctx.i1);
-  if (start == null || end == null || start <= 0) return null;
-  return (end - start) / start;
-};
+/** The series' endpoints over the context's window. */
+const ends = (m, ctx) => windowEnds(m, ctx.i0, ctx.i1);
 
 /**
  * Listed assistance ORGANISATIONS across the registries that exist. An
@@ -75,6 +67,21 @@ export const sites = (c) =>
 const num = (v) =>
   typeof v === 'number' && Number.isFinite(v) ? v : null;
 
+/** A domain's percentile, named as in config/layers.js DOMAINS. */
+function domainMetric(key, views) {
+  const d = domainByKey(key);
+  return {
+    id: key,
+    label: d.metricLabel,
+    axis: d.metricAxis,
+    group: 'Domain percentiles',
+    format: fmtPercentile,
+    value: (c) => num(c[`${key}_score`]),
+    direction: 'worse-high',
+    views,
+  };
+}
+
 export const METRICS = [
   // ------------------------------------------------------------- caseload
   {
@@ -83,7 +90,7 @@ export const METRICS = [
     axis: 'Caseload change',
     group: 'Enrollment',
     format: (v) => fmtPctDelta(v, 1),
-    value: (c, ctx) => pctChange(c.snap_enrolled, ctx),
+    value: (c, ctx) => changeShare(ends(c.snap_enrolled, ctx)),
     // Signed, and a loss is negative — so LOW is worse here, not high.
     direction: 'better-high',
     views: ALL,
@@ -104,26 +111,17 @@ export const METRICS = [
     axis: 'Share of caseload lost',
     group: 'Enrollment',
     format: (v) => fmtPct(v, 1),
-    value: (c, ctx) => {
-      const start = seriesAt(c.snap_enrolled, ctx.i0);
-      const end = seriesAt(c.snap_enrolled, ctx.i1);
-      if (start == null || end == null || start <= 0) return null;
-      return Math.max(0, start - end) / start;
-    },
+    value: (c, ctx) => lossShare(ends(c.snap_enrolled, ctx)),
     direction: 'worse-high',
     views: ALL,
   },
   {
     id: 'loss_people',
-    label: 'People who left SNAP',
+    label: 'People no longer on SNAP',
     axis: 'People who left',
     group: 'Enrollment',
     format: fmtInt,
-    value: (c, ctx) => {
-      const start = seriesAt(c.snap_enrolled, ctx.i0);
-      const end = seriesAt(c.snap_enrolled, ctx.i1);
-      return start == null || end == null ? null : Math.max(0, start - end);
-    },
+    value: (c, ctx) => lostCount(ends(c.snap_enrolled, ctx)),
     direction: 'worse-high',
     views: ALL,
   },
@@ -133,7 +131,7 @@ export const METRICS = [
     axis: 'Caseload now',
     group: 'Enrollment',
     format: fmtInt,
-    value: (c, ctx) => seriesAt(c.snap_enrolled, ctx.i1),
+    value: (c, ctx) => valueAt(c.snap_enrolled, ctx.i1),
     direction: 'neutral',
     views: ALL,
   },
@@ -144,52 +142,36 @@ export const METRICS = [
     group: 'Enrollment',
     format: (v) => fmtPct(v, 1),
     value: (c, ctx) => {
-      const end = seriesAt(c.snap_enrolled, ctx.i1);
+      const end = valueAt(c.snap_enrolled, ctx.i1);
       return end == null || c.pop <= 0 ? null : end / c.pop;
     },
     direction: 'neutral',
     views: ALL,
   },
 
-  // ---------------------------------------------------------------- medicaid
+  // ---------------------------------------------------------- ACA Marketplace
   {
     /*
-     * Observed, on its OWN month axis. `medicaid_enrolled` is attached
-     * at load time from HHSC's published county workbooks and is null in the
-     * months they did not publish — including everything after Jan 2026, which
-     * is inside the default brush window. buildLayerValues resolves the window
-     * to the published months it contains; this does the same.
+     * feeding-texas-hr1's county Marketplace measure: consumers with an advance
+     * premium tax credit at the latest open enrollment, per 1,000 residents.
+     * Not a window measure — the brush does not move it.
      */
-    id: 'medicaid_loss_share',
-    label: 'Share of the Medicaid caseload lost',
-    axis: 'Share of Medicaid lost',
-    group: 'Medicaid',
-    format: (v) => fmtPct(v, 1),
-    value: (c, ctx) => {
-      const m = c.medicaid_enrolled;
-      if (!m) return null;
-      let a = -1;
-      let b = -1;
-      for (let i = ctx.i0; i <= ctx.i1; i++) if (typeof m[i] === 'number') { a = i; break; }
-      for (let i = ctx.i1; i >= ctx.i0; i--) if (typeof m[i] === 'number') { b = i; break; }
-      if (a < 0 || b <= a || m[a] <= 0) return null;
-      return Math.max(0, m[a] - m[b]) / m[a];
-    },
+    id: 'aptc_per_1k',
+    label: 'Marketplace enrollees with a premium tax credit, per 1,000 residents',
+    axis: 'Subsidised Marketplace enrollees per 1,000',
+    group: 'ACA Marketplace',
+    format: (v) => v.toFixed(0),
+    value: (c) => num(c.aptc_per_1k),
     direction: 'worse-high',
     views: ALL,
   },
   {
-    id: 'medicaid_now',
-    label: 'Medicaid enrollment, latest published month',
-    axis: 'On Medicaid',
-    group: 'Medicaid',
+    id: 'aptc_consumers',
+    label: 'Marketplace enrollees with a premium tax credit',
+    axis: 'Subsidised Marketplace enrollees',
+    group: 'ACA Marketplace',
     format: fmtInt,
-    value: (c, ctx) => {
-      const m = c.medicaid_enrolled;
-      if (!m) return null;
-      for (let i = ctx.i1; i >= 0; i--) if (typeof m[i] === 'number') return m[i];
-      return null;
-    },
+    value: (c) => num(c.aptc_consumers),
     direction: 'neutral',
     views: ALL,
   },
@@ -212,32 +194,14 @@ export const METRICS = [
     group: 'Work requirements',
     format: (v) => fmtPct(v, 1),
     value: (c, ctx) => {
-      const start = seriesAt(c.snap_enrolled, ctx.i0);
+      const start = valueAt(c.snap_enrolled, ctx.i0);
       return start == null || start <= 0 ? null : (c.newly_subject_persons ?? 0) / start;
     },
     direction: 'worse-high',
     views: ['work', 'vulnerability', 'loss'],
   },
-  {
-    id: 'd1',
-    label: 'Work-requirement exposure',
-    axis: 'D1 exposure',
-    group: 'Domain percentiles',
-    format: (v) => `p${Math.round(v * 100)}`,
-    value: (c) => num(c.d1_score),
-    direction: 'worse-high',
-    views: ALL,
-  },
-  {
-    id: 'd3',
-    label: 'Work is harder to reach',
-    axis: 'D3 access to work',
-    group: 'Domain percentiles',
-    format: (v) => `p${Math.round(v * 100)}`,
-    value: (c) => num(c.d3_score),
-    direction: 'worse-high',
-    views: ALL,
-  },
+  domainMetric('d1', ALL),
+  domainMetric('d3', ALL),
 
   // ----------------------------------------------------------------- children
   {
@@ -246,7 +210,7 @@ export const METRICS = [
     axis: 'Child caseload change',
     group: 'Children',
     format: (v) => fmtPctDelta(v, 1),
-    value: (c, ctx) => pctChange(c.snap_children, ctx),
+    value: (c, ctx) => changeShare(ends(c.snap_children, ctx)),
     direction: 'better-high',
     views: ALL,
   },
@@ -257,26 +221,17 @@ export const METRICS = [
     axis: 'Share of child caseload lost',
     group: 'Children',
     format: (v) => fmtPct(v, 1),
-    value: (c, ctx) => {
-      const start = seriesAt(c.snap_children, ctx.i0);
-      const end = seriesAt(c.snap_children, ctx.i1);
-      if (start == null || end == null || start <= 0) return null;
-      return Math.max(0, start - end) / start;
-    },
+    value: (c, ctx) => lossShare(ends(c.snap_children, ctx)),
     direction: 'worse-high',
     views: ALL,
   },
   {
     id: 'child_loss_people',
-    label: 'Children who left SNAP',
+    label: 'Children no longer on SNAP',
     axis: 'Children who left',
     group: 'Children',
     format: fmtInt,
-    value: (c, ctx) => {
-      const start = seriesAt(c.snap_children, ctx.i0);
-      const end = seriesAt(c.snap_children, ctx.i1);
-      return start == null || end == null ? null : Math.max(0, start - end);
-    },
+    value: (c, ctx) => lostCount(ends(c.snap_children, ctx)),
     direction: 'worse-high',
     views: ALL,
   },
@@ -286,7 +241,7 @@ export const METRICS = [
     axis: 'Children enrolled',
     group: 'Children',
     format: fmtInt,
-    value: (c, ctx) => seriesAt(c.snap_children, ctx.i1),
+    value: (c, ctx) => valueAt(c.snap_children, ctx.i1),
     direction: 'neutral',
     views: ALL,
   },
@@ -297,8 +252,8 @@ export const METRICS = [
     group: 'Children',
     format: (v) => fmtPct(v, 1),
     value: (c, ctx) => {
-      const kids = seriesAt(c.snap_children, ctx.i1);
-      const all = seriesAt(c.snap_enrolled, ctx.i1);
+      const kids = valueAt(c.snap_children, ctx.i1);
+      const all = valueAt(c.snap_enrolled, ctx.i1);
       return kids == null || all == null || all <= 0 ? null : kids / all;
     },
     direction: 'neutral',
@@ -326,26 +281,8 @@ export const METRICS = [
     direction: 'worse-high',
     views: ['vulnerability'],
   },
-  {
-    id: 'd2',
-    label: 'D2 — citizenship and status',
-    axis: 'D2 citizenship',
-    group: 'Domain percentiles',
-    format: (v) => `p${Math.round(v * 100)}`,
-    value: (c) => num(c.d2_score),
-    direction: 'worse-high',
-    views: ['vulnerability'],
-  },
-  {
-    id: 'd4',
-    label: 'D4 — socioeconomic need',
-    axis: 'D4 socioeconomic need',
-    group: 'Domain percentiles',
-    format: (v) => `p${Math.round(v * 100)}`,
-    value: (c) => num(c.d4_score),
-    direction: 'worse-high',
-    views: ['vulnerability', 'children'],
-  },
+  domainMetric('d2', ['vulnerability']),
+  domainMetric('d4', ['vulnerability', 'children']),
 
   // ---------------------------------------------------------------- capacity
   /*
@@ -402,20 +339,17 @@ export const metricById = (id) =>
   METRICS.find((m) => m.id === id) ?? METRICS[0];
 
 /**
- * THE CURATED AXIS PAIRS — 2026-09-11 direction.
+ * THE CURATED AXIS PAIRS.
  *
- * The scatter used to offer two dropdowns over the whole registry, which is
- * ~500 orderings, most of them meaningless (population against population;
- * navigators against food banks) and a few actively misleading. A reader is not
- * served by being handed the raw registry and asked to find the story in it.
+ * Two free dropdowns over the whole registry would be ~500 orderings, most of
+ * them meaningless (population against population; navigators against food
+ * banks) and a few actively misleading. So the section asks a QUESTION and
+ * draws the pair that answers it. Each preset names its four quadrants, because
+ * a quadrant chart is only readable if the corners are labelled — and marks the
+ * corner (or corners) that are the finding, which the chart tints.
  *
- * So the section now asks a QUESTION and draws the pair that answers it. Each
- * preset names its four quadrants, because a quadrant chart is only readable if
- * the corners are labelled — and marks the corner (or corners) that are the
- * finding, which the chart tints.
- *
- * The metric registry above is unchanged and still complete: adding a preset is
- * two ids and four labels, and nothing here invents a number.
+ * Adding a preset is two metric ids and four labels; nothing here invents a
+ * number.
  *
  * QUADRANT KEYS are `<x>-<y>`, each `lo` or `hi` relative to the median of the
  * counties actually plotted. `hi` on y is the TOP of the chart whatever the
@@ -448,6 +382,20 @@ export const metricById = (id) =>
  */
 export const SCATTER_PRESETS = [
   {
+    id: 'vulnerability-capacity',
+    label: 'Vulnerability against capacity',
+    question: 'Where does the highest modelled need meet no listed assistance?',
+    x: 'vulnerability',
+    y: 'sites_per_10k',
+    ySplit: 'any',
+    quadrants: [
+      { corner: 'hi-lo', label: 'Highest need, none listed', concern: true },
+      { corner: 'hi-hi', label: 'Highest need, help listed' },
+      { corner: 'lo-lo', label: 'Lower need, none listed' },
+      { corner: 'lo-hi', label: 'Lower need, help listed' },
+    ],
+  },
+  {
     id: 'loss-capacity',
     label: 'Loss against capacity',
     question: 'Where is the caseload falling fastest with no listed help?',
@@ -470,10 +418,7 @@ export const SCATTER_PRESETS = [
     quadrants: [
       /*
          Both axes are worse-high here, so the worry is the TOP-RIGHT corner,
-         not the bottom-right one. This is the pairing the old
-         gapQuadrantApplies() refused to tint at all — it only understood
-         need-against-capacity — which left the most pointed chart in the
-         section with no finding marked on it.
+         not the bottom-right one as on need against capacity.
       */
       { corner: 'hi-hi', label: 'Most newly subject, work hardest to reach', concern: true },
       { corner: 'hi-lo', label: 'Most newly subject, work reachable' },
@@ -491,10 +436,8 @@ export const SCATTER_PRESETS = [
       /*
          WHY THIS PAIR AND NOT CHILD LOSS AGAINST OVERALL LOSS.
 
-         That pairing was degenerate on the old fixtures (r = 0.9998, both
-         off-diagonal corners empty). On the real HHSC child series it is usable
-         but still says little: r = 0.89, so its median quadrants mostly restate
-         "this county is losing fast".
+         On the real HHSC child series those two correlate at r = 0.89, so
+         their median quadrants mostly restate "this county is losing fast".
 
          Child SHARE is the more informative axis: it runs 0.36–0.58 across the
          175 counties with 1,000+ enrollees and correlates NEGATIVELY with the
@@ -509,35 +452,21 @@ export const SCATTER_PRESETS = [
     ],
   },
   {
-    id: 'medicaid-snap',
-    label: 'Medicaid against SNAP',
-    question: 'Which counties are losing both SNAP and Medicaid coverage fastest?',
+    id: 'aca-snap',
+    label: 'Marketplace subsidies against SNAP loss',
+    question: 'Where is SNAP falling fastest among counties that lean most on Marketplace subsidies?',
     x: 'loss_share',
-    y: 'medicaid_loss_share',
+    y: 'aptc_per_1k',
     quadrants: [
       /*
-         Both axes are observed HHSC series, from independent programmes.
-         Note the windows differ: Medicaid is read over the published months
-         inside the brush, which currently end in Jan 2026.
+         Two programmes, two different readings: x is observed SNAP loss over
+         the brush window; y is Marketplace exposure at the latest open
+         enrollment, not a loss — there is no county Marketplace loss series.
       */
-      { corner: 'hi-hi', label: 'Losing both fastest', concern: true },
-      { corner: 'hi-lo', label: 'SNAP faster, Medicaid slower' },
-      { corner: 'lo-hi', label: 'Medicaid faster, SNAP slower' },
-      { corner: 'lo-lo', label: 'Slower on both' },
-    ],
-  },
-  {
-    id: 'vulnerability-capacity',
-    label: 'Vulnerability against capacity',
-    question: 'Where does the highest modelled need meet no listed assistance?',
-    x: 'vulnerability',
-    y: 'sites_per_10k',
-    ySplit: 'any',
-    quadrants: [
-      { corner: 'hi-lo', label: 'Highest need, none listed', concern: true },
-      { corner: 'hi-hi', label: 'Highest need, help listed' },
-      { corner: 'lo-lo', label: 'Lower need, none listed' },
-      { corner: 'lo-hi', label: 'Lower need, help listed' },
+      { corner: 'hi-hi', label: 'Losing SNAP fastest, most subsidised', concern: true },
+      { corner: 'hi-lo', label: 'Losing SNAP fastest, fewer subsidised' },
+      { corner: 'lo-hi', label: 'Losing SNAP slower, most subsidised' },
+      { corner: 'lo-lo', label: 'Slower on SNAP, fewer subsidised' },
     ],
   },
 ];
@@ -554,28 +483,14 @@ export const SCATTER_PRESETS = [
  * @param {'median' | 'any'} [ySplit]
  */
 export function splitQuadrants(points, ySplit = 'median') {
-  const median = (arr) => [...arr].sort((a, b) => a - b)[Math.floor(arr.length / 2)] ?? 0;
-  const mx = median(points.map((p) => p.x));
+  const mx = median(points.map((p) => p.x)) ?? 0;
   const isHiX = (p) => p.x >= mx;
   if (ySplit === 'any') {
     return { mx, my: 0, isHiX, isHiY: (p) => p.y > 0 };
   }
-  const my = median(points.map((p) => p.y));
+  const my = median(points.map((p) => p.y)) ?? 0;
   return { mx, my, isHiX, isHiY: (p) => p.y >= my };
 }
 
 export const presetById = (id) =>
   SCATTER_PRESETS.find((p) => p.id === id) ?? SCATTER_PRESETS[0];
-
-/**
- * The preset a map view opens the section on, so switching the map above also
- * moves the question below it to the matching one. The reader can still pick any
- * of the four.
- */
-export const PRESET_FOR_VIEW = {
-  loss: 'loss-capacity',
-  medicaid: 'medicaid-snap',
-  work: 'work-access',
-  children: 'children-share',
-  vulnerability: 'vulnerability-capacity',
-};

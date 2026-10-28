@@ -1,19 +1,17 @@
 /**
  * Measure an element's content box and keep it current.
  *
- * WHY A CHART WOULD WANT THIS
- * Every other chart on this page is authored at a fixed viewBox and scaled to
- * whatever width it lands in — which is right for a chart in a column, because
- * the aspect ratio is a design decision and it should survive the resize.
+ * Most charts are authored at a fixed viewBox and scaled to whatever width they
+ * land in — right for a chart in a column, where the aspect ratio is a design
+ * decision that should survive the resize.
  *
- * The scatter in "Where need meets capacity" is the exception. It sits in a slot
- * whose height is fixed by the panel beside it and whose width is fluid, so a
- * fixed viewBox is letterboxed: the plot draws as a square with dead space above
- * and below it, and the taller the card gets the worse it looks. Measuring the
- * slot and authoring the viewBox at its real pixel size makes the SVG's
- * coordinate system 1:1 with the screen — the plot fills the slot exactly, and
- * axis type renders at the size it was written at instead of being scaled up
- * with the chart.
+ * A chart in a slot whose height is fixed by its surroundings and whose width
+ * is fluid (the "Where need meets capacity" scatter, for one) is different: a
+ * fixed viewBox is letterboxed, drawn as a square with dead space above and
+ * below. Measuring the slot and authoring the viewBox at its real pixel size
+ * makes the SVG's coordinate system 1:1 with the screen — the plot fills the
+ * slot exactly, and axis type renders at the size it was written at instead of
+ * being scaled up with the chart.
  *
  * The element MUST get its height from something other than this SVG (a grid row
  * or an explicit height), or the observer and the layout chase each other.

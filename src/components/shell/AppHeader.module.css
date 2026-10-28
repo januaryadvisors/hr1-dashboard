@@ -25,6 +25,9 @@
   border-bottom-color: transparent;
 }
 
+/* The logo's green wordmark disappears into the header's green, so the mark
+   sits on a cream chip here. The chip is there in both states (padding and all)
+   and only its colour changes, so nothing shifts as the header turns. */
 .green .logo {
   background: var(--on-green);
 }
@@ -35,8 +38,7 @@
 }
 
 .slim .logo {
-  width: 18px;
-  height: 18px;
+  height: 30px;
 }
 
 .brand {
@@ -47,12 +49,15 @@
 }
 
 .logo {
-  width: 22px;
-  height: 22px;
-  background: var(--ja-ink);
-  border-radius: 3px;
+  display: block;
+  flex-shrink: 0;
+  /* Height only: the width follows the logo's own 1.8:1 shape. */
+  height: 40px;
+  width: auto;
+  padding: 3px 5px;
+  background: transparent;
+  border-radius: var(--radius);
   transition:
-    width 200ms ease,
     height 200ms ease,
     background-color 200ms ease;
 }
@@ -74,29 +79,38 @@
   text-overflow: ellipsis;
 }
 
-/* Phones: the page switch shares the bar, so the name steps down a size
-   rather than wrapping onto two lines. */
+/* Phones: the page switch shares the bar, so the gutters narrow and the name
+   steps down a size. */
 @media (max-width: 480px) {
   .header {
     padding: 0 var(--space-4);
   }
+  /* Beside the logo the name does not fit on one line at phone width, and an
+     ellipsis would cut "H.R. 1" — so it wraps to two, which the 64px bar holds. */
   .title {
     font-size: var(--text-base);
+    line-height: 1.15;
+    white-space: normal;
+  }
+  .logo {
+    height: 34px;
   }
 }
 
-/* Small phones (iPhone SE, 320px): the placeholder mark goes so the full name
-   still fits beside the switch. */
+/* Small phones (iPhone SE, 320px): the name steps down again so it fits
+   between the logo and the switch. */
 @media (max-width: 360px) {
+  .brand {
+    gap: var(--space-2);
+  }
   .logo {
-    display: none;
+    height: 30px;
+    padding-inline: 3px;
   }
   .title {
     font-size: var(--text-sm);
   }
 }
-
-
 
 @media (prefers-reduced-motion: reduce) {
   .header,

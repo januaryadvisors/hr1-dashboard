@@ -10,7 +10,7 @@
  * verified by asserting scrollWidth === innerWidth.
  *
  * The RIGHT edge stops dead on the main column, with no negative margin: the
- * page's two columns now meet with no gutter between them (see .page and .rail),
+ * page's two columns meet with no gutter between them (see .page and .rail),
  * so the band's right edge IS the boundary with the rail. Bleed it and the
  * section's tan would paint over the rail's ground for 24px and the colour
  * change would stop reading as the divider between the two columns.
@@ -47,28 +47,14 @@
   background: var(--ft-tan-alt);
 }
 
-.head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3) var(--space-5);
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.headAside {
-  flex: 0 0 auto;
-}
-
 .title {
   font-family: var(--font-figure);
-  /* Back down a notch from the comps' 44px, client direction 2026-10-16. */
   font-size: var(--text-title);
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.025em;
 }
 
-/* Smaller than the comps' ~18px on client direction 2026-10-16. */
 .subtitle {
   max-width: 70ch;
   margin-top: var(--space-2);
@@ -89,9 +75,9 @@
     margin-left: calc(-1 * var(--space-4));
   }
   /* One column here, so the band runs to the screen's right edge too — by the
-     page's padding exactly. A -100vw overshoot was clipped on desktop but made
-     phone browsers widen the layout viewport to fit it, and since the overshoot
-     is in vw it grew with the viewport it had widened. */
+     page's padding exactly. A -100vw overshoot, clipped on desktop, makes phone
+     browsers widen the layout viewport to fit it, and since the overshoot is in
+     vw it grows with the viewport it widened. */
   .root::before {
     right: calc(-1 * var(--space-4));
   }

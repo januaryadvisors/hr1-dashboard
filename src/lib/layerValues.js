@@ -1,17 +1,16 @@
 /**
  * One place that turns (counties, layer, window) into the numbers a map draws.
  *
- * Before the 2026-09-10 view rework every layer was a stored percentile, so
- * <CountyMap> could read `county[scoreField(layer)]` itself. The two loss layers
- * broke that: their value is enrollment change across the brush window, which is
+ * A loss layer's value is enrollment change across the brush window, which is
  * not a column and changes every time the brush moves. Rather than teach the map
- * about windows, the page computes both maps here and hands them down — so the
- * hero map, the four thumbnails, the rank list and the search results are all
- * reading one set of values and cannot disagree.
+ * about windows, the page computes the values here and hands them down — so the
+ * hero map, the thumbnails, the rank list and the search results all read one
+ * set of values and cannot disagree.
  */
 import { layerBasis, layerByKey, scoreFieldOrNull } from '../config/layers';
 import { binsFor, BIVARIATE_STEPS, equalShareBins, quantileBins, roundedQuantileBins } from './scales';
 import { fmtPct, fmtPercentile } from './format';
+import { lossShare, lostCount, windowEnds } from './series';
 /**
  * @typedef {import('../types').County} County
  * @typedef {import('../types').LayerKey} LayerKey
@@ -44,7 +43,7 @@ import { fmtPct, fmtPercentile } from './format';
  * would spend half its ink on the handful of counties going the other way. The
  * panel copy says so, and the tooltip still shows the true signed change.
  */
-function windowLoss(
+function lossLayerValues(
   counties,
   series,
   i0,
@@ -59,52 +58,22 @@ function windowLoss(
   let stateStart = 0;
   let stateEnd = 0;
 
-  /*
-     RESOLVE THE ENDPOINTS INSIDE THE WINDOW, rather than demanding the exact
-     months.
-
-     The SNAP series is dense, so for those layers this finds i0 and i1 and stops.
-     The observed Medicaid series is not: it starts in Feb 2022, ends in Jan 2026
-     and is missing seven months in between, while the brush runs to May 2026. On
-     an exact lookup the whole Medicaid map would be no-data at the default
-     window — technically true, useless, and it would read as "nobody lost
-     coverage" rather than "that month is not published".
-
-     So the window is read at the first published month at or after its start and
-     the last at or before its end. That is a narrower window than the brush
-     shows, which the panel note says out loud; it is not extrapolation, and a
-     window containing no published month at all still returns null.
-  */
-  const firstAt = (months, from, to) => {
-    for (let i = from; i <= to; i++) if (typeof months?.[i] === 'number') return i;
-    return -1;
-  };
-  const lastAt = (months, from, to) => {
-    for (let i = to; i >= from; i--) if (typeof months?.[i] === 'number') return i;
-    return -1;
-  };
-
   for (const c of counties) {
-    const months = c[series];
-    const a = firstAt(months, i0, i1);
-    const b = lastAt(months, i0, i1);
-    const start = a < 0 || b <= a ? undefined : months[a];
-    const end = a < 0 || b <= a ? undefined : months[b];
-    if (typeof start !== 'number' || typeof end !== 'number') {
+    const ends = windowEnds(c[series], i0, i1);
+    if (!ends) {
       // A missing series reads as absence, not as zero loss — NO_DATA grey.
       fill.set(c.geoid, null);
       continue;
     }
-    const lost = Math.max(0, start - end);
-    // No caseload to lose is not the same as losing none of it.
-    fill.set(c.geoid, start > 0 ? lost / start : null);
+    const lost = lostCount(ends);
+    fill.set(c.geoid, lossShare(ends));
     count.set(c.geoid, lost);
     if (lost > maxCount) maxCount = lost;
-    stateStart += start;
-    stateEnd += end;
+    stateStart += ends.start;
+    stateEnd += ends.end;
   }
 
-  const statewideShare = stateStart > 0 ? Math.max(0, stateStart - stateEnd) / stateStart : 0;
+  const statewideShare = lossShare({ start: stateStart, end: stateEnd }) ?? 0;
 
   const bins = equalShareBins([...fill.values()].filter((v) => v != null));
   return { fill, count, maxCount, bins, statewideShare };
@@ -163,7 +132,7 @@ export function buildLayerValues(
 
   if (basis === 'bivariate') return workBivariate(counties, i0);
   if (basis === 'window') {
-    return windowLoss(counties, def.seriesField ?? 'snap_enrolled', i0, i1);
+    return lossLayerValues(counties, def.seriesField ?? 'snap_enrolled', i0, i1);
   }
 
   const field = scoreFieldOrNull(layer);
@@ -187,38 +156,19 @@ export function buildLayerValues(
 }
 
 /**
- * A layer's value as display text. Three scales, three units, and they must not
- * be formatted alike: a percentile is `p61`, the composite is a 0–4 sum, and a
- * loss share is a percent of caseload.
+ * A layer's value as display text. The scales differ in unit and must not be
+ * formatted alike: a percentile is `p61`, the composite is a 0–4 sum, a loss
+ * share is a percent of caseload, and a rate layer says its own.
  */
 export function formatLayerValue(layer, value) {
   if (value == null || !Number.isFinite(value)) return '—';
   const basis = layerBasis(layer);
   if (basis === 'window') return `−${fmtPct(value, 1)}`;
+  if (basis === 'rate') return layerByKey(layer).format(value);
   // A bivariate layer's primary axis is a share of caseload, unsigned.
   if (basis === 'bivariate') return fmtPct(value, 1);
   if (layer === 'composite') return value.toFixed(2);
   return fmtPercentile(value);
-}
-
-/**
- * The same value as a 0–1 fraction, for the rank list's mini bar.
- *
- * A loss share is already 0–1 but only ever occupies its bottom fifth, so it is
- * normalised to the layer's own top band — otherwise every bar in the list is a
- * stub the reader cannot compare.
- */
-export function fractionOf(layer, value, values) {
-  if (layer === 'composite') return value / 4;
-  if (layerBasis(layer) === 'bivariate') {
-    const top = values?.bins[values.bins.length - 1] ?? 1;
-    return top > 0 ? Math.min(1, value / top) : 0;
-  }
-  if (layerBasis(layer) === 'window') {
-    const top = values?.bins[values.bins.length - 2] ?? 0.18;
-    return top > 0 ? Math.min(1, value / top) : 0;
-  }
-  return value;
 }
 
 /**

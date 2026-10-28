@@ -1,3 +1,0 @@
-{
-  "note": "Editorial content, hand-edited. The hero band's three figures used to live here; since 2026-10-16 they are computed for the brush window (src/lib/insights.js headlineStats). The dated feed comes from public/data/bulletins.json, which is generated — see scripts/fetch-texas-works.mjs."
-}

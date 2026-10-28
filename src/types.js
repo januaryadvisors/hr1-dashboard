@@ -5,17 +5,18 @@
  */
 
 /**
- * Four scored domains plus the un-sourced Children layer and the composite.
+ * The four scored domains (config/layers.js DOMAINS).
  *
- * @typedef {'d1' | 'd2' | 'd3' | 'd4' | 'd5'} DomainKey
+ * @typedef {'d1' | 'd2' | 'd3' | 'd4'} DomainKey
  */
 
 /**
  * Layers whose value is a windowed enrollment loss rather than a stored score.
  * They recompute from the brush window every time it moves, which is why they
- * have no `*_score` column and go through src/lib/layerValues.js instead.
+ * have no `*_score` column and go through src/lib/layerValues.js instead. The
+ * layers with basis 'window' in config/layers.js (LOSS_LAYERS).
  *
- * @typedef {'loss' | 'child_loss' | 'medicaid_loss'} LossKey
+ * @typedef {'loss' | 'child_loss'} LossKey
  */
 
 /**
@@ -27,23 +28,23 @@
  */
 
 /**
- * @typedef {DomainKey | 'composite' | LossKey | BivariateKey} LayerKey
+ * @typedef {DomainKey | 'composite' | LossKey | BivariateKey | 'aca_aptc'} LayerKey
  */
 
 /**
- * The four views of the map (spec §6.4 reworked 2026-09-10 on client direction —
- * six layer cards became four views). A view is one or two layers plus a
- * decision about whether assistance capacity is drawn; see config/layers.js.
+ * The views of the map, in place of spec §6.4's layer cards (docs/SPEC-DEVIATIONS.md
+ * §D3). A view is one or more layers plus a decision about whether assistance
+ * capacity is drawn; see config/layers.js.
  *
- * @typedef {'loss' | 'work' | 'vulnerability' | 'medicaid' | 'children'} ViewKey
+ * @typedef {'loss' | 'work' | 'vulnerability' | 'aca' | 'children'} ViewKey
  */
 
 /**
  * @typedef {'rate' | 'count'} Measure
  */
 /**
- * How the map draws. 'grid' — the area cartogram — was removed on 2026-09-11;
- * see the note in <CountyMap>.
+ * How the map draws, as the reader picks it. One story step draws the tile grid
+ * instead (StoryStep.mapStyle).
  *
  * @typedef {'geo' | 'density'} MapStyle
  */
@@ -93,14 +94,14 @@
  * @property {number} newly_subject_persons - D1 count basis. PUMS-modelled — flag wherever shown (§10).
  * @property {number} noncit_snap_persons - D2 count basis.
  * @property {number[]} snap_enrolled - Monthly enrolled individuals, parallel to statewide meta.months.
- * @property {(number|null)[]} [medicaid_enrolled] - Monthly Medicaid enrollment, aligned onto statewide meta.months.
- *   Observed HHSC data on its own month axis, attached at load time from
- *   medicaid-observed.json rather than shipped in counties.json. null in
- *   any month HHSC did not publish, and absent entirely if the file 404s.
  * @property {number[]} snap_children - Monthly enrolled children (under 18), parallel to statewide meta.months.
- *   Added 2026-09-10 for the Children view. NOT in the spec's §3.1 contract —
+ *   For the Children view. NOT in the spec's §3.1 contract —
  *   see docs/SPEC-DEVIATIONS.md §A4. Built from HHSC's own county age columns
  *   (under 5 + 5–17), so it is observed, not apportioned.
+ * @property {Record<string, number[]>} snap_age - Monthly enrolled per age band, keyed like statewide age_series.
+ * @property {number | null} aptc_consumers - ACA Marketplace consumers with an advance premium tax credit at the
+ *   latest open enrollment (meta.aca_year). null where CMS suppresses the county.
+ * @property {number | null} aptc_per_1k - aptc_consumers per 1,000 residents.
  * @property {CountyInfra} infra - Help listed as serving the county. food_bank is null where no reporting
  *   bank covers the county — NOT the same as 0.
  * @property {string | null} chw_band - The certified-CHW range as DSHS publishes it, e.g. "11–100". null: none.
@@ -143,12 +144,12 @@
  * @property {(number | null)[]} monthly_change
  * @property {number[]} participation_share
  * @property {AgeBand[]} age_bands - Policy start to latest, steepest loss first.
- * @property {Record<string, number[]>} [age_series] - Monthly enrolled per band, parallel to meta.months.
+ * @property {Record<string, number[]>} age_series - Monthly enrolled per band, parallel to meta.months.
  * @property {number[]} [cases] - Monthly SNAP cases (households).
  * @property {{ people: number; households: number }} people_vs_households
  * @property {{ type: string; pctChange: number }[]} county_type_rollup
  * @property {{ method?: string; center: number; limits: { caseload: number; sd: number }[] }} funnel - The policy-window
- *   fit, for reference and downloads. The Insights page refits per window (buildFunnel).
+ *   fit (buildFunnel), for reference and downloads.
  */
 
 /**

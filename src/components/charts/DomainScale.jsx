@@ -6,7 +6,9 @@
  * bin still read differently — the bins are the colour scheme, the caret is the
  * value.
  */
-import { binIndex, binsFor, rampFor } from '../../lib/scales';
+import { scaleLinear } from 'd3-scale';
+import { binsFor, rampFor } from '../../lib/scales';
+
 /**
  * @typedef {import('../../types').LayerKey} LayerKey
  */
@@ -22,57 +24,18 @@ const GAP = 2;
  * @property {number | null} value - This county's value, on the layer's own scale.
  * @property {number} median - The statewide median, on the same scale.
  * @property {[number, number]} domain - Scale bounds — 0–1 for domains, 0–4 for the composite.
- * @property {'full' | 'compact'} [variant] - 'full'    every band coloured, plus a caret and the median tick.
- *   'compact' only the band this county falls in is coloured; the rest are
- *   neutral. Reads as "which band" at a glance and takes half the
- *   height, which is what lets the unfocused domains sit in a 2x2.
  */
 
-const MUTED = '#efeded';
-
-export function DomainScale({
-  layer,
-  value,
-  median,
-  domain,
-  variant = 'full',
-}) {
+export function DomainScale({ layer, value, median, domain }) {
   const stops = rampFor(layer);
   const bins = binsFor(layer);
   if (!stops.length) return null;
 
-  const [lo, hi] = domain;
-  const frac = (v) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
-  const x = (v) => frac(v) * W;
+  const x = scaleLinear().domain(domain).range([0, W]).clamp(true);
 
   // Segments are drawn at equal width — the ramp is a key to the bins, not a
   // second axis, and unequal widths would read as a distorted scale.
   const segW = (W - GAP * (stops.length - 1)) / stops.length;
-
-  if (variant === 'compact') {
-    const activeBin = binIndex(value, bins);
-    const h = 8;
-    return (
-      <svg
-        viewBox={`0 0 ${W} ${h}`}
-        width="100%"
-        style={{ display: 'block', height: 'auto' }}
-        aria-hidden="true"
-      >
-        {stops.map((c, i) => (
-          <rect
-            key={c + i}
-            x={i * (segW + GAP)}
-            y={0}
-            width={segW}
-            height={h}
-            rx={1.5}
-            fill={i === activeBin ? c : MUTED}
-          />
-        ))}
-      </svg>
-    );
-  }
 
   const height = BAR_H + CARET_H + 2;
 
@@ -123,7 +86,7 @@ export function DomainScale({
           x2={x(b)}
           y1={BAR_H - 2.5}
           y2={BAR_H}
-          stroke="#ffffff"
+          stroke="var(--surface)"
           strokeWidth={0.8}
           strokeOpacity={0.7}
         />

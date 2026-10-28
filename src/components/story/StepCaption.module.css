@@ -1,7 +1,7 @@
 /*
  * Fixed height: the map above takes whatever is left, so this must not vary.
  *
- * A bar on the bottom edge of the screen (2026-10-16): full bleed past the
+ * A bar on the bottom edge of the screen: full bleed past the
  * stage's gutters, square at the bottom, with the device's home-indicator inset
  * added underneath — so nothing shows below it.
  */
@@ -107,24 +107,6 @@
   background: var(--surface);
   border: 1px solid var(--hairline);
   cursor: default;
-}
-
-.action {
-  padding: 0.35rem 0.8rem;
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ja-navy);
-  background: var(--surface);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-}
-
-.actionOn {
-  color: var(--text-inverse);
-  background: var(--ja-navy);
-  border-color: var(--ja-navy);
 }
 
 /*

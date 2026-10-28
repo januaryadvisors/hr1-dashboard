@@ -15,12 +15,7 @@
  * the step, so the same rail works as a plain accordion.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const headerHeight = () =>
-  parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-height')) || 0;
-
-const prefersReducedMotion = () =>
-  !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+import { headerHeight, prefersReducedMotion } from './layout';
 
 /** Keys that step instead of scrolling by a line, while the stage is pinned. */
 const NEXT_KEYS = new Set(['ArrowDown', 'PageDown']);

@@ -1,5 +1,9 @@
 /** Monthly enrollment for one county across the active window. */
+import { scaleLinear } from 'd3-scale';
+import { linePath } from '../../lib/chart';
+
 const W = 300;
+const PAD = 3;
 
 /**
  * @typedef {Object} SparklineProps
@@ -10,22 +14,17 @@ const W = 300;
 export function Sparkline({ values, height = 34 }) {
   if (values.length < 2) return null;
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  // A flat series would divide by zero; draw it down the middle instead.
-  const span = max - min || 1;
-  const pad = 3;
-
-  const x = (i) => (i / (values.length - 1)) * W;
-  const y = (v) => pad + (1 - (v - min) / span) * (height - pad * 2);
-
-  const d = values.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join('');
+  const x = scaleLinear().domain([0, values.length - 1]).range([0, W]);
+  // A flat series has no extent; d3 draws it down the middle.
+  const y = scaleLinear()
+    .domain([Math.min(...values), Math.max(...values)])
+    .range([height - PAD, PAD]);
   const last = values.length - 1;
 
   return (
     <svg viewBox={`0 0 ${W} ${height}`} width="100%" style={{ display: 'block', height: 'auto' }}
       aria-hidden="true">
-      <path d={d} fill="none" stroke="var(--ja-burgundy)" strokeWidth={1.6} />
+      <path d={linePath(values, x, y)} fill="none" stroke="var(--ja-burgundy)" strokeWidth={1.6} />
       <circle cx={x(last)} cy={y(values[last])} r={2.6} fill="var(--ja-burgundy)" />
     </svg>
   );

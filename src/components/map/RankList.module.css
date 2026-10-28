@@ -6,9 +6,8 @@
 .row {
   display: grid;
   /*
-     The value track is `auto`, not a fixed 2.2rem. It was sized for "p100" and
-     "−23.2%"; in count measure it carries "131,542", which overflowed the
-     column and clipped against the panel edge. `auto` takes what the widest
+     The value track is `auto`: in count measure it carries "131,542", which a
+     fixed width sized for "p100" would clip. `auto` takes what the widest
      value in the list needs and the county name gives it up — a truncated name
      is recoverable from the map, a truncated number is not.
   */
@@ -40,8 +39,8 @@
   text-align: right;
 }
 
-/* Gives way to the value column when a count is long. */
-/* Level 3: county and figure both in ink — they are the data. */
+/* Level 3: county and figure both in ink — they are the data. Gives way to the
+   value column when a count is long. */
 .name {
   font-weight: 500;
   color: var(--text);
@@ -50,20 +49,8 @@
   white-space: nowrap;
 }
 
-.bar {
-  height: 3px;
-  background: var(--ja-navy);
-  border-radius: 2px;
-}
-
-.barTrack {
-  height: 3px;
-  background: var(--hairline);
-  border-radius: 2px;
-}
-
-/* The line and bucket glyphs share the bar's column, so the row grid does not
-   change when the view does. */
+/* The line and bucket glyphs share one column, so the row grid does not change
+   when the view does. */
 .glyph {
   display: block;
   width: 100%;

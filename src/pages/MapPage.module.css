@@ -24,7 +24,7 @@
 }
 
 /*
- * The green band — full-bleed, per the 2026-09-11 comps.
+ * The green band — full-bleed.
  *
  * Sibling of .page, not a child: a child could not bleed past .page's
  * max-width and gutters without negative-margin tricks that break inside its
@@ -40,7 +40,7 @@
 }
 
 /*
- * PARALLAX, 2026-10-16. The story's stage starts 100px up under the band and
+ * PARALLAX. The story's stage starts 100px up under the band and
  * slides out more slowly than the page scrolls (--under-shift, set in
  * MapPage), arriving at zero as the stage pins. The band itself never moves
  * or fades.
@@ -67,9 +67,8 @@
 /*
  * Inner container repeats .page's max-width, gutters AND column split, so the
  * hero number starts on exactly the same vertical as the section titles below
- * it and the brush card ends where the main column ends. The second track is
- * empty — the three statewide facts live in the sticky rail, which cannot be
- * inside a band that scrolls away.
+ * it and the brush card ends where the main column ends. The second track holds
+ * the three statewide facts.
  */
 .heroInner {
   display: grid;
@@ -102,17 +101,17 @@
 
 /*
  * Two columns for the page below the band: everything the reader acts on, and
- * a sticky rail holding the SNAP chart and the policy feed.
+ * a sticky rail holding the policy feed.
  *
- * NO COLUMN GAP — 2026-09-11 direction. A gap here let the page's own ground
- * show as a 32px stripe between the main column's band and the rail's, so the
- * eye read THREE colours across and the rail looked detached rather than
- * adjacent. With the gap closed the two grounds meet edge to edge and the colour
- * change itself is the divider. The breathing room the gap provided moves inside
- * the rail as padding (see .rail) and inside each Section as its right padding.
+ * NO COLUMN GAP. A gap here would show the page's own ground as a stripe
+ * between the main column's band and the rail's, so the eye would read THREE
+ * colours across and the rail would look detached rather than adjacent. With no
+ * gap the two grounds meet edge to edge and the colour change itself is the
+ * divider. The breathing room sits inside the rail as padding (see .rail) and
+ * inside each Section as its right padding.
  *
- * The row gap stays: below 1200px the rail stacks underneath, where it is a gap
- * between rows and not between colours.
+ * The row gap matters at 640px and below, where the rail stacks underneath and
+ * it is a gap between rows, not between colours.
  */
 .page {
   display: grid;
@@ -141,21 +140,20 @@
 .mainCol {
   display: flex;
   flex-direction: column;
-  /* Tight, because each section now paints its own band and provides its own
+  /* Tight, because each section paints its own band and provides its own
      padding — a large gap here would put a tan stripe between two tan bands. */
   gap: var(--space-2);
   min-width: 0;
 }
 
 /*
- * M-01's flex column moved to .heroMain when the band became the full-bleed
- * green wrapper. .heroBand must stay a plain block: as a flex container it
- * cancelled .heroInner's stretch (auto inline margins on a flex item shrink it
- * to fit-content and centre it), which left the hero number indented 136px and
- * the brush card short of the column.
+ * M-01's flex column is .heroMain. .heroBand must stay a plain block: as a flex
+ * container it would cancel .heroInner's stretch (auto inline margins on a flex
+ * item shrink it to fit-content and centre it), indenting the hero number and
+ * leaving the brush card short of the column.
  */
 /*
- * Number and phrase on ONE ROW on desktop (2026-10-16), never wrapping: the
+ * Number and phrase on ONE ROW on desktop, never wrapping: the
  * number scales with the column (cqi, below) so there is always room for the
  * phrase beside it. Phones stack them — see the 640px rule.
  */
@@ -170,13 +168,11 @@
   font-family: var(--font-figure);
   /*
      "−547,051" is eight glyphs with no break opportunity, so at the full
-     6.75rem it is about 480px wide. On a phone that overflowed the page, and
-     because the overflow widened the whole document every other section then
-     rendered narrower than the viewport with a gap down the side. The vw term is
-     what keeps it inside the gutter; the rem floor keeps it a hero number.
+     6.75rem it is about 480px wide — enough to overflow a phone and widen the
+     whole document. 12.5% of the hero column instead: the full 6.75rem on a
+     wide screen, smaller on a laptop, so the phrase keeps ~22ch beside it at
+     every desktop width. The rem floor keeps it a hero number.
   */
-  /* 12.5% of the hero column: the full 6.75rem on a wide screen, smaller on a
-     laptop, so the phrase keeps ~22ch beside it at every desktop width. */
   flex: 0 0 auto;
   font-size: clamp(2.5rem, 12.5cqi, var(--step-hero));
   font-weight: 800;
@@ -214,27 +210,9 @@
   color: var(--on-green);
 }
 
-/* Outlined pill on the green, per the 2026-10-16 comp; fills cream on hover. */
+/* A .pill-on-green (global.css): outlined on the green, fills cream on hover. */
 .download {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
   flex: 0 0 auto;
-  padding: 0.5rem 1.1rem;
-  font-family: var(--font-display);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--on-green);
-  background: transparent;
-  border: 1px solid var(--on-green-muted);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-}
-
-.download:hover {
-  color: var(--ft-green);
-  background: var(--on-green);
-  border-color: var(--on-green);
 }
 
 .panel {
@@ -267,8 +245,7 @@
   margin-top: 10px;
 }
 
-/* Same size as the section titles below it — down from the comps' 44px on
-   client direction 2026-10-16. */
+/* Same size as the section titles below it. */
 .stageTitle {
   flex: 1;
   min-width: 0;
@@ -342,20 +319,19 @@
 }
 
 /*
- * Page-level rail: the three statewide facts and the Texas Works feed.
+ * Page-level rail: the Texas Works feed.
  *
  * Sticky under the sticky header, so the policy bulletins stay beside whichever
  * view the reader has scrolled to. The height cap is what makes that safe —
  * without it a rail taller than the viewport simply scrolls off and "sticky"
  * buys nothing.
  *
- * The rail itself does NOT scroll: it hides its overflow and the feed inside it
- * takes the leftover height and scrolls there. That is deliberate — capping the
- * rail AND letting the feed scroll gives two nested scrollbars on a short
- * viewport, and the reader has to guess which one they are in. One scroll
- * region, and the SNAP panel stays put above it.
+ * The sticky box itself does NOT scroll: it hides its overflow and the feed
+ * inside it takes the leftover height and scrolls there. That is deliberate —
+ * capping the box AND letting the feed scroll gives two nested scrollbars on a
+ * short viewport, and the reader has to guess which one they are in.
  *
- * ONE COLOUR, FULL-BLEED RIGHT — 2026-09-11 direction.
+ * ONE COLOUR, FULL-BLEED RIGHT.
  *
  * The main column's sections alternate two tans and bleed off the LEFT edge;
  * the rail answers that with a single unbroken --ft-tan-alt running off the
@@ -368,11 +344,9 @@
  * `.root` carries `overflow-x: clip`, so the overhang cannot scroll the page.
  */
 /*
- * The rail is two boxes (2026-10-16). The aside stretches to the full height of
- * the page grid, so its ground runs from the green band to the bottom of the
- * page beside every section — as a sticky box it was only as tall as the
- * viewport, and ended short of the last section with bare page below it.
- * .railInner, inside it, is what sticks.
+ * The rail is two boxes. The aside stretches to the full height of the page
+ * grid, so its ground runs from the green band to the bottom of the page beside
+ * every section; .railInner, inside it, is what sticks.
  */
 .rail {
   align-self: stretch;
@@ -389,8 +363,8 @@
   */
   border-left: 1px solid var(--hairline);
   padding-inline: var(--space-4);
-  /* Replaces the grid gap this column used to sit behind, so the rail's ground
-     starts at the main column's edge but its content does not. */
+  /* Stands in for a column gap (see .page), so the rail's ground starts at the
+     main column's edge but its content does not. */
   padding-left: var(--space-6);
   /* Mirrors .page's own inline padding, so the ground reaches the viewport. */
   margin-right: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
@@ -417,8 +391,8 @@
  *
  * Texas in Albers is nearly square, so a full-width column left slack either
  * side of the map. The aside spends that slack on the two things that are about
- * the map — the shortlist and the view's own controls — instead of leaving it
- * empty or pushing them into a rail on the far side of the page.
+ * the map — the search and the shortlist — instead of leaving it empty or
+ * pushing them into a rail on the far side of the page.
  */
 .mapBody {
   display: grid;
@@ -429,12 +403,9 @@
 
 /*
  * The map's controls as ONE side panel, divided by hairlines, inside the map's
- * own card — 2026-09-11 comps.
- *
- * It replaced three separately bordered cards stacked in a column, which read
- * as three unrelated widgets parked next to the map rather than as the map's
- * controls. A single panel with a rule down its left edge says "these belong to
- * the thing on the left".
+ * own card. Separately bordered cards would read as unrelated widgets parked
+ * next to the map; a single panel with a rule down its left edge says "these
+ * belong to the thing on the left".
  */
 .sidePanel {
   display: flex;
@@ -511,69 +482,9 @@
   text-decoration: underline;
 }
 
-.switchRow {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-2) var(--space-3);
-  align-items: start;
-  padding: var(--space-2) 0;
-}
-
-.switchRow + .switchRow {
-  border-top: 1px solid var(--hairline);
-}
-
-.switchLabel {
-  font-size: var(--text-sm);
-  font-weight: 500;
-}
-
-/* §6.8 M-08: the definition is the control's label, not a tooltip. */
-.switchDef {
-  grid-column: 1 / -1;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.switch {
-  position: relative;
-  width: 34px;
-  height: 18px;
-  padding: 0;
-  background: var(--hairline-strong);
-  border: 0;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-}
-
-.switchOn {
-  background: var(--ja-navy);
-}
-
-.switchKnob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 120ms ease;
-}
-
-.switchOn .switchKnob {
-  transform: translateX(16px);
-}
-
-/* A disabled overlay switch still has to read as a switch, not as a hairline. */
-.switch:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 /*
- * Section 03: the scatter, its title and controls above it — horizontal since
- * 2026-10-16, see <ScatterPanel>. A county's readout is a tooltip beside its
+ * Section 03: the scatter, its title and controls above it — see
+ * <ScatterPanel>. A county's readout is a tooltip beside its
  * point (<ScatterTooltip>), laid over the chart, so hovering never changes the
  * card's height or moves the chart under the pointer.
  */
@@ -611,7 +522,8 @@
  * THE STORY — the map and the story rail, pinned while the page scrolls behind
  * them one step at a time. See config/story.js and lib/useScrollSteps.js.
  *
- * Unpinned (below STORY_MEDIA in MapPage.jsx, or before JS decides) the stage is
+ * Unpinned (outside STORY_PINNED in src/lib/breakpoints.js, or before JS
+ * decides) the stage is
  * an ordinary two-column block and everything below still applies. Pinned, the
  * section grows to one viewport plus a fixed distance per extra step, the stage
  * sticks under the header for that whole distance, and the markers are the
@@ -647,8 +559,8 @@
    for the story's fractional top — so the last stop still has the stage
    pinned rather than a fraction of a pixel into its release. */
 .storyPinned {
-  /* The shortlist beside the map gives up 48px, which the map — width-bound on
-     a laptop — takes (2026-10-16). Narrower still on tablets, below. */
+  /* A narrower shortlist beside the map, so the map — width-bound on a laptop —
+     gets the room. Narrower still on tablets, below. */
   --side-panel: 240px;
 
   height: calc(var(--stage-h) + (var(--story-steps) - 1) * var(--step-h) + 2px);
@@ -673,14 +585,11 @@
 }
 
 /*
- * DREAM EDGE — experimental, 2026-10-16. A faint white glow just inside the
- * pinned stage's edges, so the story reads as a window you are looking into
- * rather than more page. Barely there on purpose.
- *
- * To turn it off: set DREAM_EDGE to false at the top of MapPage.jsx. To remove
- * it: delete this rule and the DREAM_EDGE constant and its one use.
+ * DREAM EDGE. A faint white glow just inside the pinned stage's edges, so the
+ * story reads as a window you are looking into rather than more page. Barely
+ * there on purpose.
  */
-.dreamEdge.storyPinned .stage::after {
+.storyPinned .stage::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -748,8 +657,8 @@
   border-left: 1px solid var(--hairline);
 }
 
-/* The shortlist and switches scroll inside the panel when the stage is short;
-   the search above them does not, so its dropdown is never clipped. */
+/* The shortlist scrolls inside the panel when the stage is short; the search
+   above it does not, so its dropdown is never clipped. */
 .storyPinned .sideScroll {
   flex: 1;
   min-height: 0;
@@ -848,8 +757,8 @@
 /*
  * The key floats in the map's empty top-right corner — east of the Panhandle,
  * north of the Red River, where Texas has no counties — rather than taking a
- * row above the map (2026-10-16). The map is width-bound on most laptops, so
- * the height a row cost bought nothing there and shrank it on short screens.
+ * row above the map. The map is width-bound on most laptops, so the height a
+ * row would cost buys nothing there and shrinks it on short screens.
  * Still a fixed slot, so the map never moves between steps.
  */
 .storyPinned .mapHead {
@@ -914,8 +823,7 @@
   padding-bottom: calc(var(--space-5) + 44px);
 }
 
-/* The infrastructure picker, set on the rail's ground inside its step. The
-   chips box keeps a surface so it still reads as an input. */
+/* The infrastructure picker, in Map options. */
 .storyInfra {
   display: flex;
   flex-direction: column;
@@ -969,7 +877,8 @@
 }
 
 /*
- * TABLETS, pinned — the story pins from 700px wide (STORY_MEDIA in MapPage).
+ * TABLETS, pinned — the story pins from 700px wide (STORY_PINNED in
+ * src/lib/breakpoints.js).
  *
  * The map and the rail keep their two columns; what gives is the shortlist
  * beside the map. In landscape it stays beside it, narrower. In portrait the
@@ -1015,7 +924,7 @@
 }
 
 /*
- * PHONES, pinned — see PHONE_MEDIA in MapPage.
+ * PHONES, pinned — see PHONE in src/lib/breakpoints.js.
  *
  * The map is the whole stage: the progress bar pinned at the top, the title
  * and key, the map, and the open step as a fixed-height caption underneath.
@@ -1037,8 +946,8 @@
 
 /*
  * dvh on phones, not svh: svh is the height with the browser's toolbars
- * showing, so once they slid away a strip of page opened up under the caption.
- * dvh follows the toolbars, keeping the caption on the bottom edge either way.
+ * showing, so once they slide away a strip of page would open up under the
+ * caption. dvh follows the toolbars, keeping the caption on the bottom edge.
  */
 @supports (height: 100dvh) {
   .storyPhone {
@@ -1100,7 +1009,7 @@
  * RESPONSIVE.
  *
  * The page-level rail keeps its column much further down than the panels inside
- * the main column do — 2026-09-11 direction. A tablet has room for two columns;
+ * the main column do. A tablet has room for two columns;
  * a map beside its own control panel does not. So the inner two-ups (map +
  * controls, scatter + readout) collapse first, and the rail column narrows
  * rather than stacking, until there is genuinely no room for it at all.
@@ -1115,8 +1024,8 @@
   .mapBody {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* Stacked under the map, the panel is no longer beside anything, so the rule
-     moves from its left edge to its top. */
+  /* Stacked under the map, the panel is not beside anything, so the rule sits
+     on its top edge instead of its left. */
   .sidePanel {
     padding-left: 0;
     padding-top: var(--space-3);
@@ -1143,8 +1052,8 @@
   .heroInner {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* Phones: the number takes the width (vw, as before the cqi sizing) and the
-     phrase goes under it, full width. */
+  /* Phones: the number takes the width (vw) and the phrase goes under it, full
+     width. */
   .heroNumberRow {
     flex-wrap: wrap;
     align-items: last baseline;
@@ -1157,8 +1066,8 @@
     flex-basis: 100%;
     max-width: none;
   }
-  /* No longer beside anything: it stops sticking, and the rightward bleed
-     becomes a bleed to both edges with the divider on top. */
+  /* Not beside anything: it stops sticking, and the rightward bleed becomes a
+     bleed to both edges with the divider on top. */
   .railInner {
     position: static;
     max-height: none;
@@ -1196,7 +1105,7 @@
     padding: var(--space-4);
   }
   /* The page padding is --space-4 here, so the rail's edge-to-edge bleed must be
-     too; the 640px rule's wider bleed ran 8px past each side of the screen. */
+     too; the 640px rule's wider bleed would run 8px past each side. */
   .rail {
     margin-inline: calc(-1 * var(--space-4));
     padding-inline: var(--space-4);
@@ -1208,11 +1117,10 @@
  * cluster — it is the first thing needed to read the map.
  *
  * Width-capped: RampLegend's bar is a flex row of equal swatches, so left to
- * itself it stretched the whole map column and read as a decorative band rather
- * than a key.
+ * itself it would stretch the whole map column and read as a decorative band
+ * rather than a key. Much wider than 200px and the key's left end, and its
+ * wrapping note, reach over the top of the Panhandle.
  */
-/* 200px, down from 260 (2026-10-16): at 260 the key's left end, and its
-   wrapping note, reached over the top of the Panhandle on every view. */
 .panelLegend {
   width: 100%;
   max-width: 200px;

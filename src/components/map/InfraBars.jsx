@@ -1,7 +1,7 @@
 /**
  * Listed-assistance bars — one vertical bar per registry, per county.
  *
- * Client direction 2026-10-16: capacity reads as a small bar chart. The SAME
+ * Capacity reads as a small bar chart. The SAME
  * encoding draws in two places, and this module keeps them the same:
  *
  *   <InfraTileBars>     inside each tile on the grid map, unlabelled
@@ -9,7 +9,7 @@
  *
  * The bars share the hue per registry (INFRA_COLOR, so the bars and the geo
  * map's glyphs agree). Each registry has ITS OWN scale, topped at its highest
- * county (2026-10-16): the four are different units — navigator orgs, CPP
+ * county: the four are different units — navigator orgs, CPP
  * sites in the dozens, a CHW range, reporting food banks — and on one shared
  * scale every bar but CPP's would be a sliver. So a bar's height says how
  * this county compares with other counties on that registry; the number over
@@ -32,6 +32,7 @@
  * @typedef {import('../../types').InfraKey} InfraKey
  */
 import { COUNT_INFRA, INFRA_TYPES } from '../../config/layers';
+import { cx } from '../../lib/cx';
 import { INFRA_COLOR } from './InfraGlyph';
 import styles from './InfraBars.module.css';
 
@@ -122,8 +123,8 @@ export function InfraColumnChart({ county, max }) {
         const missing = t.available ? 'no data' : 'n/a';
         const exact = key === 'chw' && county.chw_exact != null ? `Exact: ${county.chw_exact}` : null;
         return (
-          <div key={key} className={`${styles.col} ${sourced ? '' : styles.unsourced}`}>
-            <span className={`${styles.value} tabular`} title={exact ?? undefined}>
+          <div key={key} className={cx(styles.col, !sourced && styles.unsourced)}>
+            <span className={cx(styles.value, 'tabular')} title={exact ?? undefined}>
               {sourced ? infraValueLabel(county, key) : missing}
             </span>
             <span className={styles.track}>

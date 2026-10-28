@@ -1,30 +1,28 @@
 /**
  * The dated Texas Works policy feed, in the page's sticky rail.
  *
- * §6.3's three topline stats used to sit above it; they moved into the green
- * hero band on 2026-09-11 (see <HeadlineStats>). This component is now only the
- * feed.
- *
  * The feed is Texas HHS "Texas Works" policy bulletins and quarterly revisions,
  * refreshed on a schedule (see src/data/timeline.js). Each entry links to the
  * source PDF or page, because a policy claim on a dashboard should be one click
  * from the document it came from.
  *
  * The feed covers every Texas Works programme — CHIP, Medicaid and TANF as well
- * as SNAP — so it carries a filter, including one for the coverage side. The filter is a TEXT MATCH (see classify()
- * in src/data/timeline.js) and the footnote says so: a bulletin that changes
+ * as SNAP — so it carries a filter, including one for the coverage side. The
+ * filter is a TEXT MATCH (see classify() in src/data/timeline.js) and the
+ * footnote says so: a bulletin that changes
  * SNAP without naming it will not appear under the SNAP filter, and pretending
  * otherwise would be the dishonest version of this control.
  */
 
 import { useMemo, useState } from 'react';
-/**
- * @typedef {import('../../data/timeline').BulletinTag} BulletinTag
- * @typedef {import('../../data/timeline').TimelineContent} TimelineContent
- */
+import { cx } from '../../lib/cx';
 import { fmtMonthFull } from '../../lib/format';
 import { safeHref } from '../../lib/safeHref';
 import styles from './TimelineFeed.module.css';
+
+/**
+ * @typedef {import('../../data/timeline').TimelineContent} TimelineContent
+ */
 
 /**
  * @typedef {Object} TimelineFeedProps
@@ -104,7 +102,7 @@ export function TimelineFeed({ content, window: win }) {
               <button
                 key={f.key}
                 type="button"
-                className={`${styles.filter} ${filter === f.key ? styles.filterOn : ''}`}
+                className={cx('pill pill-xs pill-faint', filter === f.key && 'pill-on')}
                 aria-pressed={filter === f.key}
                 title={f.title}
                 onClick={() => setFilter(f.key)}
@@ -135,9 +133,9 @@ export function TimelineFeed({ content, window: win }) {
                     return (
                       <li
                         key={`${item.number ?? item.month}-${item.url ?? item.title}`}
-                        className={`${styles.item} ${inWindow ? styles.inWindow : ''}`}
+                        className={cx(styles.item, inWindow && styles.inWindow)}
                       >
-                        <span className={`${styles.day} tabular`}>{day(item)}</span>
+                        <span className={cx(styles.day, 'tabular')}>{day(item)}</span>
                         <div className={styles.itemMain}>
                           {href ? (
                             <a

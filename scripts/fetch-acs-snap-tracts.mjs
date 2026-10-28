@@ -13,7 +13,7 @@
  * population or low-income population.
  *
  * WHY THE BULK FILE, NOT THE API
- * api.census.gov now refuses requests without a key, and a build step should not
+ * api.census.gov refuses requests without a key, and a build step should not
  * need one. The table-based summary file is public, one file per table for every
  * geography in the country (~21MB); this keeps the Texas tract rows.
  *
@@ -34,16 +34,14 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { TX_TRACTS } from './lib/constants.mjs';
+import { runMain, writeJson } from './lib/io.mjs';
+import { ROOT } from './lib/paths.mjs';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = resolve(ROOT, 'data/acs-snap-households-tract.json');
 const CACHE = resolve(ROOT, 'node_modules/.cache/acs/acsdt5y2024-b22001.dat');
 const URL_ =
   'https://www2.census.gov/programs-surveys/acs/summary_file/2024/table-based-SF/data/5YRData/acsdt5y2024-b22001.dat';
-
-/** 2020 census tracts in Texas — the crosswalk has exactly this many. */
-const TX_TRACTS = 6896;
 
 async function bytes() {
   if (existsSync(CACHE) && !process.argv.includes('--refresh')) return readFileSync(CACHE, 'utf8');
@@ -92,15 +90,10 @@ async function main() {
     fields: ['snap_hh', 'snap_hh_moe', 'households'],
     tracts,
   };
-  mkdirSync(dirname(OUT), { recursive: true });
-  writeFileSync(OUT, `${JSON.stringify(out)}\n`);
+  writeJson(OUT, out);
 
   const total = Object.values(tracts).reduce((s, t) => s + t[0], 0);
   console.log(`wrote data/acs-snap-households-tract.json — ${n} tracts, ${total.toLocaleString()} SNAP households`);
 }
 
-main().catch((err) => {
-  console.error(`fetch-acs-snap-tracts failed: ${err.message}`);
-  console.error('Nothing was written.');
-  process.exit(1);
-});
+runMain('fetch-acs-snap-tracts', main);

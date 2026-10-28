@@ -1,9 +1,8 @@
 /**
- * <ExposureBars> — the foot of the county tooltip on the Work requirements view.
- *
- * Replaces the caseload sparkline there, on client direction 2026-09-10: the
- * question on that view is how many people the requirement reaches, and a line
- * of total enrollment does not answer it.
+ * <ExposureBars> — the foot of the county tooltip on the Work requirements view,
+ * in place of the caseload sparkline: the question on that view is how many
+ * people the requirement reaches, and a line of total enrollment does not
+ * answer it.
  *
  * Three bars, one shared axis, because all three are counts of people in the
  * same county over the same window:
@@ -16,6 +15,7 @@
  * projection; setting it beside the observed departure is what lets the reader
  * see whether the exposure and the loss are the same size — and they are not.
  */
+import { cx } from '../../lib/cx';
 import { fmtInt, fmtPct } from '../../lib/format';
 import styles from './ExposureBars.module.css';
 
@@ -44,13 +44,13 @@ export function ExposureBars({ rows }) {
           <span className={styles.label}>{r.label}</span>
           <span className={styles.track}>
             <span
-              className={`${styles.bar} ${styles[r.tone]}`}
+              className={cx(styles.bar, styles[r.tone])}
               // A real count of zero still has to read as a bar at zero rather
-              // than as a missing row, so it keeps a 1px stub.
+              // than as a missing row, so it keeps a stub.
               style={{ width: `${Math.max(0.6, (r.value / max) * 100)}%` }}
             />
           </span>
-          <span className={`${styles.value} tabular`}>
+          <span className={cx(styles.value, 'tabular')}>
             {fmtInt(r.value)}
             {/* §10: flag the modelled estimate wherever it is shown. The dagger
                 sits on the number rather than the label so all three rows stay

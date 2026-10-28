@@ -10,8 +10,7 @@
  * A chapter is one of the map VIEWS (config/layers.js), so the chapter bar's
  * thumbnails and the map's own layer can never disagree about what is on screen.
  *
- * COPY is the client's, from the 2026-09-30 comps. EVERY FIGURE IN IT IS
- * COMPUTED: titles, bodies and subheads are functions of
+ * COPY is the client's. EVERY FIGURE IN IT IS COMPUTED: titles, bodies and subheads are functions of
  * `StoryFacts` (built in MapPage from the loaded data and the brush window), so
  * the words and the chart beside them cannot disagree and neither goes stale
  * when a month lands.
@@ -20,6 +19,7 @@
  * @typedef {import('../types').Measure} Measure
  * @typedef {import('../types').ViewKey} ViewKey
  */
+import { DOMAINS } from './layers';
 
 /**
  * Formatted figures the copy quotes. Built in MapPage; any that depend on an
@@ -55,11 +55,11 @@
  * @property {Measure} [measure] - Omitted: keep the reader's choice, falling back to rate where the
  *   layer has no count basis (C-03) so a step never opens on the "no count" callout.
  * @property {boolean} [capacity] - On the index view, whether the assistance marks (or the grid's
- *   bars) draw on arrival. Default off: the index reads first on its own (2026-10-16), and the
+ *   bars) draw on arrival. Default off: the index reads first on its own, and the
  *   reader turns the assistance on with the map's "Index + assistance" switch.
  * @property {'grid'} [mapStyle] - Draws the hero map as the equal-size tile grid for this step only,
  *   whatever the reader's Geo/Density choice. Grid is not a reader-selectable style — it exists
- *   for the one step that needs a square per county (client direction 2026-10-16).
+ *   for the one step that needs a square per county.
  */
 
 /**
@@ -181,7 +181,7 @@ export const STORY = [
         id: 'vuln-recipe',
         capacity: false,
         title: 'How the index is built',
-        // No copy: the recipe chart explains itself (2026-10-16 direction).
+        // No copy: the recipe chart explains itself.
         body: '',
         chart: 'indexRecipe',
         sources: [{ label: 'Feeding Texas H.R. 1 vulnerability index' }],
@@ -203,7 +203,7 @@ export const STORY = [
     ],
   },
   {
-    view: 'medicaid',
+    view: 'aca',
     nav: 'ACA Marketplace',
     steps: [
       {
@@ -263,62 +263,18 @@ export function resolveChapters(chapters, f) {
   }));
 }
 
-/**
- * The story flattened to one list of scroll stops, each knowing its chapter.
- *
- * `hasMedicaid` drops the last chapter when the observed Medicaid file is
- * absent: the chapter's map is the Medicaid layer.
- *
- * @param {boolean} hasMedicaid
- */
-export function buildStory(hasMedicaid) {
-  const chapters = STORY.filter((c) => c.view !== 'medicaid' || hasMedicaid);
+/** The story flattened to one list of scroll stops, each knowing its chapter. */
+export function buildStory() {
   const steps = [];
-  chapters.forEach((chapter, ci) => {
+  STORY.forEach((chapter, ci) => {
     chapter.steps.forEach((step, si) => {
       steps.push({ ...step, chapter, chapterIndex: ci, stepInChapter: si });
     });
   });
   /** Index of each chapter's first step, for the chapter bar's jumps. */
-  const firstStep = chapters.map((c) => steps.findIndex((s) => s.chapter === c));
-  return { chapters, steps, firstStep };
+  const firstStep = STORY.map((c) => steps.findIndex((s) => s.chapter === c));
+  return { chapters: STORY, steps, firstStep };
 }
 
-/** What goes into each domain of the index — rscripts/build_scores.R. */
-export const INDEX_DOMAINS = [
-  {
-    name: 'Work-requirement exposure',
-    measures: [
-      'SNAP enrollees newly subject to work rules',
-      'households newly subject',
-      'veterans on SNAP',
-      'students experiencing homelessness',
-      'youth aging out of foster care',
-    ],
-  },
-  {
-    name: 'Citizenship and status',
-    measures: [
-      'non-citizens on SNAP',
-      'non-citizen households',
-      'mixed-status households',
-      'limited-English households',
-    ],
-  },
-  {
-    name: 'Access to work',
-    measures: [
-      'residents working in their own county',
-      'jobs per worker',
-      'households without a vehicle',
-      'households without internet',
-      'unemployment',
-      'low-wage job mix',
-      'average weekly wage',
-    ],
-  },
-  {
-    name: 'Socioeconomic need',
-    measures: ['residents below 165% of the poverty line', 'adults without a high-school diploma'],
-  },
-];
+/** What goes into each domain of the index, for the recipe chart. */
+export const INDEX_DOMAINS = DOMAINS.map((d) => ({ name: d.formalName, measures: d.measures }));
