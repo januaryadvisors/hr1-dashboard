@@ -172,7 +172,7 @@ export const LAYERS = [
      */
     key: 'aca_aptc',
     label: 'Marketplace subsidies',
-    formalName: 'Marketplace enrollees with a premium tax credit',
+    formalName: 'Who depends on the Marketplace tax credit',
     components: null,
     basis: 'rate',
     field: 'aptc_per_1k',

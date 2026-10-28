@@ -157,7 +157,7 @@ export const METRICS = [
      * Not a window measure — the brush does not move it.
      */
     id: 'aptc_per_1k',
-    label: 'Marketplace enrollees with a premium tax credit, per 1,000 residents',
+    label: 'Who depends on the Marketplace tax credit, per 1,000 residents',
     axis: 'Subsidised Marketplace enrollees per 1,000',
     group: 'ACA Marketplace',
     format: (v) => v.toFixed(0),
@@ -167,7 +167,7 @@ export const METRICS = [
   },
   {
     id: 'aptc_consumers',
-    label: 'Marketplace enrollees with a premium tax credit',
+    label: 'Who depends on the Marketplace tax credit, people',
     axis: 'Subsidised Marketplace enrollees',
     group: 'ACA Marketplace',
     format: fmtInt,
