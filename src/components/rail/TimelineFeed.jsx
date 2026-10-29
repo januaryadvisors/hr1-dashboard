@@ -6,8 +6,8 @@
  * source PDF or page, because a policy claim on a dashboard should be one click
  * from the document it came from.
  *
- * The feed covers every Texas Works programme — CHIP, Medicaid and TANF as well
- * as SNAP — so it carries a filter, including one for the coverage side. The
+ * The feed covers every Texas Works programme — health coverage and TANF as
+ * well as SNAP — so it carries a filter, including one for the coverage side. The
  * filter is a TEXT MATCH (see classify() in src/data/timeline.js) and the
  * footnote says so: a bulletin that changes
  * SNAP without naming it will not appear under the SNAP filter, and pretending
@@ -38,8 +38,8 @@ const FILTERS = [
   { key: 'hr1', label: 'H.R. 1', title: 'Bulletins naming H.R. 1 or the provisions it changed' },
   {
     key: 'health',
-    label: 'Medicaid',
-    title: 'Bulletins naming Medicaid, Medicare, CHIP or the Marketplace',
+    label: 'Health coverage',
+    title: 'Bulletins naming a health coverage programme',
   },
 ];
 

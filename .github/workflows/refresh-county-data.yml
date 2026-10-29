@@ -67,8 +67,8 @@ jobs:
           cache: npm
       - run: npm ci
 
-      # Both scripts refuse to write on a missing county or month, so a bad input
-      # fails the run and leaves the last good files on the page. Their logs carry
+      # build:counties refuses to write on a missing county or month, so a bad
+      # input fails the run and leaves the last good files on the page. Their logs carry
       # the claim checks (hero figures vs the data); they go to the run summary so
       # a reader can skim them after each refresh.
       - name: Build county data
@@ -79,12 +79,6 @@ jobs:
           npm run --silent build:counties 2>&1 | tee build.log
           npm run --silent build:marketplace 2>&1 | tee -a build.log
           { echo '### Build log'; echo '```'; cat build.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-
-      # HHSC's bot protection blocks some clients. If it blocks this runner, the
-      # Medicaid file keeps its last good copy and the county refresh still ships.
-      - name: Fetch Medicaid
-        continue-on-error: true
-        run: npm run --silent fetch:medicaid
 
       - name: Commit if changed
         id: commit

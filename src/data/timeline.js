@@ -73,9 +73,10 @@ const HR1_RE = /H\.?\s?R\.?\s?1\b|House Resolution 1\b|\bABAWD\b|work rules/i;
 /*
  * Health coverage. Texas Works runs SNAP, TANF, Medicaid and CHIP off one
  * handbook, so a sizeable share of the feed is coverage policy — and H.R. 1
- * changed both sides. CHIP and the Marketplace are in here with Medicaid and
- * Medicare because a reader filtering for "coverage" means all of it; the pill
- * is labelled Medicaid because that is what most of these bulletins say.
+ * changed both sides. Every coverage programme is in one filter, because a
+ * reader filtering for coverage means all of it. The pill says "Health
+ * coverage", not "ACA": none of these bulletins is about the Marketplace, and
+ * the dashboard keeps Medicaid and the Marketplace apart.
  */
 const HEALTH_RE =
   /\bMedicaid\b|\bMedicare\b|\bCHIP\b|Children's Health Insurance|Marketplace|Perinatal/i;

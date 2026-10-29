@@ -3,7 +3,7 @@ name: Refresh Texas Works bulletins
 # Re-scrapes Texas HHS "Texas Works" policy bulletins and quarterly revisions and
 # commits public/data/bulletins.json when it changes, then starts the Pages
 # deploy itself: a push made with GITHUB_TOKEN does not trigger other workflows,
-# so without the explicit dispatch a refreshed feed waited for the next human push.
+# so without the explicit dispatch a refreshed feed would wait for the next human push.
 #
 # Baking the feed at build time keeps the published page static: fhb.hhs.texas.gov
 # sends no CORS headers, and a reader should not depend on a government host being
@@ -35,7 +35,8 @@ jobs:
 
       # The script exits non-zero and writes nothing if it parses zero entries,
       # so a markup change on the HHS side leaves the last good feed in place
-      # rather than blanking the panel.
+      # rather than blanking the panel. If only one source fails it exits 2,
+      # failing the run before a partial feed is committed.
       - name: Fetch bulletins
         id: fetch
         run: node scripts/fetch-texas-works.mjs

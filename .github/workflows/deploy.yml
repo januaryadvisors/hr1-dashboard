@@ -1,6 +1,6 @@
 name: Deploy to GitHub Pages
 
-# Build + deploy on every push to main. No manual `npm run deploy` step.
+# Build + deploy on every push to main.
 # One-time setup: repo → Settings → Pages → Source: "GitHub Actions".
 on:
   push:
@@ -30,7 +30,6 @@ jobs:
       # where a silent error changes what the map claims, so the deploy gates on
       # them. The R parity test self-skips without Rscript on the runner.
       - run: npm test
-      # `build` runs tsc --noEmit first, so a type error fails the deploy too.
       - run: npm run build
 
       # Pages serves static files only, so deep links like /map depend entirely
