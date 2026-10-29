@@ -154,7 +154,8 @@ export const METRICS = [
     /*
      * feeding-texas-hr1's county Marketplace measure: consumers with an advance
      * premium tax credit at the latest open enrollment, per 1,000 residents.
-     * Not a window measure — the brush does not move it.
+     * Not a window measure — the brush does not move it. Higher is better: it
+     * reads as how far subsidised coverage reaches, so few is the gap.
      */
     id: 'aptc_per_1k',
     label: 'Who depends on the Marketplace tax credit, per 1,000 residents',
@@ -162,7 +163,7 @@ export const METRICS = [
     group: 'ACA Marketplace',
     format: (v) => v.toFixed(0),
     value: (c) => num(c.aptc_per_1k),
-    direction: 'worse-high',
+    direction: 'better-high',
     views: ALL,
   },
   {
@@ -454,19 +455,20 @@ export const SCATTER_PRESETS = [
   {
     id: 'aca-snap',
     label: 'Marketplace subsidies against SNAP loss',
-    question: 'Where is SNAP falling fastest among counties that lean most on Marketplace subsidies?',
+    question: 'Where is SNAP falling fastest where the Marketplace tax credit reaches fewest people?',
     x: 'loss_share',
     y: 'aptc_per_1k',
     quadrants: [
       /*
          Two programmes, two different readings: x is observed SNAP loss over
-         the brush window; y is Marketplace exposure at the latest open
-         enrollment, not a loss — there is no county Marketplace loss series.
+         the brush window; y is subsidised Marketplace coverage at the latest
+         open enrollment. The worry is the corner where people are leaving SNAP
+         and few have subsidised coverage to fall back on.
       */
-      { corner: 'hi-hi', label: 'Losing SNAP fastest, most subsidised', concern: true },
-      { corner: 'hi-lo', label: 'Losing SNAP fastest, fewer subsidised' },
-      { corner: 'lo-hi', label: 'Losing SNAP slower, most subsidised' },
-      { corner: 'lo-lo', label: 'Slower on SNAP, fewer subsidised' },
+      { corner: 'hi-lo', label: 'Losing SNAP fastest, fewer subsidised', concern: true },
+      { corner: 'hi-hi', label: 'Losing SNAP fastest, more subsidised' },
+      { corner: 'lo-lo', label: 'Losing SNAP slower, fewer subsidised' },
+      { corner: 'lo-hi', label: 'Losing SNAP slower, more subsidised' },
     ],
   },
 ];
