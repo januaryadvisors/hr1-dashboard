@@ -53,6 +53,8 @@ import styles from './CountyTooltip.module.css';
  */
 const OFFSET = 6;
 const WIDTH = 272;
+/** The Vulnerability index tooltip carries the most (five rows, four figures, the help bars), so it is drawn larger. */
+const WIDTH_LARGE = 320;
 
 /**
  * The labels for the layer's own series. Anything without an entry is SNAP.
@@ -322,8 +324,9 @@ export function CountyTooltip({
   const anchor = countyAnchor ?? pos;
 
   // Flip at the viewport edge rather than letting the panel clip.
-  const flipX = anchor.x + OFFSET + WIDTH > window.innerWidth;
-  const left = Math.max(8, flipX ? anchor.x - OFFSET - WIDTH : anchor.x + OFFSET);
+  const width = spec.domains ? WIDTH_LARGE : WIDTH;
+  const flipX = anchor.x + OFFSET + width > window.innerWidth;
+  const left = Math.max(8, flipX ? anchor.x - OFFSET - width : anchor.x + OFFSET);
   const top = Math.max(
     8,
     anchor.y + OFFSET + panelH > window.innerHeight
@@ -352,7 +355,7 @@ export function CountyTooltip({
   return (
     <div
       ref={rootRef}
-      className={styles.root}
+      className={cx(styles.root, spec.domains && styles.large)}
       style={{ left, top }}
       role="tooltip"
       aria-label={`${county.name} County details`}
@@ -520,7 +523,7 @@ export function CountyTooltip({
           registries in words — see <HelpList>. */}
       {spec.capacity && (
         <div className={styles.capacity}>
-          <InfraColumnChart county={county} max={stats.infraMax} />
+          <InfraColumnChart county={county} max={stats.infraMax} large={spec.domains} />
         </div>
       )}
 

@@ -272,3 +272,39 @@
 .bivariateBandActive {
   box-shadow: 0 0 0 1.2px var(--ja-ink);
 }
+
+/* The Vulnerability index tooltip, a step larger throughout (WIDTH_LARGE). */
+.large {
+  width: 320px;
+  padding: 12px 14px;
+}
+
+.large .countyName {
+  font-size: 16px;
+}
+
+/* Wide enough for "Socioeconomic Need" at the larger size. */
+.large .indexRow {
+  grid-template-columns: 152px minmax(0, 1fr);
+}
+
+.large .fips,
+.large .statUnit {
+  font-size: 11px;
+}
+
+.large .indexLabel,
+.large .domainLabel,
+.large .statMissing {
+  font-size: 13.5px;
+}
+
+.large .indexValue,
+.large .statLabel,
+.large .domainUnavailable {
+  font-size: 12px;
+}
+
+.large .statValue {
+  font-size: 17px;
+}

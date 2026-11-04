@@ -149,6 +149,8 @@ export const LAYERS = [
     basis: 'window',
     seriesField: 'snap_enrolled',
     countLabel: 'People no longer on SNAP',
+    // Round, fixed breaks rather than quintiles, whose lowest classes were a few hundred people wide.
+    countBins: [0, 500, 1000, 5000, 10000],
     rankFloor: 1000,
   },
   {
@@ -160,6 +162,9 @@ export const LAYERS = [
     basis: 'window',
     seriesField: 'snap_children',
     countLabel: 'Children no longer on SNAP',
+    // Half of everyone's breaks: children are about half the caseload, so on
+    // the same breaks most counties would share the lightest class.
+    countBins: [0, 250, 500, 2500, 5000],
     rankFloor: 100,
   },
   {

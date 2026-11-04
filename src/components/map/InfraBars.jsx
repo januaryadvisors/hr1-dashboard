@@ -112,11 +112,12 @@ const TOOLTIP_ORDER = INFRA_BAR_ORDER.filter((k) => k !== 'food_bank');
  * The tooltip's version: three registries, labelled, with the count over each
  * bar. A partial registry's null reads "no data"; an unsourced one, n/a.
  *
- * @param {{ county: County; max: Record<string, number> }} props
+ * @param {{ county: County; max: Record<string, number>; large?: boolean }} props
+ *   `large` steps the type up, for the larger Vulnerability index tooltip.
  */
-export function InfraColumnChart({ county, max }) {
+export function InfraColumnChart({ county, max, large = false }) {
   return (
-    <div className={styles.chart} role="img" aria-label={ariaFor(county)}>
+    <div className={cx(styles.chart, large && styles.large)} role="img" aria-label={ariaFor(county)}>
       {TOOLTIP_ORDER.map((key) => {
         const t = INFRA_TYPES.find((d) => d.key === key);
         const v = county.infra[key];
