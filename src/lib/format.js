@@ -22,7 +22,7 @@ export const fmtOrdinal = (n) => {
  * 21.60 → "21.6". Every percent and abbreviated figure goes through this, so
  * none reads "15.0%".
  */
-export const trimFixed = (v, digits) => String(Number(v.toFixed(digits)) || 0);
+const trimFixed = (v, digits) => String(Number(v.toFixed(digits)) || 0);
 
 /** Percent from a fraction: 0.093 → "9.3%", 0.15 → "15%". */
 export const fmtPct = (v, digits = 1) =>

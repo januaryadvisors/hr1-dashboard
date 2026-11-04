@@ -43,12 +43,15 @@ import { changeShare, windowEnds } from './series.js';
 
 /**
  * One monthly series summed over some counties, or null where none carries it.
- * A county missing a month counts as zero for that month, as in the data build.
+ * `read` picks the series off a county: a field name, or a function for a
+ * nested one (an age band). A county missing a month counts as zero for that
+ * month, as in the data build.
  */
-function sumSeries(list, field) {
-  const n = list.find((c) => c[field])?.[field].length ?? 0;
+function sumSeries(list, read) {
+  const get = typeof read === 'function' ? read : (c) => c[read];
+  const n = get(list.find(get) ?? {})?.length ?? 0;
   return n
-    ? Array.from({ length: n }, (_, i) => list.reduce((sum, c) => sum + (c[field]?.[i] ?? 0), 0))
+    ? Array.from({ length: n }, (_, i) => list.reduce((sum, c) => sum + (get(c)?.[i] ?? 0), 0))
     : null;
 }
 
@@ -84,12 +87,7 @@ export function buildScope(
       enrolled: sumSeries(picked, 'snap_enrolled'),
       children: sumSeries(picked, 'snap_children'),
       payments: sumSeries(picked, 'snap_payments'),
-      ageSeries: Object.fromEntries(
-        bands.map((b) => [
-          b,
-          picked[0].snap_age[b].map((_, i) => picked.reduce((sum, c) => sum + (c.snap_age?.[b]?.[i] ?? 0), 0)),
-        ]),
-      ),
+      ageSeries: Object.fromEntries(bands.map((b) => [b, sumSeries(picked, (c) => c.snap_age?.[b])])),
       county: null,
       counties: picked,
       district: null,
@@ -284,6 +282,17 @@ export function ageBandRows(ageSeries, i0, i1) {
     const to = s[i1] ?? 0;
     return { label, from, to, pctChange: changeShare({ start: from, end: to }) ?? 0 };
   });
+}
+
+/**
+ * A place's share lost against Texas's, compared as printed, so "higher" never
+ * sits between two equal figures: { here: '19.4%', texas: '20.1%', relation: 'lower than' }.
+ */
+export function againstTexas(share, texasShare) {
+  const here = fmtPct(share, 1);
+  const texas = fmtPct(texasShare, 1);
+  const relation = here === texas ? 'the same as' : share > texasShare ? 'higher than' : 'lower than';
+  return { here, texas, relation };
 }
 
 /** The three age groups the Insights pie splits a loss into, from HHSC's five bands. */

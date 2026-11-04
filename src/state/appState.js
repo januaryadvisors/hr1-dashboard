@@ -47,9 +47,6 @@ import { INFRA_TYPES, VIEWS } from '../config/layers';
 /** A scope key naming a legislative or congressional district rather than a county. */
 export const isDistrictKey = (key) => typeof key === 'string' && /^(txhouse|txsenate|ushouse)-\d+$/.test(key);
 
-/** The county geoids in a scope key: one, several ("48201,48157"), or none for a district or Texas. */
-export const scopeGeoids = (key) => (key && !isDistrictKey(key) ? key.split(',') : []);
-
 /** Registries that can draw marks — the sourced ones only (see INFRA_TYPES). */
 export const ALL_INFRA = INFRA_TYPES.filter((t) => t.available).map((t) => t.key);
 

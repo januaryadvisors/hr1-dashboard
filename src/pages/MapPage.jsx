@@ -114,24 +114,18 @@ const monthShort = (m) => monthDate(m).toLocaleString('en-US', { month: 'short',
 /** "Jul '25". */
 const monthTick = (m) => `${monthShort(m)} '${m.slice(2, 4)}`;
 
-/** Share of each county type's child caseload lost over the window (positive = lost). */
+/**
+ * Children no longer on SNAP over the window, by county type: how many (`lost`,
+ * negative where the group grew) and as a share of the type's child caseload
+ * at the start (`share`, null without one).
+ */
 function childLossByType(counties, i0, i1) {
   const out = {};
   for (const t of COUNTY_TYPES) {
     const g = counties.filter((c) => c.county_type === t);
     const a = g.reduce((sum, c) => sum + (c.snap_children?.[i0] ?? 0), 0);
     const b = g.reduce((sum, c) => sum + (c.snap_children?.[i1] ?? 0), 0);
-    out[t] = a > 0 ? (a - b) / a : null;
-  }
-  return out;
-}
-
-/** Children no longer on SNAP over the window, by county type (positive = lost). */
-function childLostByType(counties, i0, i1) {
-  const out = {};
-  for (const t of COUNTY_TYPES) {
-    const g = counties.filter((c) => c.county_type === t);
-    out[t] = g.reduce((sum, c) => sum + ((c.snap_children?.[i0] ?? 0) - (c.snap_children?.[i1] ?? 0)), 0);
+    out[t] = { lost: a - b, share: a > 0 ? (a - b) / a : null };
   }
   return out;
 }
@@ -225,8 +219,22 @@ export default function MapPage() {
   );
   /* The hero band's three figures, recomputed for the window on screen —
      including mid-drag, like the headline. See headlineStats(). */
-  const presets = useMemo(() => buildPresets(statewide.meta.policy_start), [statewide.meta.policy_start]);
-  const setWindow = useCallback((w) => dispatch({ type: 'setWindow', window: w }), [dispatch]);
+  /**
+   * The brush's wiring, shared by the hero's and the header's (PeriodControl).
+   * Memoised: the brush re-binds its drag listeners whenever onChange changes.
+   */
+  const brushProps = useMemo(
+    () => ({
+      months,
+      series: statewide.enrolled,
+      window: state.window,
+      presets: buildPresets(statewide.meta.policy_start),
+      onChange: (w) => dispatch({ type: 'setWindow', window: w }),
+      onPreview: setPreview,
+      viewWidth: BRUSH_VIEW_WIDTH,
+    }),
+    [months, statewide, state.window, dispatch],
+  );
 
   const heroStats = useMemo(() => {
     const a = months.indexOf(shownWindow[0]);
@@ -575,12 +583,12 @@ export default function MapPage() {
     }
 
     // Children by county type, and the index's rural median.
-    const byType = childLossByType(counties, i0, i1);
-    f.childRural = byType.Rural == null ? null : pctOf(byType.Rural);
-    f.childMetro = byType.Metro == null ? null : pctOf(byType.Metro);
+    const { Rural: rural, Metro: metro } = childLossByType(counties, i0, i1);
+    f.childRural = rural.share == null ? null : pctOf(rural.share);
+    f.childMetro = metro.share == null ? null : pctOf(metro.share);
     // Which of the two is losing children faster, so the title follows the window.
-    if (byType.Rural != null && byType.Metro != null && byType.Rural !== byType.Metro) {
-      f.childFaster = byType.Rural > byType.Metro ? 'Rural' : 'Metro';
+    if (rural.share != null && metro.share != null && rural.share !== metro.share) {
+      f.childFaster = rural.share > metro.share ? 'Rural' : 'Metro';
     }
     // Schools leaving CEP: the latest school year against the one before. Not windowed.
     const cep = statewide.cep_history;
@@ -1038,13 +1046,13 @@ export default function MapPage() {
 
       // 3a — children no longer on SNAP, by county type.
       case 'childCounts': {
-        const by = childLostByType(counties, i0, i1);
+        const by = childLossByType(counties, i0, i1);
         return (
           <GroupBarsFigure
             rows={COUNTY_TYPES.map((t) => ({
               label: t,
-              value: Math.max(0, by[t]),
-              display: by[t] > 0 ? `−${fmtInt(by[t])}` : fmtInt(-by[t]),
+              value: Math.max(0, by[t].lost),
+              display: by[t].lost > 0 ? `−${fmtInt(by[t].lost)}` : fmtInt(-by[t].lost),
               highlight: t === 'Metro',
             }))}
           />
@@ -1261,16 +1269,7 @@ export default function MapPage() {
 
             {/* ---------------------------------------------------------- M-02 */}
             <div ref={brushRef}>
-              <BrushChart
-                months={months}
-                series={statewide.enrolled}
-                window={state.window}
-                presets={presets}
-                onChange={setWindow}
-                onPreview={setPreview}
-                viewWidth={BRUSH_VIEW_WIDTH}
-                height={150}
-              />
+              <BrushChart {...brushProps} height={150} />
             </div>
             {periodSlot &&
               !brushInView &&
@@ -1279,16 +1278,7 @@ export default function MapPage() {
                   label={`${fmtMonthBody(shownWindow[0])} – ${fmtMonthBody(shownWindow[1])}`}
                   shortLabel={`${monthTick(shownWindow[0])} – ${monthTick(shownWindow[1])}`}
                 >
-                  <BrushChart
-                    months={months}
-                    series={statewide.enrolled}
-                    window={state.window}
-                    presets={presets}
-                    onChange={setWindow}
-                    onPreview={setPreview}
-                    viewWidth={BRUSH_VIEW_WIDTH}
-                    height={120}
-                  />
+                  <BrushChart {...brushProps} height={120} />
                 </PeriodControl>,
                 periodSlot,
               )}

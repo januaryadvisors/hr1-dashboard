@@ -6,6 +6,7 @@ import {
   buildFunnel,
   ageGroupLoss,
   ageLeadTitle,
+  againstTexas,
   whoHeadline,
   buildScope,
   countiesLabel,
@@ -373,6 +374,15 @@ describe('windowLoss and benefitShortfall', () => {
     expect(short.total).toBeCloseTo(2 * ((11 * 120 + 80) / 12 - 100));
     // Missing months are skipped, in the yardstick and in the sum.
     expect(benefitShortfall([100, null, 100, 90, null, 80], 2, 5).total).toBeCloseTo(30);
+  });
+});
+
+describe('againstTexas', () => {
+  it('compares the shares as printed', () => {
+    expect(againstTexas(0.194, 0.201)).toEqual({ here: '19.4%', texas: '20.1%', relation: 'lower than' });
+    expect(againstTexas(0.25, 0.2)).toMatchObject({ here: '25%', relation: 'higher than' });
+    // 20.14% and 20.06% both print 20.1%: the same, not higher.
+    expect(againstTexas(0.2014, 0.2006).relation).toBe('the same as');
   });
 });
 

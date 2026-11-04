@@ -113,8 +113,7 @@
    height that leaves room for the other cards, with the key in the space to
    its left and the rank list in the space to its right. */
 @media print {
-  .root,
-  .withAside {
+  .root {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     gap: 10px;

@@ -28,6 +28,7 @@ import {
   ageBandRows,
   ageGroupLoss,
   ageLeadTitle,
+  againstTexas,
   whoHeadline,
   buildScope,
   peersFor,
@@ -298,20 +299,12 @@ export default function InsightsPage() {
   const placeShare = several
     ? lossShare(windowEnds(scope.enrolled, i0, i1))
     : mapValues.fill.get(scope.key);
-  const placeAgainstTexas = (() => {
-    if (placeShare == null) return `${scope.label} ${several ? 'are' : 'is'} outlined.`;
-    const here = fmtPct(placeShare, 1);
-    const texas = fmtPct(mapValues.statewideShare, 1);
-    const relation =
-      here === texas
-        ? 'the same as'
-        : placeShare > mapValues.statewideShare
-          ? 'higher than'
-          : 'lower than';
-    return several
-      ? `${scope.label}, outlined, are ${here} together, ${relation} the ${texas} for Texas.`
-      : `${scope.label}, outlined, is ${here}, ${relation} the ${texas} for Texas.`;
-  })();
+  const versus = placeShare == null ? null : againstTexas(placeShare, mapValues.statewideShare);
+  const placeAgainstTexas = !versus
+    ? `${scope.label} ${several ? 'are' : 'is'} outlined.`
+    : several
+      ? `${scope.label}, outlined, are ${versus.here} together, ${versus.relation} the ${versus.texas} for Texas.`
+      : `${scope.label}, outlined, is ${versus.here}, ${versus.relation} the ${versus.texas} for Texas.`;
 
   /** Under 10,000 residents, an age band can be a few dozen people. */
   const smallNumbers =
@@ -333,33 +326,20 @@ export default function InsightsPage() {
   const fullName = (u) => (peers.singular === 'county' ? `${u.name} County` : u.name);
   const unitName = (key) => fullName(peers.units.find((u) => u.geoid === key));
   const compareHeadline = (() => {
-    const texas = fmtPct(mapValues.statewideShare, 1);
     if (!isScoped) {
       const top = ranked[0];
       return top?.lost > 0
         ? `${unitName(top.key)} lost the most people, ${fmtInt(top.lost)}, and Texas as a whole lost ` +
-            `${texas} of its ${fmtMonthBody(win[0])} caseload.`
+            `${fmtPct(mapValues.statewideShare, 1)} of its ${fmtMonthBody(win[0])} caseload.`
         : null;
     }
-    const total = `${fmtInt(ranked.length)} ${peers.noun}`;
     const best = ranked.findIndex((u) => placeKeys.includes(u.key));
-    const versus =
-      placeShare == null
-        ? ''
-        : `${fmtPct(placeShare, 1)}, ${
-            fmtPct(placeShare, 1) === texas ? 'the same as' : placeShare > mapValues.statewideShare ? 'higher than' : 'lower than'
-          } the ${texas} for Texas`;
-    if (several) {
-      return (
-        `Of these counties, ${unitName(ranked[best].key)} ranks highest, ${fmtOrdinal(best + 1)} of ${total} ` +
-        `for people no longer on SNAP.` + (versus ? ` Together they lost ${versus}.` : '')
-      );
-    }
     if (best < 0) return null;
-    return (
-      `${scope.label} ranks ${fmtOrdinal(best + 1)} of ${total} for people no longer on SNAP` +
-      (versus ? `; its share lost, ${versus.replace(', ', ', is ')}.` : '.')
-    );
+    const rank = `${fmtOrdinal(best + 1)} of ${fmtInt(ranked.length)} ${peers.noun} for people no longer on SNAP`;
+    const vs = versus && `${versus.here}, ${versus.relation} the ${versus.texas} for Texas`;
+    return several
+      ? `Of these counties, ${unitName(ranked[best].key)} ranks highest, ${rank}.` + (vs ? ` Together they lost ${vs}.` : '')
+      : `${scope.label} ranks ${rank}` + (versus ? `; its share lost, ${versus.here}, is ${versus.relation} the ${versus.texas} for Texas.` : '.');
   })();
 
   return (
