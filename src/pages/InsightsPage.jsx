@@ -444,6 +444,7 @@ export default function InsightsPage() {
                 }))}
                 size={printing ? 96 : phone ? 170 : 210}
                 countLabel="Change in enrollment"
+                shareLabel="Share of total lost"
                 title={`Residents no longer on SNAP in ${scope.label}, by age group`}
               />
             </ChartCard>

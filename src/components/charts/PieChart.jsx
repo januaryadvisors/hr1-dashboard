@@ -25,10 +25,10 @@ import styles from './PieChart.module.css';
 const LABEL_MIN = 0.1;
 
 /**
- * @param {{ slices: PieSlice[], size?: number, countLabel: string, title: string }} props
- *   `size` is the pie's drawn diameter in px. `countLabel` heads the key's count column.
+ * @param {{ slices: PieSlice[], size?: number, countLabel: string, shareLabel?: string, title: string }} props
+ *   `size` is the pie's drawn diameter in px. `countLabel` and `shareLabel` head the key's two figure columns.
  */
-export function PieChart({ slices, size = 200, countLabel, title }) {
+export function PieChart({ slices, size = 200, countLabel, shareLabel = 'Share', title }) {
   const [active, setActive] = useState(null);
   const r = size / 2;
   const total = slices.reduce((sum, s) => sum + s.value, 0);
@@ -86,7 +86,7 @@ export function PieChart({ slices, size = 200, countLabel, title }) {
               {countLabel}
             </th>
             <th scope="col" className={styles.num}>
-              Share
+              {shareLabel}
             </th>
           </tr>
         </thead>

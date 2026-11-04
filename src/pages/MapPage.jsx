@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { scaleLinear } from 'd3-scale';
 import { useApp } from '../state/AppContext';
 import { activeGeoid, ALL_INFRA } from '../state/appState';
@@ -284,9 +285,11 @@ export default function MapPage() {
   /*
      Read once. A shared link naming a later chapter opens the story there (the
      hook scrolls to it on arrival); after that the scroll position, not the
-     layer, picks the step.
+     layer, picks the step. Opened from the page switch (AppHeader) the story
+     starts at the top, whatever layer the URL still carries.
   */
-  const [initialStep] = useState(() => stepForLayer(story.steps, state.layer));
+  const fromSwitch = useLocation().state?.fromSwitch === true;
+  const [initialStep] = useState(() => (fromSwitch ? 0 : stepForLayer(story.steps, state.layer)));
   const { active: activeStep, goTo, region, scrollToY } = useScrollSteps(storyRef, story.steps.length, {
     enabled: storyPinned,
     initial: initialStep,
@@ -315,7 +318,8 @@ export default function MapPage() {
    * sticks until they scroll to another step.
    *
    * Not applied on first render, so the state a shared link encodes is what the
-   * reader sees on arrival.
+   * reader sees on arrival — unless the page was opened from the page switch,
+   * where the first step's view applies at once to match the story's top.
    */
   const appliedStepRef = useRef(null);
   useEffect(() => {
@@ -324,7 +328,7 @@ export default function MapPage() {
     appliedStepRef.current = step.id;
     // Local, not in the URL, so it applies on arrival too.
     setCapacityOn(!!step.capacity);
-    if (first) return;
+    if (first && !fromSwitch) return;
 
     const layer = step.layer ?? defaultLayerFor(step.chapter.view);
     // An undeclared measure keeps the reader's, unless this layer cannot be
@@ -333,7 +337,7 @@ export default function MapPage() {
       step.measure ?? (state.measure === 'count' && !hasCountBasis(layer) ? 'rate' : state.measure);
     if (layer !== state.layer) dispatch({ type: 'setLayer', layer });
     if (measure !== state.measure) dispatch({ type: 'setMeasure', measure });
-  }, [step, state.layer, state.measure, dispatch]);
+  }, [step, state.layer, state.measure, dispatch, fromSwitch]);
 
   /**
    * Which curated pairing the scatter is showing: the first, vulnerability

@@ -68,7 +68,14 @@ export function AppHeader() {
             { value: 'insights', label: 'Insights' },
           ]}
           value={page}
-          onChange={(v) => navigate({ pathname: v === 'map' ? '/map' : '/insights/decline', search: location.search })}
+          // `fromSwitch` tells the page it was opened from here, not from a shared
+          // link: it opens at the top rather than where the link points (MapPage).
+          onChange={(v) =>
+            navigate(
+              { pathname: v === 'map' ? '/map' : '/insights/decline', search: location.search },
+              { state: { fromSwitch: true } },
+            )
+          }
         />
       </div>
     </header>
