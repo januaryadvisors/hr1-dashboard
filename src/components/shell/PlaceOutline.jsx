@@ -1,7 +1,7 @@
 /**
  * <PlaceOutline> — the report card's left column: the place's own boundary in a
  * framed square, drawn large enough to read, and under it a small Texas with
- * the place filled in, so a reader can see where it is. Statewide, the square
+ * the place filled in, so a reader can see where it is — no caption needed. Statewide, the square
  * holds Texas and there is nothing to locate.
  */
 import styles from './PlaceOutline.module.css';
@@ -43,7 +43,6 @@ export function PlaceOutline({ d, bounds, statePath, canvas, label }) {
               <path d={d} className={styles.marker} />
             </svg>
           </div>
-          <span className={styles.caption}>Location in Texas</span>
         </div>
       )}
     </div>

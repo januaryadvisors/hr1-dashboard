@@ -5,6 +5,7 @@ import {
   fromSearchParams,
   initialState,
   reducer,
+  scopeGeoids,
   toSearchParams,
 } from './appState';
 /**
@@ -148,6 +149,27 @@ describe('URL mirroring', () => {
       expect(
         fromSearchParams(new URLSearchParams('county=48999'), defaults, MONTHS).scope,
       ).toBe('48999');
+    });
+
+    it('round-trips several counties added together', () => {
+      const p = toSearchParams({ ...defaults, scope: '48201,48113' }, defaults);
+      expect(p.get('county')).toBe('48201,48113');
+      expect(fromSearchParams(p, defaults, MONTHS, geoids).scope).toBe('48201,48113');
+    });
+
+    it('keeps the counties it can find, once each', () => {
+      const p = new URLSearchParams('county=48201,48999,48201,,48113');
+      expect(fromSearchParams(p, defaults, MONTHS, geoids).scope).toBe('48201,48113');
+      expect(
+        fromSearchParams(new URLSearchParams('county=48998,48999'), defaults, MONTHS, geoids).scope,
+      ).toBeNull();
+    });
+
+    it('lists the geoids in a scope key', () => {
+      expect(scopeGeoids('48201,48113')).toEqual(['48201', '48113']);
+      expect(scopeGeoids('48201')).toEqual(['48201']);
+      expect(scopeGeoids('txhouse-133')).toEqual([]);
+      expect(scopeGeoids(null)).toEqual([]);
     });
   });
 

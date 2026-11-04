@@ -55,6 +55,7 @@
   /* The field's focus-within ring already marks focus; the global
      :focus-visible ring on the input drew a second box inside it. */
   box-shadow: none;
+  outline: none;
 }
 
 .input::placeholder {
@@ -129,4 +130,26 @@
   margin-right: 2px;
   color: var(--text-faint);
   pointer-events: none;
+}
+
+/* Checkbox list (multiple): a box before the name. */
+.checkOption {
+  grid-template-columns: auto 1fr auto;
+}
+
+.check {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  color: var(--text-inverse);
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 3px;
+}
+
+.checked {
+  background: var(--ja-navy);
+  border-color: var(--ja-navy);
 }

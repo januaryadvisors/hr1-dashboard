@@ -10,14 +10,28 @@ export const fmtInt = (v) =>
 export const fmtDelta = (v) =>
   v == null || !Number.isFinite(v) ? '—' : signed.format(Math.round(v)).replace('-', '−');
 
-/** Percent from a fraction: 0.093 → "9.3%". */
-export const fmtPct = (v, digits = 1) =>
-  v == null || !Number.isFinite(v) ? '—' : `${(v * 100).toFixed(digits)}%`;
+/** A rank as an ordinal: 1 → "1st", 22 → "22nd", 113 → "113th". */
+export const fmtOrdinal = (n) => {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th');
+  return `${fmtInt(n)}${suffix}`;
+};
 
-/** Signed percent from a fraction: −0.191 → "−19.1%". */
+/**
+ * A number to at most `digits` decimals, trailing zeros dropped: 15.0 → "15",
+ * 21.60 → "21.6". Every percent and abbreviated figure goes through this, so
+ * none reads "15.0%".
+ */
+export const trimFixed = (v, digits) => String(Number(v.toFixed(digits)) || 0);
+
+/** Percent from a fraction: 0.093 → "9.3%", 0.15 → "15%". */
+export const fmtPct = (v, digits = 1) =>
+  v == null || !Number.isFinite(v) ? '—' : `${trimFixed(v * 100, digits)}%`;
+
+/** Signed percent from a fraction: −0.191 → "−19.1%", −0.2 → "−20%". */
 export const fmtPctDelta = (v, digits = 1) => {
   if (v == null || !Number.isFinite(v)) return '—';
-  const s = `${(Math.abs(v) * 100).toFixed(digits)}%`;
+  const s = `${trimFixed(Math.abs(v) * 100, digits)}%`;
   return v < 0 ? `−${s}` : `+${s}`;
 };
 
@@ -27,15 +41,15 @@ export const fmtPercentile = (v) =>
 
 /**
  * Dollars, abbreviated for a headline figure: 936_412_000 → "$936M",
- * 1_240_000_000 → "$1.24B", 89_359 → "$89.4K", 950 → "$950".
+ * 1_240_000_000 → "$1.24B", 89_359 → "$89.4K", 600_000 → "$600K", 950 → "$950".
  */
 export function fmtDollars(v) {
   if (v == null || !Number.isFinite(v)) return '—';
   const a = Math.abs(v);
   const sign = v < 0 ? '−' : '';
-  if (a >= 1e9) return `${sign}$${(a / 1e9).toFixed(2)}B`;
-  if (a >= 1e6) return `${sign}$${a >= 1e8 ? Math.round(a / 1e6) : (a / 1e6).toFixed(1)}M`;
-  if (a >= 1e3) return `${sign}$${(a / 1e3).toFixed(1)}K`;
+  if (a >= 1e9) return `${sign}$${trimFixed(a / 1e9, 2)}B`;
+  if (a >= 1e6) return `${sign}$${a >= 1e8 ? Math.round(a / 1e6) : trimFixed(a / 1e6, 1)}M`;
+  if (a >= 1e3) return `${sign}$${trimFixed(a / 1e3, 1)}K`;
   return `${sign}$${Math.round(a)}`;
 }
 
@@ -47,8 +61,8 @@ export function fmtCompact(v) {
   return String(Math.round(v));
 }
 
-/** Millions, for axis labels: 3518649 → "3.5M". */
-export const fmtMillions = (v) => `${(v / 1e6).toFixed(1)}M`;
+/** Millions, for axis labels: 3518649 → "3.5M", 3_000_000 → "3M". */
+export const fmtMillions = (v) => `${trimFixed(v / 1e6, 1)}M`;
 
 const MONTH_NAMES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 

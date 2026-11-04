@@ -13,6 +13,7 @@
  */
 import { useRef, useState } from 'react';
 import { BINS_INSIGHTS_LOSS as BINS, colorFor } from '../../lib/scales';
+import { cx } from '../../lib/cx';
 import { fmtInt, fmtPct } from '../../lib/format';
 import { RampLegend } from '../map/RampLegend';
 import styles from './LossMap.module.css';
@@ -29,9 +30,10 @@ import styles from './LossMap.module.css';
  * @property {LossShape[]} shapes
  * @property {Map<string, number | null>} fill - Share of the window-start caseload lost, per unit.
  * @property {Map<string, number> | null} lost - People no longer on SNAP, per unit.
- * @property {string | null} highlight - Key of the unit to outline.
+ * @property {string | string[] | null} highlight - Key of the unit to outline, or keys of several.
  * @property {{ width: number, height: number }} canvas - The shared Texas projection's.
  * @property {string} title
+ * @property {import('react').ReactNode} [aside] - Drawn beside the map (under it on a phone): the Insights rank list.
  */
 
 /** Half the tooltip's width, roughly: how far from the edges its centre stays. */
@@ -48,8 +50,9 @@ const RANGES = BINS.slice(0, -1).map((lo, i) =>
 );
 
 /** @param {LossMapProps} props */
-export function LossMap({ shapes, fill, lost, highlight, canvas, title }) {
-  const picked = shapes.find((s) => s.key === highlight);
+export function LossMap({ shapes, fill, lost, highlight, canvas, title, aside }) {
+  const keys = Array.isArray(highlight) ? highlight : highlight ? [highlight] : [];
+  const picked = shapes.filter((s) => keys.includes(s.key));
 
   /** The unit under the pointer, and where to put its tooltip within the root. */
   const rootRef = useRef(null);
@@ -82,10 +85,14 @@ export function LossMap({ shapes, fill, lost, highlight, canvas, title }) {
       {hovered && <path d={hovered.d} className={styles.hovered} pointerEvents="none" />}
       {/* Drawn last and twice, a light halo under a dark line, so the outline
           reads against any fill and over its neighbours' borders. */}
-      {picked && (
+      {picked.length > 0 && (
         <g pointerEvents="none">
-          <path d={picked.d} className={styles.halo} />
-          <path d={picked.d} className={styles.outline} />
+          {picked.map((p) => (
+            <path key={`halo-${p.key}`} d={p.d} className={styles.halo} />
+          ))}
+          {picked.map((p) => (
+            <path key={p.key} d={p.d} className={styles.outline} />
+          ))}
         </g>
       )}
     </svg>
@@ -95,18 +102,21 @@ export function LossMap({ shapes, fill, lost, highlight, canvas, title }) {
   const people = hovered ? lost?.get(hovered.key) : null;
 
   return (
-    <div className={styles.root} ref={rootRef}>
-      <div className={styles.legend}>
-        <RampLegend
-          layer="loss"
-          mode="rate"
-          label="Share of caseload no longer on SNAP"
-          loLabel={`<${fmtPct(BINS[1], 0)}`}
-          hiLabel={`${fmtPct(BINS[LAST], 0)}+`}
-          ranges={RANGES}
-        />
+    <div className={cx(styles.root, aside && styles.withAside)} ref={rootRef}>
+      <div className={styles.mapCol}>
+        <div className={styles.legend}>
+          <RampLegend
+            layer="loss"
+            mode="rate"
+            label="Share of caseload no longer on SNAP"
+            loLabel={`<${fmtPct(BINS[1], 0)}`}
+            hiLabel={`${fmtPct(BINS[LAST], 0)}+`}
+            ranges={RANGES}
+          />
+        </div>
+        <div className={styles.single}>{map}</div>
       </div>
-      <div className={styles.single}>{map}</div>
+      {aside && <div className={styles.aside}>{aside}</div>}
       {hovered && (
         <div className={styles.tip} style={{ left: hover.x, top: hover.y }} aria-hidden="true">
           <div className={styles.tipName}>{hovered.name}</div>

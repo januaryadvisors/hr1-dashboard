@@ -3,6 +3,7 @@
  * every number recomputes from the brush window (§6.2).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { scaleLinear } from 'd3-scale';
 import { useApp } from '../state/AppContext';
 import { activeGeoid, ALL_INFRA } from '../state/appState';
@@ -32,6 +33,7 @@ import { Callout } from '../components/shell/Callout';
 import { BrushChart, buildPresets } from '../components/hero/BrushChart';
 import { TimelineFeed } from '../components/rail/TimelineFeed';
 import { HeadlineStats } from '../components/hero/HeadlineStats';
+import { PeriodControl } from '../components/hero/PeriodControl';
 import { ScatterChart } from '../components/charts/ScatterChart';
 import { ChapterNav } from '../components/story/ChapterNav';
 import { StoryRail } from '../components/story/StoryRail';
@@ -124,6 +126,19 @@ function childLossByType(counties, i0, i1) {
   return out;
 }
 
+/** Children no longer on SNAP over the window, by county type (positive = lost). */
+function childLostByType(counties, i0, i1) {
+  const out = {};
+  for (const t of COUNTY_TYPES) {
+    const g = counties.filter((c) => c.county_type === t);
+    out[t] = g.reduce((sum, c) => sum + ((c.snap_children?.[i0] ?? 0) - (c.snap_children?.[i1] ?? 0)), 0);
+  }
+  return out;
+}
+
+/** "2026-27" → "2026–27". */
+const schoolYear = (y) => y.replace('-', '–');
+
 /** Median of a per-county value, by county type. */
 function medianByType(counties, read) {
   const out = {};
@@ -210,6 +225,9 @@ export default function MapPage() {
   );
   /* The hero band's three figures, recomputed for the window on screen —
      including mid-drag, like the headline. See headlineStats(). */
+  const presets = useMemo(() => buildPresets(statewide.meta.policy_start), [statewide.meta.policy_start]);
+  const setWindow = useCallback((w) => dispatch({ type: 'setWindow', window: w }), [dispatch]);
+
   const heroStats = useMemo(() => {
     const a = months.indexOf(shownWindow[0]);
     const b = months.indexOf(shownWindow[1]);
@@ -515,7 +533,7 @@ export default function MapPage() {
   const storyFacts = useMemo(() => {
     const f = {};
     const k = (v) => (Number.isFinite(v) ? fmtInt(Math.round(v / 1000) * 1000) : null);
-    const pctOf = (v, digits = 1) => `${(Math.abs(v) * 100).toFixed(digits)}%`;
+    const pctOf = (v, digits = 1) => fmtPct(Math.abs(v), digits);
     const policy = statewide.meta.policy_start;
 
     f.windowStartLong = fmtMonthFull(state.window[0]);
@@ -532,12 +550,29 @@ export default function MapPage() {
     f.childrenK = k(childLost);
     f.adultsK = k(adultLost);
     f.youngShare = lost > 0 ? `${Math.round(((childLost + adultLost) / lost) * 100)}%` : null;
+    f.childShare = lost > 0 && childLost > 0 && childLost <= lost ? fmtPct(childLost / lost) : null;
 
     // Work rules: the count, over the window's starting caseload.
     const subject = counties.reduce((sum, c) => sum + (c.newly_subject_persons ?? 0), 0);
     const enrolledAtStart = statewide.enrolled[i0];
     f.newlySubjectK = k(subject);
     f.oneIn = enrolledAtStart > 0 && subject > 0 ? String(Math.round(enrolledAtStart / subject)) : null;
+    /*
+       The work strip's medians by county type, rounded as the chart prints them.
+       "Similar everywhere" is only claimed while they sit within 3 per 100.
+    */
+    const workMed = Object.values(
+      medianByType(
+        counties.filter((c) => c.snap_enrolled?.[i0] > 0),
+        (c) => ((c.newly_subject_persons ?? 0) / c.snap_enrolled[i0]) * 100,
+      ),
+    )
+      .filter(Number.isFinite)
+      .map(Math.round);
+    if (workMed.length === COUNTY_TYPES.length && Math.max(...workMed) - Math.min(...workMed) <= 3) {
+      const [lo, hi] = [Math.min(...workMed), Math.max(...workMed)];
+      f.workRange = lo === hi ? `about ${lo}` : `${lo} to ${hi}`;
+    }
 
     // Children by county type, and the index's rural median.
     const byType = childLossByType(counties, i0, i1);
@@ -546,6 +581,15 @@ export default function MapPage() {
     // Which of the two is losing children faster, so the title follows the window.
     if (byType.Rural != null && byType.Metro != null && byType.Rural !== byType.Metro) {
       f.childFaster = byType.Rural > byType.Metro ? 'Rural' : 'Metro';
+    }
+    // Schools leaving CEP: the latest school year against the one before. Not windowed.
+    const cep = statewide.cep_history;
+    if (cep?.length >= 2) {
+      const [prev, latest] = cep.slice(-2);
+      f.cepDropped = fmtInt(latest.dropped);
+      f.cepDroppedPrev = fmtInt(prev.dropped);
+      f.cepYear = schoolYear(latest.year);
+      f.cepRose = latest.dropped > prev.dropped ? 'yes' : null;
     }
     const med = medianByType(counties, (c) => c.vulnerability_score);
     f.compRural = med.Rural?.toFixed(2) ?? null;
@@ -752,6 +796,27 @@ export default function MapPage() {
    * and never under reduced motion.
    */
   const heroRef = useRef(null);
+
+  /*
+     The period in the header (PeriodControl) while the hero's brush is out of
+     view, so the window every figure follows is always on screen and can be
+     changed from anywhere in the story.
+  */
+  const brushRef = useRef(null);
+  const [brushInView, setBrushInView] = useState(true);
+  const [periodSlot, setPeriodSlot] = useState(null);
+  useEffect(() => {
+    setPeriodSlot(document.getElementById('header-period'));
+    const el = brushRef.current;
+    if (!el) return undefined;
+    // Out of view once its bottom passes under the header, not the viewport top.
+    const io = new IntersectionObserver(([e]) => setBrushInView(e.isIntersecting), {
+      rootMargin: `-${headerHeight()}px 0px 0px 0px`,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   useEffect(() => {
     const band = heroRef.current;
     const story = storyRef.current;
@@ -971,16 +1036,34 @@ export default function MapPage() {
           />
         );
 
-      // 3 — share of the child caseload lost, by county type.
-      case 'childTypes': {
-        const by = childLossByType(counties, i0, i1);
+      // 3a — children no longer on SNAP, by county type.
+      case 'childCounts': {
+        const by = childLostByType(counties, i0, i1);
         return (
           <GroupBarsFigure
             rows={COUNTY_TYPES.map((t) => ({
               label: t,
-              value: by[t] ?? 0,
-              display: by[t] == null ? '—' : `−${(by[t] * 100).toFixed(1)}%`,
-              highlight: t === 'Rural',
+              value: Math.max(0, by[t]),
+              display: by[t] > 0 ? `−${fmtInt(by[t])}` : fmtInt(-by[t]),
+              highlight: t === 'Metro',
+            }))}
+          />
+        );
+      }
+
+      // 3b — PLACEHOLDER: schools leaving CEP each year, until this step's figure is decided.
+      case 'cepDropped': {
+        const cep = statewide.cep_history;
+        if (!cep?.length) return null;
+        return (
+          <YearBarsFigure
+            title="Texas schools that left the Community Eligibility Provision, by school year"
+            rows={cep.map((r, i) => ({
+              // "26–27": seven full years do not fit side by side in the rail.
+              label: schoolYear(r.year).slice(2),
+              value: r.dropped,
+              display: fmtInt(r.dropped),
+              tone: i === cep.length - 1 ? 'alert' : 'base',
             }))}
           />
         );
@@ -1052,7 +1135,7 @@ export default function MapPage() {
             rows={rows.map((o, i) => ({
               label: String(o.year),
               value: o.not_effectuated_share,
-              display: `${(o.not_effectuated_share * 100).toFixed(1)}%`,
+              display: fmtPct(o.not_effectuated_share),
               tone: i === rows.length - 1 ? 'alert' : i === rows.length - 2 ? 'warn' : 'base',
             }))}
           />
@@ -1177,16 +1260,38 @@ export default function MapPage() {
             </div>
 
             {/* ---------------------------------------------------------- M-02 */}
-            <BrushChart
-              months={months}
-              series={statewide.enrolled}
-              window={state.window}
-              presets={buildPresets(statewide.meta.policy_start)}
-              onChange={(w) => dispatch({ type: 'setWindow', window: w })}
-              onPreview={setPreview}
-              viewWidth={BRUSH_VIEW_WIDTH}
-              height={150}
-            />
+            <div ref={brushRef}>
+              <BrushChart
+                months={months}
+                series={statewide.enrolled}
+                window={state.window}
+                presets={presets}
+                onChange={setWindow}
+                onPreview={setPreview}
+                viewWidth={BRUSH_VIEW_WIDTH}
+                height={150}
+              />
+            </div>
+            {periodSlot &&
+              !brushInView &&
+              createPortal(
+                <PeriodControl
+                  label={`${fmtMonthBody(shownWindow[0])} – ${fmtMonthBody(shownWindow[1])}`}
+                  shortLabel={`${monthTick(shownWindow[0])} – ${monthTick(shownWindow[1])}`}
+                >
+                  <BrushChart
+                    months={months}
+                    series={statewide.enrolled}
+                    window={state.window}
+                    presets={presets}
+                    onChange={setWindow}
+                    onPreview={setPreview}
+                    viewWidth={BRUSH_VIEW_WIDTH}
+                    height={120}
+                  />
+                </PeriodControl>,
+                periodSlot,
+              )}
           </div>
 
           {/*

@@ -60,6 +60,11 @@
   scroll-margin-top: calc(var(--header-height) + var(--space-4));
 }
 
+/* A jump target that is not a section: the district methodology note. */
+.anchor {
+  scroll-margin-top: calc(var(--header-height) + var(--space-4));
+}
+
 .section + .section {
   border-top: 1px solid var(--hairline);
 }
@@ -71,11 +76,13 @@
   line-height: 1.2;
 }
 
-/* The section's number, stated plainly — no claim around it. */
+/* The section's number, stated plainly — no claim around it. Body size, not a
+   size of its own: the section title above carries the weight. */
 .headline {
+  max-width: 82ch;
   margin: 0;
-  font-size: var(--text-lg);
-  line-height: 1.45;
+  font-size: var(--text-base);
+  line-height: 1.5;
   color: var(--text-muted);
 }
 
@@ -136,40 +143,47 @@
 }
 
 @media print {
+  /* No bottom padding or minimum height: the cards end where they end, and a
+     report a few pixels taller than the page does not print a blank second one. */
   .page {
     display: block;
     max-width: none;
-    padding: 0.4in;
+    min-height: 0;
+    padding: 0.4in 0.4in 0;
     background: #fff;
   }
   /*
-   * ONE PAGE, TWO CARDS A ROW. The report is one grid on paper: the
-   * sections dissolve (display: contents) so the cards pack two to a row,
-   * every card half the page wide. The section headings come off: each card
-   * names itself, and a heading spanning a row would leave half-empty rows
-   * behind it. The charts redraw at print sizes (InsightsPage.jsx).
+   * ONE PAGE, ONE CARD A ROW. The report is one column on paper: the sections
+   * dissolve (display: contents) so the cards stack, every card the full page
+   * width. The section headings come off: each card names itself. The charts
+   * redraw at print sizes (InsightsPage.jsx).
    */
   .content {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 10px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
     align-items: start;
-  }
-  .content > * {
-    grid-column: 1 / -1;
   }
   .content .section {
     display: contents;
   }
-  .content .chartBlock {
-    grid-column: auto;
+  /* Except the age section: its pie and arrow chart share one row, half each
+     (or the arrows take it alone when there is no pie). */
+  .content .sectionPair {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: stretch;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .sectionPair > .chartBlock {
+    flex: 1 1 0;
+    min-width: 0;
   }
   .sectionTitle,
   .headline {
     display: none;
-  }
-  .section > * {
-    grid-column: 1 / -1;
   }
   .chartBlock {
     padding: 6px 8px 4px;

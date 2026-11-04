@@ -181,7 +181,7 @@
 }
 
 /* Printed charts are drawn at about their printed size (InsightsPage), so the
-   screen's 12px axis type is large on a half-page card: a step down on paper. */
+   screen's 12px axis type would be large on paper: a step down. */
 @media print {
   .axis,
   .axisLabel,
@@ -196,12 +196,12 @@
   .quadrantLabel,
   .quadrantLabelConcern,
   .highlightLabel {
-    font-size: 9px;
+    font-size: 10px;
   }
   /* Line-end labels ("60–64 −17.1%") a step smaller again: five of them stack
      at the right edge of the age-band chart. */
   .endLabel,
   .endLabelStrong {
-    font-size: 7.5px;
+    font-size: 9px;
   }
 }

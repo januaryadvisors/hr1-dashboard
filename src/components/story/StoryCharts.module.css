@@ -168,7 +168,8 @@
 
 .groupRow {
   display: grid;
-  grid-template-columns: 3.25rem minmax(0, 1fr) 3.5rem;
+  /* Value column wide enough for a six-figure count (−311,900), not just a percent. */
+  grid-template-columns: 3.25rem minmax(0, 1fr) 4.75rem;
   gap: var(--space-2);
   align-items: center;
 }

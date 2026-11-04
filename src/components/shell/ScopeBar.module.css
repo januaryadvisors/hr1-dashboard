@@ -168,7 +168,7 @@
 
 .statLabel {
   font-family: var(--font-display);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-muted);
 }
@@ -206,11 +206,18 @@
   font-size: var(--text-sm);
 }
 
+.included {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 .capacityTitle {
   margin-bottom: var(--space-2);
-  font-family: var(--font-figure);
-  font-size: var(--text-sm);
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
 }
 
 /* On paper the report is a compact title block: no controls, the shape small,
@@ -252,14 +259,17 @@
     font-size: 18px;
   }
   .statLabel,
-  .statSub {
+  .statSub,
+  .included {
     font-size: 9px;
   }
   .capacity {
     padding-top: 6px;
   }
+  /* minmax(0, …) so a long item wraps inside its column rather than running
+     past the card's edge. */
   .helpList {
-    grid-template-columns: repeat(4, max-content);
+    grid-template-columns: repeat(4, minmax(0, max-content));
     gap: 2px 14px;
     font-size: 9px;
   }

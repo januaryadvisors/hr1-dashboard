@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  fmtMillions,
+  fmtOrdinal,
   fmtDelta,
   fmtDollars,
   fmtInt,
@@ -43,7 +45,27 @@ describe('fmtDollars', () => {
     expect(fmtDollars(1_240_000_000)).toBe('$1.24B');
     expect(fmtDollars(89_359)).toBe('$89.4K');
     expect(fmtDollars(950)).toBe('$950');
-    expect(fmtDollars(-5_000_000)).toBe('−$5.0M');
+    expect(fmtDollars(-5_000_000)).toBe('−$5M');
+    expect(fmtDollars(1_200_000_000)).toBe('$1.2B');
     expect(fmtDollars(null)).toBe('—');
+  });
+});
+
+describe('fmtOrdinal', () => {
+  it('suffixes a rank, teens included', () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 38, 101, 111, 112].map(fmtOrdinal)).toEqual([
+      '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '38th', '101st', '111th', '112th',
+    ]);
+  });
+});
+
+describe('trailing zeros', () => {
+  it('drops them from percents and abbreviated figures', () => {
+    expect(fmtPct(0.15)).toBe('15%');
+    expect(fmtPct(0.1525)).toBe('15.3%');
+    expect(fmtPctDelta(-0.2)).toBe('−20%');
+    expect(fmtPctDelta(-0.0001)).toBe('−0%');
+    expect(fmtMillions(3_000_000)).toBe('3M');
+    expect(fmtMillions(3_518_649)).toBe('3.5M');
   });
 });

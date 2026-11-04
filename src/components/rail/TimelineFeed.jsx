@@ -170,14 +170,6 @@ export function TimelineFeed({ content, window: win }) {
             ))}
           </ol>
         )}
-
-        {filter !== 'all' && (
-          <p className={styles.filterNote}>
-            Matched on the bulletin title. Cross-programme bulletins that change{' '}
-            {filter === 'snap' ? 'SNAP' : filter === 'hr1' ? 'H.R. 1 rules' : 'coverage'} without
-            naming it are not listed.
-          </p>
-        )}
       </div>
     </div>
   );

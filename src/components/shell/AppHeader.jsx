@@ -51,6 +51,11 @@ export function AppHeader() {
         <span className={styles.title}>Texas SNAP &amp; H.R.&nbsp;1</span>
       </div>
       {/*
+        The Map page's period control, once its brush has scrolled away
+        (PeriodControl, portalled in by MapPage). Empty everywhere else.
+      */}
+      <div id="header-period" className={styles.period} />
+      {/*
         The Map / Insights switch, on every page. The Map page's Jump to menu
         floats over the story instead of sitting here — see MapPage.
       */}

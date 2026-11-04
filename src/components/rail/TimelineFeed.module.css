@@ -193,15 +193,6 @@
   opacity: 0.7;
 }
 
-/* The honesty line. Only shown while a filter is on, because that is the only
-   time the reader is looking at a subset and could mistake it for the whole. */
-.filterNote {
-  padding-top: var(--space-2);
-  font-size: var(--text-2xs);
-  line-height: 1.35;
-  color: var(--text-faint);
-}
-
 /* Stacked under the page on phones, nothing bounds the rail's height. */
 @media (max-width: 640px) {
   .feed {

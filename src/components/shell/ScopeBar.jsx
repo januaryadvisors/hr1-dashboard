@@ -1,6 +1,7 @@
 /**
  * <ScopeBar> — the Insights page header. Picks what every chart below reads
- * from: Texas, one county, or one TX House, TX Senate or US House district.
+ * from: Texas, one or more counties (checked in the list and added together),
+ * or one TX House, TX Senate or US House district.
  *
  * This is the control that turns the Insights page into a county stat page. The
  * selection lives in `state.scope` and mirrors to `?county=`, so the URL in the
@@ -22,8 +23,8 @@ import { SegmentedControl } from './SegmentedControl';
 import { HelpList } from '../map/HelpList';
 import { PlaceOutline } from './PlaceOutline';
 import { cx } from '../../lib/cx';
-import { fmtInt, fmtMonthBody, fmtPctDelta } from '../../lib/format';
-import { shortfallLabels } from '../../lib/insights';
+import { fmtDelta, fmtInt, fmtMonthBody, fmtPctDelta } from '../../lib/format';
+import { shortfallLabels, SPENDING_LABEL } from '../../lib/insights';
 import styles from './ScopeBar.module.css';
 
 /**
@@ -43,7 +44,7 @@ import styles from './ScopeBar.module.css';
  *   shortfall: { total: number, monthly: number, base: number, baseFrom: number } | null,
  *   baseFromLabel: string | null, sinceLabel: string }} figures - The three headline
  *   figures, for the window. baseFromLabel is the first month the shortfall's yardstick averages. sinceLabel is "H.R. 1" when the window starts at the policy month, else that month.
- * @property {(geoid: string | null) => void} onSelect
+ * @property {(scope: string | null) => void} onSelect - A county geoid, several joined with commas, a district key, or null.
  * @property {() => void} onPrint
  * @property {import('./PlaceOutline').PlaceOutlineProps | null} outline - The place's boundary, once its
  *   shape has loaded.
@@ -72,13 +73,15 @@ export function ScopeBar({
   const isScoped = scope.kind !== 'state';
   const county = scope.county;
   const district = scope.district;
+  /** The counties checked: one, several, or none while Texas or a district is shown. */
+  const picked = county ? [county] : scope.counties;
 
   /** Which list the search offers. Follows the scope, but the reader can switch before picking. */
   const [geo, setGeo] = useState(district ? district.plan : 'county');
   useEffect(() => {
     if (district) setGeo(district.plan);
-    else if (county) setGeo('county');
-  }, [district, county]);
+    else if (picked.length) setGeo('county');
+  }, [district, picked.length]);
 
   const searchItems = useMemo(() => {
     if (geo === 'county' || !districtCounts) return counties;
@@ -89,7 +92,10 @@ export function ScopeBar({
 
   const chamber = districtCounts?.meta.chambers[geo];
 
-  const searchLabel = (geo === 'county' ? county : district?.plan === geo ? district : null)?.name;
+  const searchLabel = district?.plan === geo ? district.name : undefined;
+  /** What the closed county field says: "Harris", "Harris, Fort Bend", "Harris +3". */
+  const countySummary =
+    picked.length > 2 ? `${picked[0].name} +${picked.length - 1}` : picked.map((c) => c.name).join(', ');
 
   return (
     <div className={styles.root}>
@@ -121,24 +127,47 @@ export function ScopeBar({
               onChange={setGeo}
             />
           )}
-          <CountySearch
-            // Remount on a geography or scope change, so the field shows the
-            // place picked and a half-typed name does not linger.
-            key={`${geo}:${scope.key}`}
-            className={styles.search}
-            pill
-            initialLabel={searchLabel}
-            // Open on focus with the whole list (254 counties, or the chamber's
-            // districts in order), so the choices are visible before typing.
-            browse
-            // Harris alone holds 24 House districts; the list scrolls.
-            maxResults={geo === 'county' ? 8 : 40}
-            counties={searchItems}
-            renderValue={(c) => (c.plan ? countiesBrief(c) : fmtInt(c.pop))}
-            onSelect={(geoid) => onSelect(geoid)}
-            placeholder={chamber ? 'Number or county…' : 'Find a county…'}
-            emptyText={chamber ? `No ${chamber.label} district matches that.` : 'No county matches that.'}
-          />
+          {geo === 'county' ? (
+            /*
+              Counties are a checkbox list: every county checked is added into one
+              set of figures, not drawn as a line each. Not remounted on a pick, so
+              the list stays open while the reader checks several.
+            */
+            <CountySearch
+              key="county"
+              className={styles.search}
+              pill
+              browse
+              multiple
+              selected={picked.map((c) => c.geoid)}
+              summary={countySummary}
+              maxResults={8}
+              counties={searchItems}
+              renderValue={(c) => fmtInt(c.pop)}
+              onSelect={(geoids) => onSelect(geoids.length ? geoids.join(',') : null)}
+              placeholder="Find counties…"
+              emptyText="No county matches that."
+            />
+          ) : (
+            <CountySearch
+              // Remount on a chamber or scope change, so the field shows the
+              // place picked and a half-typed name does not linger.
+              key={`${geo}:${scope.key}`}
+              className={styles.search}
+              pill
+              initialLabel={searchLabel}
+              // Open on focus with the chamber's districts in order, so the
+              // choices are visible before typing.
+              browse
+              // Harris alone holds 24 House districts; the list scrolls.
+              maxResults={40}
+              counties={searchItems}
+              renderValue={countiesBrief}
+              onSelect={(geoid) => onSelect(geoid)}
+              placeholder="Number or county…"
+              emptyText={`No ${chamber?.label ?? ''} district matches that.`}
+            />
+          )}
           {/* The browser's own print dialog, which saves a PDF — the page
               carries a print stylesheet that lays the report out on paper. */}
           <button type="button" className={cx('pill', styles.print)} onClick={onPrint}>
@@ -168,20 +197,29 @@ export function ScopeBar({
             </div>
           )}
           <h1 className={styles.name}>{scope.label}</h1>
+          {/* A long list is named by its first two counties; the rest are listed here. */}
+          {picked.length > 3 && (
+            <p className={styles.included}>Added together: {picked.map((c) => c.name).join(', ')}</p>
+          )}
 
           {/*
             The same three figures for every place — Texas, a county or a district:
-            people and children no longer on SNAP since the window began, and how
-            much less in benefits has gone out.
+            the change in people and in children on SNAP since the window began, and
+            in benefits spent. Each label names what changed; the sign says which way.
           */}
           <dl className={styles.stats}>
             <Stat
-              label="People no longer on SNAP"
-              value={lossLabel(figures.people)}
+              label="Change in people on SNAP"
+              value={changeLabel(figures.people)}
               sub={change.pct == null ? null : `${fmtPctDelta(change.pct, 1)} since ${fmtMonthBody(win[0])}`}
               negative={figures.people > 0}
             />
-            <Stat label="Children no longer on SNAP" value={lossLabel(figures.children)} sub="under 18" negative={figures.children > 0} />
+            <Stat
+              label="Change in children on SNAP"
+              value={changeLabel(figures.children)}
+              sub="under 18"
+              negative={figures.children > 0}
+            />
             {/*
               Cumulative, not one month against another: every month
               after the start, the average month of the year to the start minus
@@ -194,14 +232,14 @@ export function ScopeBar({
             <Stat
               {...(figures.shortfall
                 ? shortfallLabels(figures.shortfall.total)
-                : { label: 'Less spent at SNAP-authorized stores', value: '—' })}
+                : { label: SPENDING_LABEL, value: '—' })}
               sub={`estimated, against a typical month in the year before ${figures.sinceLabel}`}
               negative={figures.shortfall?.total > 0}
               title={
                 figures.shortfall
                   ? `An estimate: the average month from ${figures.baseFromLabel} to ${fmtMonthBody(win[0])}, ` +
                     `minus SNAP benefits paid each month after it through ${fmtMonthBody(win[1])}, summed. ` +
-                    'A month above that average counts against the total; a total below zero shows as more spent.'
+                    'A month above that average counts against the total; a total above it shows as a gain (+).'
                   : undefined
               }
             />
@@ -225,10 +263,10 @@ export function ScopeBar({
   );
 }
 
-/** "138,946", or "+1,204 gained" when the count went up instead. */
-function lossLabel(n) {
+/** A count lost as a signed change: 138,946 lost → "−138,946", 1,204 gained → "+1,204". */
+function changeLabel(n) {
   if (n == null) return '—';
-  return n >= 0 ? fmtInt(n) : `+${fmtInt(-n)} gained`;
+  return n === 0 ? '0' : fmtDelta(-n);
 }
 
 function Stat({ label, value, sub, negative = false, title }) {

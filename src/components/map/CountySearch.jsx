@@ -30,6 +30,11 @@ const MAX_RESULTS = 8;
  * @property {number} [maxResults] - Rows listed before the list stops. Defaults to 8; the list scrolls.
  * @property {string} [initialLabel] - The name of the place already picked, shown in the field on mount.
  * @property {boolean} [pill] - Fully rounded, to sit in a row of pill buttons.
+ * @property {boolean} [multiple] - Checkbox list: picking an item toggles it and the list stays
+ *   open, and `onSelect` receives the whole new selection (`string[]`) rather than one geoid.
+ *   The field shows `summary` while closed and is a plain search box while open.
+ * @property {string[]} [selected] - Multiple only: the geoids checked, in the order picked.
+ * @property {string} [summary] - Multiple only: what the closed field says about the selection.
  * @property {boolean} [browse] - Open on focus with every item listed, before
  *   anything is typed, so a reader can see what there is to pick from. Typing
  *   narrows it as usual. Also lists everything again when the field still holds
@@ -53,8 +58,11 @@ export function CountySearch({
   browse = false,
   initialLabel,
   pill = false,
+  multiple = false,
+  selected = [],
+  summary,
 }) {
-  const [query, setQuery] = useState(initialLabel ?? '');
+  const [query, setQuery] = useState(multiple ? '' : initialLabel ?? '');
   /** The label last committed to the field, so browse can tell a pick from a search. */
   const [picked, setPicked] = useState(initialLabel ?? null);
   const [open, setOpen] = useState(false);
@@ -64,9 +72,10 @@ export function CountySearch({
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (browse && (!q || query === picked)) {
-      return [...counties]
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-        .map((c) => ({ county: c, at: Infinity, kw: 0 }));
+      const all = [...counties].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      // A checkbox list opens with what is already checked on top, so it can be unchecked without scrolling.
+      const top = multiple ? selected.map((g) => all.find((c) => c.geoid === g)).filter(Boolean) : [];
+      return [...top, ...all.filter((c) => !top.includes(c))].map((c) => ({ county: c, at: Infinity, kw: 0 }));
     }
     if (!q) return [];
     // Prefix matches first — typing "wil" should reach Williamson before Wilbarger
@@ -92,9 +101,16 @@ export function CountySearch({
       );
 
     return scored.slice(0, maxResults);
-  }, [counties, query, maxResults, browse, picked]);
+  }, [counties, query, maxResults, browse, picked, multiple, selected]);
 
   const commit = (geoid, label) => {
+    if (multiple) {
+      // Toggle, and clear the search so the next county can be typed straight away.
+      onSelect(selected.includes(geoid) ? selected.filter((g) => g !== geoid) : [...selected, geoid]);
+      setQuery('');
+      setActiveIndex(0);
+      return;
+    }
     onSelect(geoid);
     if (label) {
       setQuery(label);
@@ -107,11 +123,18 @@ export function CountySearch({
     setQuery('');
     setPicked(null);
     setOpen(false);
-    onSelect(null);
+    onSelect(multiple ? [] : null);
     inputRef.current?.focus();
   };
 
   const onKeyDown = (e) => {
+    // Escape on a checkbox list closes it; the ✕ is what empties the selection.
+    if (e.key === 'Escape' && multiple) {
+      e.preventDefault();
+      setQuery('');
+      setOpen(false);
+      return;
+    }
     if (e.key === 'Escape') {
       e.preventDefault();
       clear();
@@ -140,6 +163,9 @@ export function CountySearch({
   };
 
   const showList = open && (browse || query.trim().length > 0);
+  /** Closed, a checkbox list's field says what is checked; open, it is the search. */
+  const shown = multiple && !open ? summary ?? '' : query;
+  const hasValue = multiple ? selected.length > 0 : !!query;
 
   return (
     <div className={cx(styles.root, pill && styles.pill, className)}>
@@ -164,7 +190,7 @@ export function CountySearch({
           aria-autocomplete="list"
           aria-label={placeholder.replace(/…$/, '')}
           placeholder={placeholder}
-          value={query}
+          value={shown}
           onChange={(e) => {
             setQuery(e.target.value);
             setOpen(true);
@@ -172,7 +198,10 @@ export function CountySearch({
           }}
           onFocus={(e) => {
             setOpen(true);
-            if (browse) {
+            if (multiple) {
+              setQuery('');
+              setActiveIndex(0);
+            } else if (browse) {
               setActiveIndex(0);
               // A reader who starts typing replaces the last pick, not appends to it.
               e.target.select();
@@ -184,8 +213,14 @@ export function CountySearch({
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onKeyDown={onKeyDown}
         />
-        {query ? (
-          <button type="button" className={styles.clear} aria-label="Clear search" onClick={clear}>
+        {hasValue ? (
+          <button
+            type="button"
+            className={styles.clear}
+            aria-label={multiple ? 'Clear selection' : 'Clear search'}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={clear}
+          >
             ✕
           </button>
         ) : (
@@ -199,7 +234,12 @@ export function CountySearch({
       </div>
 
       {showList && (
-        <ul className={styles.list} id="county-search-list" role="listbox">
+        <ul
+          className={styles.list}
+          id="county-search-list"
+          role="listbox"
+          aria-multiselectable={multiple || undefined}
+        >
           {results.length === 0 && <li className={styles.empty}>{emptyText}</li>}
           {results.map((r, i) => {
             const q = query.trim();
@@ -207,16 +247,26 @@ export function CountySearch({
             const before = inName ? r.county.name.slice(0, r.at) : r.county.name;
             const hit = inName ? r.county.name.slice(r.at, r.at + q.length) : '';
             const after = inName ? r.county.name.slice(r.at + q.length) : '';
+            const checked = multiple && selected.includes(r.county.geoid);
             return (
               <li
                 key={r.county.geoid}
                 role="option"
-                aria-selected={i === activeIndex}
-                className={cx(styles.option, i === activeIndex && styles.active)}
+                aria-selected={multiple ? checked : i === activeIndex}
+                className={cx(styles.option, multiple && styles.checkOption, i === activeIndex && styles.active)}
                 onMouseEnter={() => setActiveIndex(i)}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => commit(r.county.geoid, r.county.name)}
               >
+                {multiple && (
+                  <span className={cx(styles.check, checked && styles.checked)} aria-hidden="true">
+                    {checked && (
+                      <svg viewBox="0 0 10 10" width="10" height="10">
+                        <path d="M2 5.2L4.2 7.4L8 3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                      </svg>
+                    )}
+                  </span>
+                )}
                 <span>
                   {before}
                   <span className={styles.match}>{hit}</span>

@@ -77,7 +77,7 @@ const byGeoid = (rows, label) => {
   return map;
 };
 
-const [monthly, vuln, snapCounty, capacity, foodbank, crosswalk, acsTract, marketplace] = await Promise.all([
+const [monthly, vuln, snapCounty, capacity, foodbank, crosswalk, acsTract, marketplace, cepHistory] = await Promise.all([
   readParquet('snap_county_monthly.parquet'),
   readParquet('vulnerability_county.parquet'),
   readParquet('snap_county.parquet'),
@@ -86,6 +86,7 @@ const [monthly, vuln, snapCounty, capacity, foodbank, crosswalk, acsTract, marke
   readParquet('crosswalk_districts.parquet'),
   readParquet('acs_tract.parquet'),
   readParquet('marketplace_county.parquet'),
+  readParquet('cep_history_state.parquet'),
 ]);
 
 const topo = JSON.parse(readFileSync(GEOMETRY, 'utf8'));
@@ -472,6 +473,7 @@ const statewide = {
       'feeding-texas-hr1 rscripts/capacity/build_capacity_county.R — capacity_county: CMS 2025–26 Navigator awardees (counties served); HHSC Community Partner Program sites; DSHS annual report certified-CHW ranges',
       `Feeding Texas member food banks, unique households served by county, ${foodbankCoverage.period.join(' to ')} (${foodbankCoverage.banks_reporting.join(', ')})`,
       `CMS Marketplace Open Enrollment County-Level Public Use File, ${ACA_YEAR} (feeding-texas-hr1 rscripts/collect_marketplace.R) — consumers with APTC`,
+      'Texas Department of Agriculture school meal site participation, CEP flag (feeding-texas-hr1 rscripts/children/build_child_view.R) — cep_history',
     ],
     notes: [
       'Statewide figures are the sum of the 254 counties; HHSC call-center and state-office rows are excluded.',
@@ -494,6 +496,21 @@ const statewide = {
     households: round(pct(cases[p0], cases[last]), 4),
   },
   county_type_rollup: typeRollup,
+  /*
+   * Texas schools on the Community Eligibility Provision (free meals for every
+   * student) from one school year to the next — feeding-texas-hr1
+   * rscripts/children/build_child_view.R. `year` is the second year, as
+   * "2026-27"; `dropped` were on CEP the year before and not in it, `adopted`
+   * the reverse.
+   */
+  cep_history: [...cepHistory]
+    .sort((a, b) => a.to_py.localeCompare(b.to_py))
+    .map((r) => ({
+      year: `${r.to_py.slice(0, 4)}-${r.to_py.slice(7, 9)}`,
+      sites_before: Number(r.cep_sites_from),
+      dropped: Number(r.dropped_cep),
+      adopted: Number(r.adopted_cep),
+    })),
   // The policy-window funnel (buildFunnel), for the download and for reference.
   funnel: {
     method: 'empirical: |deviation| ~ caseload^b fitted in logs (snap-enrollment-trends.qmd)',
@@ -877,6 +894,8 @@ const checks = [
   ['18–59 change since Jul 2025', fmtPctS(band1859)],
   ['participation, latest', `${(statewide.participation_share[last] * 100).toFixed(1)}%`],
   ['participation, Jul 2025', `${(statewide.participation_share[p0] * 100).toFixed(1)}%`],
+  // The Children chapter's second step quotes the latest year against the one before.
+  ['CEP schools dropped, latest', statewide.cep_history.slice(-2).map((r) => `${r.dropped} (${r.year})`).join(' then ')],
 ];
 
 // ----------------------------------------------------------------- write

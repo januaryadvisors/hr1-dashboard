@@ -2,7 +2,8 @@
  * Scope resolution for the Insights page.
  *
  * Every chart on that page reads from a `Scope` — Texas as a whole, one county,
- * or one TX House, TX Senate or US House district — so switching scope is a data swap rather
+ * several counties added together, or one TX House, TX Senate or US House
+ * district — so switching scope is a data swap rather
  * than a different code path per chart. That is what makes
  * `/insights/decline?county=48201` a county stat page and
  * `?district=txhouse-133` a district one: the same charts, the same claims, a
@@ -22,22 +23,41 @@
  * @typedef {import('../types').County} County
  * @typedef {import('../types').Statewide} Statewide
  */
-import { fmtDollars, fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
+import { fmtDelta, fmtDollars, fmtInt, fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
 import { changeShare, windowEnds } from './series.js';
 
 /**
  * @typedef {Object} Scope
  * @property {string} key - 'state', a county geoid, or a district key ("txhouse-133").
- * @property {'state' | 'county' | 'district'} kind
- * @property {string} label - "Texas", "Harris County" or "House District 133".
+ * @property {'state' | 'county' | 'counties' | 'district'} kind - 'counties' is several counties, summed.
+ * @property {string} label - "Texas", "Harris County", "Harris and Fort Bend counties" or "House District 133".
  * @property {number} population - Resident population — the participation-rate denominator.
  * @property {number[]} enrolled - Monthly enrolled individuals, parallel to meta.months.
  * @property {number[] | null} children - Monthly enrolled children, or null where the series is missing.
  * @property {number[] | null} payments - Monthly SNAP benefits paid, whole dollars, or null where missing.
  * @property {Record<string, number[]>} ageSeries - Monthly enrolled per age band, keyed "Under 5" … "65+".
  * @property {County | null} county - The county record when kind is 'county', else null.
+ * @property {County[]} counties - The counties summed when kind is 'counties', in the order picked; else empty.
  * @property {import('../data/load').DistrictUnit | null} district - The district when kind is 'district', else null.
  */
+
+/**
+ * One monthly series summed over some counties, or null where none carries it.
+ * A county missing a month counts as zero for that month, as in the data build.
+ */
+function sumSeries(list, field) {
+  const n = list.find((c) => c[field])?.[field].length ?? 0;
+  return n
+    ? Array.from({ length: n }, (_, i) => list.reduce((sum, c) => sum + (c[field]?.[i] ?? 0), 0))
+    : null;
+}
+
+/** "Harris and Fort Bend counties", "Harris, Fort Bend and Galveston counties", "Harris, Fort Bend and 3 other counties". */
+export function countiesLabel(names) {
+  if (names.length <= 2) return `${names.join(' and ')} counties`;
+  if (names.length === 3) return `${names[0]}, ${names[1]} and ${names[2]} counties`;
+  return `${names[0]}, ${names[1]} and ${names.length - 2} other counties`;
+}
 
 export function buildScope(
   counties,
@@ -46,6 +66,36 @@ export function buildScope(
   geoid,
   districtCounts = null,
 ) {
+  /*
+     Several counties: every series is the counties' sum, so each chart reads
+     the group as one place. Unknown geoids drop out; one left is a plain county.
+  */
+  const picked = geoid?.includes(',')
+    ? geoid.split(',').map((g) => byGeoid.get(g)).filter(Boolean)
+    : [];
+  if (picked.length === 1) geoid = picked[0].geoid;
+  if (picked.length > 1) {
+    const bands = Object.keys(picked[0].snap_age ?? {});
+    return {
+      key: picked.map((c) => c.geoid).join(','),
+      kind: 'counties',
+      label: countiesLabel(picked.map((c) => c.name)),
+      population: picked.reduce((sum, c) => sum + c.pop, 0),
+      enrolled: sumSeries(picked, 'snap_enrolled'),
+      children: sumSeries(picked, 'snap_children'),
+      payments: sumSeries(picked, 'snap_payments'),
+      ageSeries: Object.fromEntries(
+        bands.map((b) => [
+          b,
+          picked[0].snap_age[b].map((_, i) => picked.reduce((sum, c) => sum + (c.snap_age?.[b]?.[i] ?? 0), 0)),
+        ]),
+      ),
+      county: null,
+      counties: picked,
+      district: null,
+    };
+  }
+
   const district = geoid ? districtCounts?.byId.get(geoid) : null;
   if (district) {
     return {
@@ -58,6 +108,7 @@ export function buildScope(
       payments: district.snap_payments ?? null,
       ageSeries: district.snap_age,
       county: null,
+      counties: [],
       district,
     };
   }
@@ -75,6 +126,7 @@ export function buildScope(
         payments: county.snap_payments ?? null,
         ageSeries: county.snap_age,
         county,
+        counties: [],
         district: null,
       };
     }
@@ -87,23 +139,17 @@ export function buildScope(
    * the statewide caseload exactly — the same arithmetic the data build asserts.
    * It equals statewide.age_series 'Under 5' + '5–17' month by month.
    */
-  const sumCounties = (field) => {
-    const n = counties[0]?.[field]?.length ?? 0;
-    return n
-      ? Array.from({ length: n }, (_, i) => counties.reduce((sum, c) => sum + (c[field]?.[i] ?? 0), 0))
-      : null;
-  };
-
   return {
     key: 'state',
     kind: 'state',
     label: 'Texas',
     population: statewide.meta.texas_population,
     enrolled: statewide.enrolled,
-    children: sumCounties('snap_children'),
-    payments: sumCounties('snap_payments'),
+    children: sumSeries(counties, 'snap_children'),
+    payments: sumSeries(counties, 'snap_payments'),
     ageSeries: statewide.age_series,
     county: null,
+    counties: [],
     district: null,
   };
 }
@@ -148,16 +194,19 @@ export function windowLoss(series, i0, i1) {
 }
 
 /**
- * The shortfall's label and value, for the hero and the Insights report. A
- * place above its yardstick says so — "More spent", "+$19.7K" — rather than
- * reading as $0 less.
+ * The shortfall's label and value, for the hero and the Insights report. The
+ * label names what changed and the sign says which way: "−$964M" for less
+ * spent, "+$19.7K" for a place above its yardstick.
  *
  * @param {number} total - benefitShortfall's total, positive for less.
  */
+export const SPENDING_LABEL = 'Change in SNAP spending at authorized stores';
+
 export function shortfallLabels(total) {
-  return total >= 0
-    ? { label: 'Less spent at SNAP-authorized stores', value: fmtDollars(total) }
-    : { label: 'More spent at SNAP-authorized stores', value: `+${fmtDollars(-total)}` };
+  return {
+    label: SPENDING_LABEL,
+    value: total > 0 ? fmtDollars(-total) : total < 0 ? `+${fmtDollars(-total)}` : '$0',
+  };
 }
 
 /** Months averaged for the shortfall's yardstick: the year up to the window's start. */
@@ -235,6 +284,94 @@ export function ageBandRows(ageSeries, i0, i1) {
     const to = s[i1] ?? 0;
     return { label, from, to, pctChange: changeShare({ start: from, end: to }) ?? 0 };
   });
+}
+
+/** The three age groups the Insights pie splits a loss into, from HHSC's five bands. */
+export const AGE_GROUPS = [
+  { label: '0–17', bands: ['Under 5', '5–17'], noun: 'Children under 18' },
+  { label: '18–64', bands: ['18–59', '60–64'], noun: 'Adults 18–64' },
+  { label: '65+', bands: ['65+'], noun: 'Adults 65 and older' },
+];
+
+/**
+ * @typedef {Object} AgeGroupLoss
+ * @property {string} label - "0–17", "18–64" or "65+".
+ * @property {number} from - Enrolled at the window start.
+ * @property {number} to - Enrolled at the window end.
+ * @property {number} lost - from − to; negative where the group grew.
+ * @property {number} pctChange - Signed change as a fraction of `from` (−0.2 is a 20% loss).
+ * @property {number} share - Of everyone lost in the groups that lost, 0 where the group did not.
+ */
+
+/**
+ * Who left SNAP over the window, in three age groups — the Insights pie, and
+ * the arrow chart's rows (they carry `from`, `to` and `pctChange`). A share is of the people
+ * lost in the groups that lost: a group that grew has no slice of a loss, so
+ * its gain is not netted against the others (the shares add to 100%).
+ *
+ * @param {Record<string, number[]>} ageSeries - A Scope's ageSeries.
+ * @returns {AgeGroupLoss[] | null} null where a band is missing.
+ */
+export function ageGroupLoss(ageSeries, i0, i1) {
+  if (AGE_GROUPS.some((g) => g.bands.some((b) => !ageSeries?.[b]))) return null;
+  const rows = AGE_GROUPS.map((g) => {
+    const from = g.bands.reduce((sum, b) => sum + (ageSeries[b][i0] ?? 0), 0);
+    const to = g.bands.reduce((sum, b) => sum + (ageSeries[b][i1] ?? 0), 0);
+    return { label: g.label, from, to, lost: from - to, pctChange: changeShare({ start: from, end: to }) ?? 0 };
+  });
+  const total = rows.reduce((sum, r) => sum + Math.max(0, r.lost), 0);
+  return rows.map((r) => ({ ...r, share: total > 0 && r.lost > 0 ? r.lost / total : 0 }));
+}
+
+/**
+ * The age pie's title: the group with the most people lost, and its share.
+ * "Children under 18 were the largest group to lose SNAP, at 52.6% of everyone who left".
+ * null when no group lost.
+ *
+ * @param {AgeGroupLoss[] | null} rows
+ */
+export function ageLeadTitle(rows) {
+  const lead = rows?.reduce((a, b) => (b.lost > a.lost ? b : a));
+  if (!lead || lead.lost <= 0) return null;
+  const noun = AGE_GROUPS.find((g) => g.label === lead.label).noun;
+  return `${noun} were the largest group to lose SNAP, at ${fmtPct(lead.share)} of everyone who left`;
+}
+
+/** "a", "a and b", "a, b and c". */
+const andList = (items) =>
+  items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+
+/** A group's name mid-sentence: "children under 18". */
+const groupNoun = (label) => {
+  const noun = AGE_GROUPS.find((g) => g.label === label).noun;
+  return noun.charAt(0).toLowerCase() + noun.slice(1);
+};
+
+/**
+ * The "Who is falling off" section's sentence: how many of each age group
+ * left. The total is only stated when every group lost, so it matches the
+ * Enrollment section's number; a group that grew is named as growing instead.
+ *
+ * @param {AgeGroupLoss[] | null} rows
+ * @param {string} where - " in Harris County", or '' for Texas.
+ * @param {string} since - "July 2025".
+ */
+export function whoHeadline(rows, where, since) {
+  if (!rows) return null;
+  const lost = rows.filter((r) => r.lost > 0);
+  const grew = rows.filter((r) => r.lost < 0);
+  if (!lost.length) return `No age group${where} has fewer people on SNAP than in ${since}.`;
+  if (!grew.length) {
+    const total = lost.reduce((sum, r) => sum + r.lost, 0);
+    return (
+      `Of the ${fmtInt(total)} individuals who left SNAP${where} since ${since}, ` +
+      `${andList(lost.map((r) => `${fmtInt(r.lost)} are ${groupNoun(r.label)}`))}.`
+    );
+  }
+  return (
+    `Since ${since}, ${andList(lost.map((r) => `${fmtInt(r.lost)} ${groupNoun(r.label)}`))} left SNAP${where}, ` +
+    `while ${andList(grew.map((r) => `${groupNoun(r.label)} on SNAP grew by ${fmtInt(-r.lost)}`))}.`
+  );
 }
 
 // ------------------------------------------------------------------- funnel
@@ -345,13 +482,6 @@ export function buildFunnel(counties, i0, i1) {
 
 // ------------------------------------------------------- headline figures
 
-/** How a band reads in a sentence: "18–59" → "adults 18–59". */
-function bandPhrase(band) {
-  if (band === 'Under 5') return 'children under 5';
-  if (band === '5–17') return 'children 5–17';
-  return `adults ${band}`;
-}
-
 /**
  * The hero band's three statewide figures, for the brush window [i0, i1].
  * Computed, so dragging the window moves all three.
@@ -363,37 +493,49 @@ function bandPhrase(band) {
 export function headlineStats(statewide, payments, i0, i1) {
   const months = statewide.meta.months;
   const from = fmtMonthBody(months[i0]);
-  const to = fmtMonthBody(months[i1]);
+  // A no-break space, so a wrapped line never ends on "H.R.".
+  const since = months[i0] === statewide.meta.policy_start ? 'H.R.\u00a01' : from;
   const out = [];
 
-  /*
-     1. The steepest age band, against everyone on SNAP: the whole caseload is
-     the steadier comparison, and it is the hero number's own rate.
-  */
-  const rows = ageBandRows(statewide.age_series, i0, i1);
-  if (rows.length) {
-    const steep = rows.reduce((a, b) => (b.pctChange < a.pctChange ? b : a));
-    const band = bandPhrase(steep.label);
-    const all = changeShare(windowEnds(statewide.enrolled, i0, i1));
-    const body =
-      all == null
-        ? 'The steepest drop of any age group.'
-        : `The steepest drop of any age group, against ${fmtPctDelta(all)} for all Texans on SNAP.`;
+  // 1. The whole caseload's change: the hero number above, as a share.
+  const all = windowEnds(statewide.enrolled, i0, i1);
+  const allShare = changeShare(all);
+  if (allShare != null) {
     out.push({
-      label: band.charAt(0).toUpperCase() + band.slice(1),
-      value: fmtPctDelta(steep.pctChange),
-      body,
-      tone: steep.pctChange < 0 ? 'negative' : undefined,
+      label: 'Change in Texans on SNAP',
+      value: fmtPctDelta(allShare),
+      body: `As a share of enrollment, since ${since}.`,
+      tone: allShare < 0 ? 'negative' : undefined,
     });
   }
 
   /*
-     2. SNAP money that did not reach SNAP-authorized stores over the window —
+     2. Children under 18 (the two youngest age bands), and their share of
+     everyone who left. The share is only stated while it is a share: both fell,
+     and the children's loss is not bigger than the whole (adults gaining).
+  */
+  const under5 = windowEnds(statewide.age_series?.['Under 5'], i0, i1);
+  const school = windowEnds(statewide.age_series?.['5–17'], i0, i1);
+  if (under5 && school && all) {
+    const childLost = under5.start + school.start - (under5.end + school.end);
+    const allLost = all.start - all.end;
+    out.push({
+      label: 'Change in children on SNAP',
+      value: childLost === 0 ? '0' : fmtDelta(-childLost),
+      body:
+        childLost > 0 && allLost >= childLost
+          ? `${fmtPct(childLost / allLost)} of all Texans who left SNAP since ${since}.`
+          : `Children under 18, since ${since}.`,
+      tone: childLost > 0 ? 'negative' : undefined,
+    });
+  }
+
+  /*
+     3. SNAP money that did not reach SNAP-authorized stores over the window —
      the same arithmetic as the Insights report and the Map story's figure.
   */
   const short = benefitShortfall(payments, i0, i1);
   if (short) {
-    const since = months[i0] === statewide.meta.policy_start ? 'H.R. 1' : from;
     out.push({
       ...shortfallLabels(short.total),
       body:
@@ -404,18 +546,5 @@ export function headlineStats(statewide, payments, i0, i1) {
     });
   }
 
-  // 3. Participation at the window's end, against its start.
-  const share = statewide.participation_share;
-  if (share?.[i1] != null && share?.[i0] != null) {
-    const dir = share[i1] < share[i0] ? 'down' : share[i1] > share[i0] ? 'up' : 'unchanged';
-    out.push({
-      label: 'Texans enrolled',
-      value: fmtPct(share[i1]),
-      body:
-        dir === 'unchanged'
-          ? `In ${to}, the same as in ${from}.`
-          : `In ${to}, ${dir} from ${fmtPct(share[i0])} in ${from}.`,
-    });
-  }
   return out;
 }

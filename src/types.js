@@ -148,6 +148,7 @@
  * @property {number[]} [cases] - Monthly SNAP cases (households).
  * @property {{ people: number; households: number }} people_vs_households
  * @property {{ type: string; pctChange: number }[]} county_type_rollup
+ * @property {{ year: string; sites_before: number; dropped: number; adopted: number }[]} [cep_history] - Texas schools leaving and joining the Community Eligibility Provision, by school year ("2026-27").
  * @property {{ method?: string; center: number; limits: { caseload: number; sd: number }[] }} funnel - The policy-window
  *   fit (buildFunnel), for reference and downloads.
  */

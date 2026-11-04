@@ -1,0 +1,128 @@
+.root {
+  min-width: 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.title,
+.sub {
+  text-align: right;
+}
+
+.sub {
+  margin: 2px 0 var(--space-2);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Rank, name, people, share — the same columns as the Map tab's shortlist. */
+.row {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) auto 3.2rem;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: 0.28rem 0.4rem;
+  font-size: var(--text-sm);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.rank {
+  font-size: var(--text-2xs);
+  color: var(--text-faint);
+  text-align: right;
+}
+
+.name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.value {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.share {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* The column labels over the counts and shares. */
+.head {
+  padding-block: 0 0.2rem;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom-color: var(--hairline-strong);
+}
+
+.head .value {
+  font-size: var(--text-2xs);
+}
+
+/* The picked place: tinted, a burgundy edge, and its rank in ink. */
+.on {
+  background: var(--blocked-bg);
+  box-shadow: inset 3px 0 0 var(--ja-burgundy);
+}
+
+.on .rank,
+.on .name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* The break between the shortlist and a picked place further down: a faded
+   dotted rule either side of how many places it skips. */
+.gap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.35rem 0.4rem;
+  color: var(--text-faint);
+}
+
+.gapLine {
+  flex: 1;
+  border-top: 2px dotted var(--hairline-strong);
+}
+
+.gapText {
+  font-size: var(--text-2xs);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+@media print {
+  .title {
+    font-size: 10px;
+  }
+  .sub,
+  .gapText,
+  .rank,
+  .share {
+    font-size: 8px;
+  }
+  .row {
+    grid-template-columns: 1.2rem minmax(0, 1fr) auto 2.4rem;
+    gap: 4px;
+    padding: 1px 3px;
+    font-size: 9px;
+  }
+  .gap {
+    padding: 2px 3px;
+  }
+}

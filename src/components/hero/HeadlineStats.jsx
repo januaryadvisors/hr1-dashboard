@@ -9,9 +9,8 @@
  * src/lib/insights.js), so they follow the slider. Keyed by position, not
  * value, because the values change as the window moves.
  *
- * `tone: 'negative'` renders gold on the green, which is what separates the two
- * decline figures from the participation rate. It is the only thing in the band
- * that is not cream, so it reads as "these two are the losses".
+ * `tone: 'negative'` renders gold on the green: a loss. It is the only thing in
+ * the band that is not cream, so it reads as "these are the losses".
  *
  * @typedef {import('../../data/timeline').TimelineStat} TimelineStat
  */

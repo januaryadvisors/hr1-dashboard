@@ -38,11 +38,6 @@
   border-radius: var(--radius);
 }
 
-.caption {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
 /* Strokes are in screen pixels, whatever the drawing's scale. */
 .place {
   fill: #f3e2e2;
@@ -65,3 +60,4 @@
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
+

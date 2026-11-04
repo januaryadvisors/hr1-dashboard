@@ -25,8 +25,10 @@ import { INFRA_TYPES, VIEWS } from '../config/layers';
  * @property {InfraKey[]} infra
  * @property {boolean} overlayQ5
  * @property {boolean} overlayGap
- * @property {string | null} scope - What every Insights chart reads from: a county geoid ("48201"), a district
- *   key ("txhouse-133", "txsenate-15", "ushouse-7"), or null for statewide.
+ * @property {string | null} scope - What every Insights chart reads from: a county geoid ("48201"), several
+ *   counties added together as a comma list ("48201,48157"), a district key ("txhouse-133",
+ *   "txsenate-15", "ushouse-7"), or null for statewide. A string either way, so the URL
+ *   holds it as written and an unchanged pick is still the same value.
  *   Separate from `hovered` on purpose: `hovered` is transient and pointer-
  *   driven, this is a deliberate, shareable selection. It is what makes
  *   `/insights/decline?county=48201` a county stat page someone can send to a
@@ -44,6 +46,9 @@ import { INFRA_TYPES, VIEWS } from '../config/layers';
 
 /** A scope key naming a legislative or congressional district rather than a county. */
 export const isDistrictKey = (key) => typeof key === 'string' && /^(txhouse|txsenate|ushouse)-\d+$/.test(key);
+
+/** The county geoids in a scope key: one, several ("48201,48157"), or none for a district or Texas. */
+export const scopeGeoids = (key) => (key && !isDistrictKey(key) ? key.split(',') : []);
 
 /** Registries that can draw marks — the sourced ones only (see INFRA_TYPES). */
 export const ALL_INFRA = INFRA_TYPES.filter((t) => t.available).map((t) => t.key);
@@ -215,11 +220,18 @@ export function fromSearchParams(
   state.overlayGap = params.get('gap') === '1';
 
   // A district link wins if both are present; either degrades to statewide if
-  // the key is not in the dataset.
+  // the key is not in the dataset. A county list keeps the counties it can
+  // find, once each, in the order given.
   const county = params.get('county');
   const district = params.get('district');
-  const pick = district && isDistrictKey(district) ? district : county;
-  if (pick && (!validGeoids || validGeoids.has(pick))) state.scope = pick;
+  if (district && isDistrictKey(district)) {
+    if (!validGeoids || validGeoids.has(district)) state.scope = district;
+  } else if (county) {
+    const kept = [...new Set(county.split(','))].filter(
+      (g) => g && !isDistrictKey(g) && (!validGeoids || validGeoids.has(g)),
+    );
+    if (kept.length) state.scope = kept.join(',');
+  }
 
   return state;
 }

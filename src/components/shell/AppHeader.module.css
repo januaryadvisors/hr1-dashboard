@@ -62,6 +62,25 @@
     background-color 200ms ease;
 }
 
+/* The Map page's period pill, between the name and the page switch. */
+.period {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+}
+
+.period:empty {
+  flex: 0 0 0;
+}
+
+/* Phones: the pill takes the name's place while it is there. */
+@media (max-width: 699px) {
+  .header:has(.period:not(:empty)) .title {
+    display: none;
+  }
+}
+
 .end {
   display: flex;
   flex-shrink: 0;

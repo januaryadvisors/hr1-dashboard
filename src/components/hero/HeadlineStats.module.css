@@ -6,7 +6,7 @@
   min-width: 0;
 }
 
-/* Hairline between, not around: the three read as one list. */
+/* Hairline between, not around: the three read as one list, at every width. */
 .stat + .stat {
   padding-top: var(--space-5);
   border-top: 1px solid var(--on-green-rule);
@@ -43,14 +43,13 @@
   color: var(--on-green-muted);
 }
 
+/* Narrower, the list keeps its hairlines (a tablet's side column and a phone's
+   full width both hold one figure a row) and only tightens up. */
 @media (max-width: 899px) {
   .root {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     gap: var(--space-4);
   }
   .stat + .stat {
-    padding-top: 0;
-    border-top: 0;
+    padding-top: var(--space-4);
   }
 }

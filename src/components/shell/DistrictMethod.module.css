@@ -46,7 +46,10 @@
 
 /* On paper: two narrow columns of small type. */
 @media print {
+  /* Its own page: under four full-width cards there is no room left on the
+     first, and split across the break it reads as two notes. */
   .root {
+    break-before: page;
     display: block;
     columns: 2;
     column-gap: 14px;

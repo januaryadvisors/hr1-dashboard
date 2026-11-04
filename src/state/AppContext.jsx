@@ -115,10 +115,12 @@ function Ready({ data, children }) {
   );
 
   // Mirror state → URL. replace, not push, so the back button steps through
-  // pages rather than through every control change.
+  // pages rather than through every control change. Commas are left as commas
+  // (?county=48201,48157): legal in a query, and a link people read and send.
   useEffect(() => {
-    const next = toSearchParams(state, defaults).toString();
-    const current = new URLSearchParams(location.search).toString();
+    const plain = (p) => p.toString().replaceAll('%2C', ',');
+    const next = plain(toSearchParams(state, defaults));
+    const current = plain(new URLSearchParams(location.search));
     if (next === current) return;
     navigate({ pathname: location.pathname, search: next ? `?${next}` : '' }, { replace: true });
   }, [state, defaults, location.pathname, location.search, navigate]);
