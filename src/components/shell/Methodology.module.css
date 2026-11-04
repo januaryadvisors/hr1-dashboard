@@ -1,6 +1,7 @@
 /* Small and grey under a divider: there for anyone who needs to defend a
    figure, out of the way of anyone who does not. */
-.root {
+.root,
+.rootDistrict {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -13,18 +14,28 @@
   color: var(--text-faint);
 }
 
-.root p {
+.root p,
+.rootDistrict p {
   margin: 0;
 }
 
-.root a {
+/* Each note's name, a step darker than its text. */
+.root strong,
+.rootDistrict strong {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.root a,
+.rootDistrict a {
   color: inherit;
   text-decoration: underline;
   text-decoration-color: var(--hairline-strong);
   text-underline-offset: 2px;
 }
 
-.root a:hover {
+.root a:hover,
+.rootDistrict a:hover {
   color: var(--text-muted);
   text-decoration-color: currentColor;
 }
@@ -44,11 +55,16 @@
   margin-top: 2px;
 }
 
-/* On paper: two narrow columns of small type. */
+/*
+ * On paper: a district's note, which explains estimated figures, goes on a
+ * page of its own in two narrow columns of small type. Elsewhere the report
+ * stays one page and the note stays on screen.
+ */
 @media print {
-  /* Its own page: under four full-width cards there is no room left on the
-     first, and split across the break it reads as two notes. */
   .root {
+    display: none;
+  }
+  .rootDistrict {
     break-before: page;
     display: block;
     columns: 2;
@@ -56,14 +72,14 @@
     margin-top: 8px;
     padding-top: 4px;
   }
-  .root,
-  .root p,
-  .root li {
+  .rootDistrict,
+  .rootDistrict p,
+  .rootDistrict li {
     font-size: 8px;
     line-height: 1.3;
   }
-  .root p,
-  .root ol {
+  .rootDistrict p,
+  .rootDistrict ol {
     margin: 0 0 3px;
   }
   .title {

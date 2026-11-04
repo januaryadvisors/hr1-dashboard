@@ -425,7 +425,7 @@ export function CountyTooltip({
               <div
                 className={styles.statLabel}
                 title={[
-                  'Unique households served by reporting food banks',
+                  'Unique households connected to benefits assistance by reporting food banks',
                   fbCoverage.period,
                   county.foodbank_banks?.join(', '),
                   fbCoverage.banks,
@@ -433,7 +433,7 @@ export function CountyTooltip({
                   .filter(Boolean)
                   .join(' · ')}
               >
-                Households accessing SNAP application assistance via food banks
+                Households connected to benefits assistance through food banks
               </div>
               {/* null is "no reporting bank covers this county", not zero. */}
               <div

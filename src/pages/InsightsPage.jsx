@@ -22,7 +22,7 @@ import { LineChart } from '../components/charts/LineChart';
 import { LossMap } from '../components/charts/LossMap';
 import { PieChart } from '../components/charts/PieChart';
 import { PlaceRankList, rankUnits } from '../components/charts/PlaceRankList';
-import { DistrictMethod } from '../components/shell/DistrictMethod';
+import { Methodology } from '../components/shell/Methodology';
 import { ScopeBar } from '../components/shell/ScopeBar';
 import {
   ageBandRows,
@@ -68,10 +68,9 @@ const SECTIONS = [
   { id: 'enrollment', title: 'Enrollment' },
   { id: 'who', title: 'Who is falling off' },
   { id: 'map', title: 'Across Texas' },
+  // The note on how the figures are built, under the charts.
+  { id: 'methodology', title: 'Methodology' },
 ];
-
-/** Indexed too while a district is shown: the note on how its figures are built. */
-const METHOD_SECTION = { id: 'methodology', title: 'Methodology' };
 
 /** The section each /insights/:tab slug opens at, so a shared tab link lands somewhere sensible. */
 const TAB_SECTION = { decline: 'enrollment', who: 'who' };
@@ -235,12 +234,10 @@ export default function InsightsPage() {
   const ranked = useMemo(() => rankUnits(rankPlaces), [rankPlaces]);
 
   // ------------------------------------------------------------ section index
-  /** The sections on the page: the three, and the methodology note under a district. */
-  const sections = useMemo(() => (scope.district ? [...SECTIONS, METHOD_SECTION] : SECTIONS), [scope.district]);
   /** Which section is in view, for the index's highlight. */
   const [inView, setInView] = useState(SECTIONS[0].id);
   useEffect(() => {
-    const els = sections.map((sec) => document.getElementById(sec.id)).filter(Boolean);
+    const els = SECTIONS.map((sec) => document.getElementById(sec.id)).filter(Boolean);
     const io = new IntersectionObserver(
       (entries) => {
         const hit = entries.filter((e) => e.isIntersecting).sort(
@@ -258,14 +255,14 @@ export default function InsightsPage() {
     */
     const onScroll = () => {
       const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
-      if (atBottom) setInView(sections.at(-1).id);
+      if (atBottom) setInView(SECTIONS.at(-1).id);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
       io.disconnect();
       window.removeEventListener('scroll', onScroll);
     };
-  }, [sections]);
+  }, []);
 
   const goTo = (id) => {
     const el = document.getElementById(id);
@@ -345,7 +342,7 @@ export default function InsightsPage() {
   return (
     <div className={styles.page}>
       <nav className={styles.tabs} aria-label="Insights sections">
-        {sections.map((sec) => (
+        {SECTIONS.map((sec) => (
           <a
             key={sec.id}
             href={`#${sec.id}`}
@@ -444,7 +441,7 @@ export default function InsightsPage() {
                 }))}
                 size={printing ? 96 : phone ? 170 : 210}
                 countLabel="Change in enrollment"
-                shareLabel="Share of total lost"
+                shareLabel="Share of total loss"
                 title={`Residents no longer on SNAP in ${scope.label}, by age group`}
               />
             </ChartCard>
@@ -499,11 +496,14 @@ export default function InsightsPage() {
           </ChartCard>
         </section>
 
-        {scope.district && (
-          <div id={METHOD_SECTION.id} className={styles.anchor}>
-            <DistrictMethod district={scope.district} />
-          </div>
-        )}
+        <div id="methodology" className={styles.anchor}>
+          <Methodology
+            from={fmtMonthBody(win[0])}
+            to={fmtMonthBody(win[1])}
+            county={scope.kind === 'county'}
+            district={scope.district}
+          />
+        </div>
 
         {data.isFixture && (
           <p className={styles.fixtureNote}>

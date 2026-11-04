@@ -5,7 +5,7 @@
  * encoding draws in two places, and this module keeps them the same:
  *
  *   <InfraTileBars>     inside each tile on the grid map, unlabelled
- *   <InfraColumnChart>  in the county tooltip, labelled, all four registries
+ *   <InfraColumnChart>  in the county tooltip, labelled, three registries (no food banks)
  *
  * The bars share the hue per registry (INFRA_COLOR, so the bars and the geo
  * map's glyphs agree). Each registry has ITS OWN scale, topped at its highest
@@ -106,16 +106,18 @@ export function InfraTileBars({ county, types, x, y, size, max }) {
   });
 }
 
+const TOOLTIP_ORDER = INFRA_BAR_ORDER.filter((k) => k !== 'food_bank');
+
 /**
- * The tooltip's version: all four registries, labelled, with the count over
- * each bar. A partial registry's null reads "no data"; an unsourced one, n/a.
+ * The tooltip's version: three registries, labelled, with the count over each
+ * bar. A partial registry's null reads "no data"; an unsourced one, n/a.
  *
  * @param {{ county: County; max: Record<string, number> }} props
  */
 export function InfraColumnChart({ county, max }) {
   return (
     <div className={styles.chart} role="img" aria-label={ariaFor(county)}>
-      {INFRA_BAR_ORDER.map((key) => {
+      {TOOLTIP_ORDER.map((key) => {
         const t = INFRA_TYPES.find((d) => d.key === key);
         const v = county.infra[key];
         const sourced = t.available && typeof v === 'number';
@@ -150,7 +152,7 @@ export function InfraColumnChart({ county, max }) {
 }
 
 function ariaFor(county) {
-  return INFRA_BAR_ORDER.map((key) => {
+  return TOOLTIP_ORDER.map((key) => {
     const t = INFRA_TYPES.find((d) => d.key === key);
     const v = county.infra[key];
     const missing = t.available ? 'no data' : 'not sourced';

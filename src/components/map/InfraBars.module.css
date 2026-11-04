@@ -2,7 +2,7 @@
    one baseline so heights compare directly. */
 .chart {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: var(--space-2) 0 var(--space-1);
 }
@@ -46,8 +46,8 @@
 }
 
 /* Small enough that the longer registry names ("Community Partner Program
-   sites", "Food banks serving county") fit their quarter of the compact
-   tooltip in three or four lines without running into the next column. */
+   sites") fit their third of the compact tooltip in a few lines without
+   running into the next column. */
 .label {
   display: flex;
   align-items: flex-start;
