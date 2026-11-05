@@ -1,4 +1,5 @@
 .root {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
 }
@@ -92,4 +93,16 @@
   color: var(--text);
   text-align: right;
   white-space: nowrap;
+}
+
+/* A narrow list (the pinned story's shortlist on a small tablet or window):
+   the glyph goes, so the county names keep their room. */
+@container (max-width: 200px) {
+  .row {
+    grid-template-columns: 1.1rem minmax(0, 1fr) auto;
+  }
+  .glyph,
+  .glyphEmpty {
+    display: none;
+  }
 }

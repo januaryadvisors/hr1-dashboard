@@ -880,12 +880,10 @@
  * TABLETS, pinned — the story pins from 700px wide (STORY_PINNED in
  * src/lib/breakpoints.js).
  *
- * The map and the rail keep their two columns; what gives is the shortlist
- * beside the map. In landscape it stays beside it, narrower. In portrait the
- * left column is too narrow for both (a 768px iPad leaves ~420px), but it is
- * tall, so the shortlist moves under the map and the map takes the full column
- * width. The split is fixed (3 : 2), so the map's size still cannot change
- * between steps; the shortlist fits as many rows as its share holds.
+ * The map and the rail keep their two columns, and the shortlist stays beside
+ * the map, as on desktop, in either orientation; what gives is the shortlist's
+ * width, narrower here and narrower again below 900px, so the map keeps as
+ * much of the column as it can.
  */
 @media (max-width: 1099px) {
   .storyPinned {
@@ -911,15 +909,11 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
   }
-  .storyPinned .mapBody {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
-    gap: var(--space-2);
-  }
-  .storyPinned .sidePanel {
-    padding-top: var(--space-2);
-    padding-left: 0;
-    border-top: 1px solid var(--hairline);
+}
+
+@media (max-width: 899px) {
+  .storyPinned {
+    --side-panel: 180px;
   }
 }
 

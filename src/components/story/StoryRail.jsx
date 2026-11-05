@@ -194,7 +194,7 @@ export function StoryRail({ chapters, activeChapter, activeStep, renderChart, on
                               /* A white card: what the chart shows, the
                                  chart, where it is from. */
                               <figure className={styles.chartCard}>
-                                {step.subhead && <p className={styles.stepSubhead}>{step.subhead}</p>}
+                                {step.subhead && !step.subheadInChart && <p className={styles.stepSubhead}>{step.subhead}</p>}
                                 <div className={styles.stepChart}>{chart}</div>
                                 <StepSources sources={step.sources} note={step.sourceNote} />
                               </figure>

@@ -403,33 +403,7 @@ export function StripFigure({
   );
 }
 
-// --------------------------------------------------------------- bar lists
-
-/**
- * Horizontal bars, one per group, lengths on a shared scale, with the one the
- * copy is about in the accent colour.
- *
- * @param {{ rows: { label: string, value: number, display: string, highlight?: boolean }[] }} props
- */
-export function GroupBarsFigure({ rows }) {
-  const max = Math.max(...rows.map((r) => Math.abs(r.value))) || 1;
-  return (
-    <div className={styles.groupBars}>
-      {rows.map((r) => (
-        <div key={r.label} className={styles.groupRow}>
-          <span className={styles.groupLabel}>{r.label}</span>
-          <span className={styles.groupTrack}>
-            <span
-              className={cx(styles.groupBar, r.highlight && styles.groupBarOn)}
-              style={{ width: `${(Math.abs(r.value) / max) * 100}%` }}
-            />
-          </span>
-          <span className={cx(styles.groupValue, 'tabular')}>{r.display}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+// --------------------------------------------------------------- year bars
 
 /**
  * Columns by year with the value printed on each, the recent years toned so

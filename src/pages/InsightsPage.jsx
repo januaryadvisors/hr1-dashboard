@@ -25,6 +25,7 @@ import { PlaceRankList, rankUnits } from '../components/charts/PlaceRankList';
 import { Methodology } from '../components/shell/Methodology';
 import { ScopeBar } from '../components/shell/ScopeBar';
 import {
+  AGE_COLORS,
   ageBandRows,
   ageGroupLoss,
   ageLeadTitle,
@@ -55,13 +56,6 @@ import styles from './InsightsPage.module.css';
  */
 const VIEW_WIDTH = 960;
 const PHONE_VIEW_WIDTH = 470;
-
-/**
- * The age pie's slices: burgundy for children, as the page's loss colour, then
- * blue and amber. Checked with the dataviz palette validator against white
- * (lightness band, chroma, colourblind and normal-vision separation, 3:1 contrast).
- */
-const AGE_COLORS = { '0–17': '#b44a3f', '18–64': '#3a75a8', '65+': '#c98316' };
 
 /** The page's sections, in order. The left column indexes them. */
 const SECTIONS = [

@@ -45,7 +45,9 @@ import { DOMAINS } from './layers';
  * @property {Copy} title - The collapsible's header.
  * @property {Copy} body
  * @property {Copy} [subhead] - What the chart shows, set between the body and the chart.
- * @property {'snapLine' | 'ageLines' | 'shortfall' | 'workStrip' | 'childCounts'
+ * @property {boolean} [subheadInChart] - The chart sets the subhead itself (the compact pie, beside
+ *   it), so the rail does not print it above.
+ * @property {'snapLine' | 'ageLines' | 'shortfall' | 'workStrip' | 'agePie'
  *   | 'cepDropped' | 'indexRecipe' | 'indexStrip' | 'marketLine' | 'neverPaid'} [chart]
  *   A static figure MapPage renders. The rail holds figures to read, never
  *   controls — those live in Map options.
@@ -161,30 +163,27 @@ export const STORY = [
       {
         id: 'children-count',
         title: (f) =>
-          f.childrenK ? `About ${f.childrenK} children have left SNAP` : 'Children who have left SNAP',
+          f.childrenShortK
+            ? `About ${f.childrenShortK} children are no longer receiving SNAP benefits`
+            : 'Children no longer receiving SNAP benefits',
         body: (f) =>
           f.childShare
-            ? `Children under 18 are ${f.childShare} of the Texans who have left SNAP since ${f.windowStartLong}.`
-            : `Children under 18 who have left SNAP since ${f.windowStartLong}.`,
+            ? `Children are ${f.childShare} of the Texans who have left SNAP since ${f.windowStartLong}.`
+            : `Children who have left SNAP since ${f.windowStartLong}.`,
         subhead: (f) =>
-          `Children on SNAP in ${f.windowStartLong} who were no longer enrolled in ${f.windowEndLong}, ` +
-          'by county type.',
-        chart: 'childCounts',
+          `Texans no longer on SNAP since ${f.windowStartLong}, by age group.`,
+        subheadInChart: true,
+        chart: 'agePie',
         sources: HHSC,
         measure: 'count',
       },
       {
         id: 'children-share',
-        title: (f) =>
-          f.childFaster
-            ? `${f.childFaster} counties are losing children’s benefits faster`
-            : 'Children’s benefits lost, by county type',
-        body: (f) =>
-          `Rural counties lost ${f.childRural} of children on SNAP; metro counties, ${f.childMetro}.` +
-          (f.cepDropped
-            ? ` ${f.cepDropped} schools dropped free meals for all students (CEP) for ${f.cepYear}, ` +
-              `${f.cepRose ? 'up from' : 'against'} ${f.cepDroppedPrev}.`
-            : ''),
+        title: 'Some rural counties have seen sharp declines in children enrolled in SNAP',
+        body:
+          'SNAP enrollment informs funding formulas for school meal programs, such as the Community ' +
+          'Eligibility Provision (CEP). The loss of children from SNAP could mean many schools could be ' +
+          'forced to stop participating in these programs due to higher financial costs.',
         // PLACEHOLDER figure: the CEP series stands in until this step's chart is decided.
         subhead: 'Texas schools that left the Community Eligibility Provision, by school year.',
         chart: 'cepDropped',

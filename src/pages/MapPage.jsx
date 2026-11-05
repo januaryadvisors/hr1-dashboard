@@ -35,6 +35,7 @@ import { BrushChart, buildPresets } from '../components/hero/BrushChart';
 import { TimelineFeed } from '../components/rail/TimelineFeed';
 import { HeadlineStats } from '../components/hero/HeadlineStats';
 import { PeriodControl } from '../components/hero/PeriodControl';
+import { PieChart } from '../components/charts/PieChart';
 import { ScatterChart } from '../components/charts/ScatterChart';
 import { ChapterNav } from '../components/story/ChapterNav';
 import { StoryRail } from '../components/story/StoryRail';
@@ -42,7 +43,6 @@ import { StoryProgress } from '../components/story/StoryProgress';
 import { StepCaption } from '../components/story/StepCaption';
 import { buildStory, INDEX_DOMAINS, resolveChapters } from '../config/story';
 import {
-  GroupBarsFigure,
   IndexRecipe,
   LineFigure,
   LineLegend,
@@ -69,7 +69,7 @@ import { loadMarketplace } from '../data/marketplace';
 import { buildGeometry } from '../lib/mapGeometry';
 import { useElementSize } from '../lib/useElementSize';
 import { buildLayerValues, countBinsFor, formatLayerValue } from '../lib/layerValues';
-import { benefitShortfall, headlineStats, indexTo } from '../lib/insights';
+import { AGE_COLORS, ageGroupLoss, benefitShortfall, headlineStats, indexTo } from '../lib/insights';
 import { binIndex, binsFor } from '../lib/scales';
 import {
   fmtDelta,
@@ -110,26 +110,12 @@ const monthDate = (m) => {
   const [y, mo] = m.split('-').map(Number);
   return new Date(Date.UTC(y, mo - 1));
 };
+/** 366,936 → "367", for "367k". */
+const fmtThousands = (v) => fmtInt(Math.round(v / 1000));
 /** "Jul". */
 const monthShort = (m) => monthDate(m).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
 /** "Jul '25". */
 const monthTick = (m) => `${monthShort(m)} '${m.slice(2, 4)}`;
-
-/**
- * Children no longer on SNAP over the window, by county type: how many (`lost`,
- * negative where the group grew) and as a share of the type's child caseload
- * at the start (`share`, null without one).
- */
-function childLossByType(counties, i0, i1) {
-  const out = {};
-  for (const t of COUNTY_TYPES) {
-    const g = counties.filter((c) => c.county_type === t);
-    const a = g.reduce((sum, c) => sum + (c.snap_children?.[i0] ?? 0), 0);
-    const b = g.reduce((sum, c) => sum + (c.snap_children?.[i1] ?? 0), 0);
-    out[t] = { lost: a - b, share: a > 0 ? (a - b) / a : null };
-  }
-  return out;
-}
 
 /** "2026-27" → "2026–27". */
 const schoolYear = (y) => y.replace('-', '–');
@@ -560,6 +546,8 @@ export default function MapPage() {
     const childLost = drop(band('Under 5')) + drop(band('5–17'));
     const adultLost = drop(band('18–59'));
     f.childrenK = k(childLost);
+    // "367k", for the children step's title.
+    f.childrenShortK = childLost >= 1000 ? `${fmtThousands(childLost)}k` : null;
     f.adultsK = k(adultLost);
     f.youngShare = lost > 0 ? `${Math.round(((childLost + adultLost) / lost) * 100)}%` : null;
     f.childShare = lost > 0 && childLost > 0 && childLost <= lost ? fmtPct(childLost / lost) : null;
@@ -586,23 +574,7 @@ export default function MapPage() {
       f.workRange = lo === hi ? `about ${lo}` : `${lo} to ${hi}`;
     }
 
-    // Children by county type, and the index's rural median.
-    const { Rural: rural, Metro: metro } = childLossByType(counties, i0, i1);
-    f.childRural = rural.share == null ? null : pctOf(rural.share);
-    f.childMetro = metro.share == null ? null : pctOf(metro.share);
-    // Which of the two is losing children faster, so the title follows the window.
-    if (rural.share != null && metro.share != null && rural.share !== metro.share) {
-      f.childFaster = rural.share > metro.share ? 'Rural' : 'Metro';
-    }
-    // Schools leaving CEP: the latest school year against the one before. Not windowed.
-    const cep = statewide.cep_history;
-    if (cep?.length >= 2) {
-      const [prev, latest] = cep.slice(-2);
-      f.cepDropped = fmtInt(latest.dropped);
-      f.cepDroppedPrev = fmtInt(prev.dropped);
-      f.cepYear = schoolYear(latest.year);
-      f.cepRose = latest.dropped > prev.dropped ? 'yes' : null;
-    }
+    // The index's rural median.
     const med = medianByType(counties, (c) => c.vulnerability_score);
     f.compRural = med.Rural?.toFixed(2) ?? null;
 
@@ -1048,17 +1020,26 @@ export default function MapPage() {
           />
         );
 
-      // 3a — children no longer on SNAP, by county type.
-      case 'childCounts': {
-        const by = childLossByType(counties, i0, i1);
+      // 3a — everyone no longer on SNAP statewide, by age group: the Insights pie.
+      case 'agePie': {
+        const groups = ageGroupLoss(statewide.age_series, i0, i1);
+        if (!groups?.some((g) => g.lost > 0)) return null;
         return (
-          <GroupBarsFigure
-            rows={COUNTY_TYPES.map((t) => ({
-              label: t,
-              value: Math.max(0, by[t].lost),
-              display: by[t].lost > 0 ? `−${fmtInt(by[t].lost)}` : fmtInt(-by[t].lost),
-              highlight: t === 'Metro',
+          <PieChart
+            slices={groups.map((g) => ({
+              label: g.label,
+              value: Math.max(0, g.lost),
+              color: AGE_COLORS[g.label],
+              // "−367K", as the step's title rounds it: full counts crowd the rail.
+              count: g.lost > 0 ? `−${fmtThousands(g.lost)}K` : '—',
+              share: g.lost > 0 ? fmtPct(g.share, 1) : '—',
             }))}
+            size={96}
+            compact
+            caption={s.subhead}
+            countLabel="Change"
+            shareLabel="Share"
+            title="Texans no longer on SNAP, by age group"
           />
         );
       }

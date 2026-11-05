@@ -60,9 +60,14 @@
   font-weight: 700;
 }
 
-.key {
+/* The key, and in compact mode the caption above it. */
+.side {
   flex: 1 1 260px;
   max-width: 420px;
+}
+
+.key {
+  width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
 }
@@ -102,15 +107,78 @@
   border-radius: 2px;
 }
 
+/*
+ * The Map story's rail: the pie, with the caption and the key stacked beside
+ * it. In a narrow rail the key has no room there and drops under both, so the
+ * pie and the caption still share one row.
+ */
+.compact {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  align-items: start;
+}
+
+.compact .pie {
+  grid-row: 1 / span 2;
+}
+
+.compact .side {
+  display: contents;
+}
+
+@container (max-width: 300px) {
+  .compact .pie {
+    grid-row: 1;
+  }
+  .compact .caption {
+    align-self: center;
+  }
+  .compact .key {
+    grid-column: 1 / -1;
+  }
+}
+
+.caption {
+  margin: 0;
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.compact .key {
+  font-size: var(--text-xs);
+}
+
+.compact .key th,
+.compact .key td {
+  padding: 3px 4px;
+}
+
+.compact .key th:first-child {
+  padding-left: 0;
+}
+
+.compact .key .num:last-child {
+  padding-right: 0;
+}
+
+.compact .swatch {
+  margin-right: 6px;
+}
+
 @media print {
   /* Half a page wide on paper: the key stays beside the pie, not under it. */
   .root {
     flex-wrap: nowrap;
     gap: 10px;
   }
-  .key {
+  .side {
     flex: 1 1 0;
     min-width: 0;
+  }
+  .key {
     font-size: 10px;
   }
   .key th,

@@ -303,6 +303,14 @@ export const AGE_GROUPS = [
 ];
 
 /**
+ * The age pie's slices (Insights and the Map story's children step): burgundy
+ * for children, as the loss colour, then blue and amber. Checked with the
+ * dataviz palette validator against white (lightness band, chroma, colourblind
+ * and normal-vision separation, 3:1 contrast).
+ */
+export const AGE_COLORS = { '0–17': '#b44a3f', '18–64': '#3a75a8', '65+': '#c98316' };
+
+/**
  * @typedef {Object} AgeGroupLoss
  * @property {string} label - "0–17", "18–64" or "65+".
  * @property {number} from - Enrolled at the window start.

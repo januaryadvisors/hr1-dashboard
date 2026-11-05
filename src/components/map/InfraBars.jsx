@@ -62,7 +62,7 @@ export function infraMax(counties) {
 /** What a column says over its bar: the range for CHW, the count otherwise. */
 export function infraValueLabel(county, key) {
   const v = county.infra[key];
-  if (key === 'chw') return v === 0 ? 'none' : county.chw_band;
+  if (key === 'chw') return v === 0 ? '0' : county.chw_band;
   return String(v);
 }
 

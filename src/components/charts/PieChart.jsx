@@ -6,6 +6,10 @@
  * Slices draw clockwise from twelve o'clock in the order given, a 2px surface
  * gap between them. A share is printed inside any slice big enough to hold it.
  * Hovering a slice or its key row picks it out and shows its figures by it.
+ *
+ * `compact` is for the Map story's rail: a small pie with its caption and a
+ * tighter key stacked beside it on one row, so the step stays short enough to
+ * scroll past.
  */
 import { useState } from 'react';
 import { arc as d3arc, pie as d3pie } from 'd3-shape';
@@ -25,10 +29,12 @@ import styles from './PieChart.module.css';
 const LABEL_MIN = 0.1;
 
 /**
- * @param {{ slices: PieSlice[], size?: number, countLabel: string, shareLabel?: string, title: string }} props
+ * @param {{ slices: PieSlice[], size?: number, countLabel: string, shareLabel?: string, title: string,
+ *   compact?: boolean, caption?: string }} props
  *   `size` is the pie's drawn diameter in px. `countLabel` and `shareLabel` head the key's two figure columns.
+ *   `caption`, compact only, sits above the key, beside the pie.
  */
-export function PieChart({ slices, size = 200, countLabel, shareLabel = 'Share', title }) {
+export function PieChart({ slices, size = 200, countLabel, shareLabel = 'Share', title, compact, caption }) {
   const [active, setActive] = useState(null);
   const r = size / 2;
   const total = slices.reduce((sum, s) => sum + s.value, 0);
@@ -43,7 +49,7 @@ export function PieChart({ slices, size = 200, countLabel, shareLabel = 'Share',
   const tipAt = hovered ? labelAt.centroid(hovered).map((v) => ((v + r) / size) * 100) : null;
 
   return (
-    <div className={styles.root} onPointerLeave={() => setActive(null)}>
+    <div className={cx(styles.root, compact && styles.compact)} onPointerLeave={() => setActive(null)}>
       <div className={styles.pie} style={{ width: size }}>
         <svg viewBox={`${-r} ${-r} ${size} ${size}`} className={styles.svg} role="img" aria-label={title}>
           {arcs.map((a) => (
@@ -78,35 +84,38 @@ export function PieChart({ slices, size = 200, countLabel, shareLabel = 'Share',
         )}
       </div>
 
-      <table className={styles.key}>
-        <thead>
-          <tr>
-            <th scope="col">Age</th>
-            <th scope="col" className={styles.num}>
-              {countLabel}
-            </th>
-            <th scope="col" className={styles.num}>
-              {shareLabel}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {slices.map((s) => (
-            <tr
-              key={s.label}
-              className={cx(active === s.label && styles.rowOn)}
-              onPointerEnter={() => setActive(s.value > 0 ? s.label : null)}
-            >
-              <th scope="row">
-                <span className={styles.swatch} style={{ background: s.color }} aria-hidden="true" />
-                {s.label}
+      <div className={styles.side}>
+        {compact && caption && <p className={styles.caption}>{caption}</p>}
+        <table className={styles.key}>
+          <thead>
+            <tr>
+              <th scope="col">Age</th>
+              <th scope="col" className={styles.num}>
+                {countLabel}
               </th>
-              <td className={cx(styles.num, 'tabular')}>{s.count}</td>
-              <td className={cx(styles.num, 'tabular')}>{s.share}</td>
+              <th scope="col" className={styles.num}>
+                {shareLabel}
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {slices.map((s) => (
+              <tr
+                key={s.label}
+                className={cx(active === s.label && styles.rowOn)}
+                onPointerEnter={() => setActive(s.value > 0 ? s.label : null)}
+              >
+                <th scope="row">
+                  <span className={styles.swatch} style={{ background: s.color }} aria-hidden="true" />
+                  {s.label}
+                </th>
+                <td className={cx(styles.num, 'tabular')}>{s.count}</td>
+                <td className={cx(styles.num, 'tabular')}>{s.share}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
