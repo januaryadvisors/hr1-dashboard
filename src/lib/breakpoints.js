@@ -9,8 +9,11 @@ export const DESKTOP = '(min-width: 900px)';
 /** Phone layout. Pairs with min-width: 700px. */
 export const PHONE = '(max-width: 699px)';
 
-/** Tall enough to pin the Map page's story: map, key and story chrome in one viewport. */
-export const STORY_PINNED =
-  '(min-width: 700px) and (min-height: 640px), (max-width: 699px) and (min-height: 560px)';
+/**
+ * Tall enough to pin the Map page's story: map, key and story chrome in one
+ * viewport. One height at every width, so a short laptop window keeps the
+ * desktop stage rather than dropping to the unpinned card.
+ */
+export const STORY_PINNED = '(min-height: 560px)';
 
 export const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';

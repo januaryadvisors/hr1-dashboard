@@ -97,7 +97,7 @@
 
 /* A narrow list (the pinned story's shortlist on a small tablet or window):
    the glyph goes, so the county names keep their room. */
-@container (max-width: 200px) {
+@container (max-width: 215px) {
   .row {
     grid-template-columns: 1.1rem minmax(0, 1fr) auto;
   }
