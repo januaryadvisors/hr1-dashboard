@@ -35,6 +35,7 @@ import { BrushChart, buildPresets } from '../components/hero/BrushChart';
 import { TimelineFeed } from '../components/rail/TimelineFeed';
 import { HeadlineStats } from '../components/hero/HeadlineStats';
 import { PeriodControl } from '../components/hero/PeriodControl';
+import { DumbbellChart } from '../components/charts/DumbbellChart';
 import { PieChart } from '../components/charts/PieChart';
 import { ScatterChart } from '../components/charts/ScatterChart';
 import { ChapterNav } from '../components/story/ChapterNav';
@@ -551,6 +552,9 @@ export default function MapPage() {
     f.adultsK = k(adultLost);
     f.youngShare = lost > 0 ? `${Math.round(((childLost + adultLost) / lost) * 100)}%` : null;
     f.childShare = lost > 0 && childLost > 0 && childLost <= lost ? fmtPct(childLost / lost) : null;
+    // Children's own caseload, down as a share of where it started: "21.1%".
+    const childStart = (band('Under 5')?.[i0] ?? 0) + (band('5–17')?.[i0] ?? 0);
+    f.childDropPct = childStart > 0 && childLost > 0 ? fmtPct(childLost / childStart) : null;
 
     // Work rules: the count, over the window's starting caseload.
     const subject = counties.reduce((sum, c) => sum + (c.newly_subject_persons ?? 0), 0);
@@ -1044,7 +1048,7 @@ export default function MapPage() {
         );
       }
 
-      // 3b — PLACEHOLDER: schools leaving CEP each year, until this step's figure is decided.
+      // 3c — PLACEHOLDER: schools leaving CEP each year, until this step's figure is decided.
       case 'cepDropped': {
         const cep = statewide.cep_history;
         if (!cep?.length) return null;
@@ -1060,6 +1064,13 @@ export default function MapPage() {
             }))}
           />
         );
+      }
+
+      // 3b — each age group's enrollment, start of the window to its end: the Insights arrows.
+      case 'ageArrows': {
+        const groups = ageGroupLoss(statewide.age_series, i0, i1);
+        if (!groups) return null;
+        return <DumbbellChart rows={groups} viewWidth={320} rowH={26} ticks={4} />;
       }
 
       // 4a — what goes into the index. No figures, by design.

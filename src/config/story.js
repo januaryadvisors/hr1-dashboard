@@ -47,7 +47,7 @@ import { DOMAINS } from './layers';
  * @property {Copy} [subhead] - What the chart shows, set between the body and the chart.
  * @property {boolean} [subheadInChart] - The chart sets the subhead itself (the compact pie, beside
  *   it), so the rail does not print it above.
- * @property {'snapLine' | 'ageLines' | 'shortfall' | 'workStrip' | 'agePie'
+ * @property {'snapLine' | 'ageLines' | 'shortfall' | 'workStrip' | 'agePie' | 'ageArrows'
  *   | 'cepDropped' | 'indexRecipe' | 'indexStrip' | 'marketLine' | 'neverPaid'} [chart]
  *   A static figure MapPage renders. The rail holds figures to read, never
  *   controls — those live in Map options.
@@ -176,6 +176,23 @@ export const STORY = [
         chart: 'agePie',
         sources: HHSC,
         measure: 'count',
+      },
+      {
+        id: 'children-households',
+        title: (f) =>
+          f.childDropPct
+            ? `Children’s SNAP enrollment is down ${f.childDropPct} since ${f.windowStartLong}`
+            : 'SNAP enrollment by age group',
+        body:
+          'Although children were not the target of H.R. 1 reforms, Texas’ policy of removing all ' +
+          'household members when the head of household no longer qualifies has led to a sharp ' +
+          'decline in children’s SNAP enrollment.',
+        subhead: (f) =>
+          `Texans enrolled in SNAP by age group, ${f.windowStartLong} → ${f.windowEndLong}. ` +
+          'The tick marks where each group started.',
+        chart: 'ageArrows',
+        sources: HHSC,
+        measure: 'rate',
       },
       {
         id: 'children-share',
