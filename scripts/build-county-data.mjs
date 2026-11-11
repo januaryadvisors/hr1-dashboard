@@ -128,6 +128,7 @@ const ACA = byGeoid(
 const FOODBANK_NAMES = {
   CTFB: 'Central Texas Food Bank',
   NTFB: 'North Texas Food Bank',
+  HFB: 'Houston Food Bank',
   East: 'East Texas Food Bank',
   West: 'West Texas Food Bank',
 };
