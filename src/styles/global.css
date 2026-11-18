@@ -44,7 +44,7 @@ button {
   color: inherit;
 }
 
-/* Every number that sits in a column or recomputes in place (§6.1). */
+/* Every number that sits in a column or recomputes in place. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }

@@ -1,4 +1,4 @@
-/** Fetching the static JSON under public/data — spec §2: "Static JSON fetched once." */
+/** Fetching the static JSON under public/data, once per file. */
 
 export class MissingDataError extends Error {
   file;

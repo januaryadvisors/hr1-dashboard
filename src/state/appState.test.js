@@ -20,9 +20,9 @@ const roundTrip = (state) =>
 describe('initial state matches the spec defaults', () => {
   it('starts on Benefits lost, geo, count, since-H.R.-1', () => {
     expect(defaults.layer).toBe('loss');
-    expect(defaults.style).toBe('geo'); // §6.5
+    expect(defaults.style).toBe('geo');
     expect(defaults.measure).toBe('count');
-    expect(defaults.window).toEqual(['2025-07', '2026-05']); // §6.2
+    expect(defaults.window).toEqual(['2025-07', '2026-05']);
     expect(defaults.infra).toEqual(ALL_INFRA);
   });
 });
@@ -64,7 +64,7 @@ describe('reducer', () => {
   });
 });
 
-describe('activeGeoid (§6.5)', () => {
+describe('activeGeoid', () => {
   it('is the hovered county, or null', () => {
     expect(activeGeoid({ ...defaults, hovered: '48201' })).toBe('48201');
     expect(activeGeoid(defaults)).toBeNull();
@@ -92,7 +92,7 @@ describe('URL mirroring', () => {
     expect(back).toEqual({ ...state, hovered: null });
   });
 
-  it('keeps hovered out of the URL (§4: transient)', () => {
+  it('keeps hovered out of the URL (it is transient)', () => {
     const p = toSearchParams({ ...defaults, hovered: '48201' }, defaults);
     expect(p.toString()).toBe('');
   });

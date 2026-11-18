@@ -2,7 +2,7 @@
   "name": "hr1-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Texas SNAP & H.R. 1 \u2014 D1 county vulnerability dashboard for Feeding Texas.",
+  "description": "Texas SNAP & H.R. 1 — D1 county vulnerability dashboard for Feeding Texas.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,8 +20,7 @@
     "fetch:data": "npm run fetch:bulletins",
     "fetch:officials": "node scripts/fetch-officials.mjs",
     "fetch:acs-snap": "node scripts/fetch-acs-snap-tracts.mjs",
-    "build:marketplace": "node scripts/build-marketplace.mjs",
-    "build:spec": "node scripts/extract-spec.mjs"
+    "build:marketplace": "node scripts/build-marketplace.mjs"
   },
   "dependencies": {
     "d3-array": "^3.2.4",

@@ -1,32 +1,14 @@
 /**
- * Listed-assistance bars — one vertical bar per registry, per county.
+ * Assistance bars, one per registry per county, drawn the same way in two places:
  *
- * Capacity reads as a small bar chart. The SAME
- * encoding draws in two places, and this module keeps them the same:
+ *   <InfraTileBars>     inside each box chart tile, unlabelled
+ *   <InfraColumnChart>  in the county tooltip, labelled
  *
- *   <InfraTileBars>     inside each tile on the grid map, unlabelled
- *   <InfraColumnChart>  in the county tooltip, labelled, three registries (no food banks)
- *
- * The bars share the hue per registry (INFRA_COLOR, so the bars and the geo
- * map's glyphs agree). Each registry has ITS OWN scale, topped at its highest
- * county: the four are different units — navigator orgs, CPP
- * sites in the dozens, a CHW range, reporting food banks — and on one shared
- * scale every bar but CPP's would be a sliver. So a bar's height says how
- * this county compares with other counties on that registry; the number over
- * it says how many.
- *
- * CHW is a range, not a count (INFRA_TYPES.banded): its bar is the band's
- * position and its label is the range ("11–100"), never a single number.
- *
- * The food-bank bar counts reporting food banks that served at least one
- * household in the county. Only some banks report (INFRA_TYPES.partial), so a
- * county none of them covers is null: the tooltip labels that column "no
- * data" in grey. The households those banks served are a different unit and
- * sit in the tooltip's figures, not on this scale.
- *
- * An unsourced registry carries null, not 0 (§L7). The tile draws nothing for
- * it; the tooltip labels the column n/a over a dashed baseline, so the absence
- * reads as "not measured" rather than "none listed".
+ * Each registry has its own scale (they are different units), so a bar's
+ * height compares counties and the number over it says how many. Community
+ * health workers are a published range, drawn by band. A county with no data
+ * is null, never zero: no bar on the tile, "no data" over a dashed baseline in
+ * the tooltip.
  *
  * @typedef {import('../../types').County} County
  * @typedef {import('../../types').InfraKey} InfraKey
@@ -60,7 +42,7 @@ export function infraMax(counties) {
 }
 
 /** What a column says over its bar: the range for CHW, the count otherwise. */
-export function infraValueLabel(county, key) {
+function infraValueLabel(county, key) {
   const v = county.infra[key];
   if (key === 'chw') return v === 0 ? '0' : county.chw_band;
   return String(v);

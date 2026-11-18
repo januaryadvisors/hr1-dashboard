@@ -1,10 +1,6 @@
 /**
- * <RankList> — §7 / M-09.
- *
- * At most TEN rows. F9 rules out a 1-to-254 ranking: ten of 254 is a shortlist,
- * not a ranking, and the card's own subhead says so. The cap is enforced here
- * rather than left to callers, so if this creeps toward 25 the change has to be
- * made deliberately in one place.
+ * The "Top affected counties" shortlist: at most ten rows, a shortlist rather
+ * than a 1-to-254 ranking. The cap lives here so raising it is deliberate.
  *
  * THE GLYPH IN THE MIDDLE COLUMN follows the view:
  *

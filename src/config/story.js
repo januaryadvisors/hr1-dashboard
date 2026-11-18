@@ -1,19 +1,11 @@
 /**
- * The homepage story — chapters, and the steps inside each one.
+ * The homepage story: chapters (one per map view) and the steps in each.
  *
- * On desktop the map and the story rail stick to the viewport and the page
- * scrolls behind them. Every step is one scroll stop: it pins the map to a view
- * and opens one collapsible in the rail. The reader can still work the map
- * inside a step (hover, search, Map options); scrolling to another step resets
- * the map to what that step declares.
+ * Each step is one scroll stop that sets the map's layer and measure; the
+ * reader can change the map within a step until they scroll on.
  *
- * A chapter is one of the map VIEWS (config/layers.js), so the chapter bar's
- * thumbnails and the map's own layer can never disagree about what is on screen.
- *
- * COPY is the client's. EVERY FIGURE IN IT IS COMPUTED: titles, bodies and subheads are functions of
- * `StoryFacts` (built in MapPage from the loaded data and the brush window), so
- * the words and the chart beside them cannot disagree and neither goes stale
- * when a month lands.
+ * Every figure in the copy is computed: titles, bodies and subheads are
+ * functions of the facts in lib/storyFacts.js, so the words never go stale.
  *
  * @typedef {import('../types').LayerKey} LayerKey
  * @typedef {import('../types').Measure} Measure
@@ -22,7 +14,7 @@
 import { DOMAINS } from './layers';
 
 /**
- * Formatted figures the copy quotes. Built in MapPage; any that depend on an
+ * Formatted figures the copy quotes, from lib/storyFacts.js; any that depend on an
  * optional dataset (observed SNAP, Marketplace) are null until it loads, and
  * the copy below falls back to wording without the number.
  *
@@ -49,13 +41,13 @@ import { DOMAINS } from './layers';
  *   it), so the rail does not print it above.
  * @property {'snapLine' | 'ageLines' | 'shortfall' | 'workStrip' | 'agePie' | 'ageArrows'
  *   | 'cepDropped' | 'indexRecipe' | 'indexStrip' | 'marketLine' | 'neverPaid'} [chart]
- *   A static figure MapPage renders. The rail holds figures to read, never
+ *   A static figure (see renderStoryChart). The rail holds figures to read, never
  *   controls — those live in Map options.
  * @property {StorySource[] | ((f: StoryFacts) => StorySource[])} [sources]
  * @property {string} [sourceNote] - Plain text after the linked sources.
  * @property {LayerKey} [layer] - Defaults to the chapter view's first metric.
  * @property {Measure} [measure] - Omitted: keep the reader's choice, falling back to rate where the
- *   layer has no count basis (C-03) so a step never opens on the "no count" callout.
+ *   layer has no count basis so a step never opens on the "no count" callout.
  * @property {boolean} [capacity] - On the index view, whether the assistance marks (or the grid's
  *   bars) draw on arrival. Default off: the index reads first on its own, and the
  *   reader turns the assistance on with the map's "Index + assistance" switch.
@@ -75,14 +67,14 @@ const HHSC = (f) => [{ label: 'Texas HHSC SNAP statistics', href: f.snapSourceUr
 const CMS = (f) => [{ label: 'CMS Marketplace data', href: f.mktSourceUrl ?? undefined }];
 
 /** @type {StoryChapter[]} */
-export const STORY = [
+const STORY = [
   {
     view: 'loss',
     nav: 'SNAP benefits lost',
     steps: [
       {
         id: 'loss-trend',
-        // "Still falling" only while the latest month is down; MapPage checks. The
+        // "Still falling" only while the latest month is down (storyFacts). The
         // figure is the average since the rules took effect, so the title says so
         // rather than reading as this month's loss.
         title: (f) =>
@@ -117,13 +109,13 @@ export const STORY = [
       {
         id: 'loss-dollars',
         title: (f) =>
-          f.shortfallM
-            ? `An estimated $${f.shortfallM} million ${f.shortfallMore ? 'more' : 'less'} reached Texas grocery stores`
-            : 'SNAP payments to Texas grocery stores',
+          f.shortfallAmount
+            ? `SNAP benefits to Texans ${f.shortfallMore ? 'rose' : 'fell'} by an estimated ${f.shortfallAmount}`
+            : 'SNAP benefits paid to Texans',
         body: (f) =>
-          f.shortfallM
-            ? `From ${f.shortfallFrom} through ${f.shortfallTo}, Texans received an estimated $${f.shortfallM} ` +
-              `million ${f.shortfallMore ? 'more' : 'less'} in SNAP benefits than if payments had stayed at their ` +
+          f.shortfallAmount
+            ? `From ${f.shortfallFrom} through ${f.shortfallTo}, Texans received an estimated ${f.shortfallAmount} ` +
+              `${f.shortfallMore ? 'more' : 'less'} in SNAP benefits than if payments had stayed at their ` +
               `monthly average from the year before H.R. 1 was signed (${f.baseRange}).`
             : 'Total SNAP benefits paid each month since H.R. 1 was signed.',
         subhead: (f) =>
@@ -314,3 +306,9 @@ export function buildStory() {
 
 /** What goes into each domain of the index, for the recipe chart. */
 export const INDEX_DOMAINS = DOMAINS.map((d) => ({ name: d.formalName, measures: d.measures }));
+
+/** The month Texas's new SNAP rules took effect: the story's second marker. */
+export const RULES_MONTH = '2025-11';
+
+/** The county types the story's strip charts and medians group by. */
+export const COUNTY_TYPES = ['Metro', 'Micro', 'Rural'];

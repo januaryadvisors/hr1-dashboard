@@ -1,6 +1,5 @@
 /**
- * The data contract — spec §3. These types are the shape export_tool_data.R must
- * satisfy. public/data/*.json are built to them from the analysis repo by
+ * The shapes of the data files in public/data, built from the analysis repo by
  * scripts/build-county-data.mjs.
  */
 
@@ -32,9 +31,7 @@
  */
 
 /**
- * The views of the map, in place of spec §6.4's layer cards (docs/SPEC-DEVIATIONS.md
- * §D3). A view is one or more layers plus a decision about whether assistance
- * capacity is drawn; see config/layers.js.
+ * The map's views (the story's chapters); see config/layers.js.
  *
  * @typedef {'loss' | 'work' | 'vulnerability' | 'aca' | 'children'} ViewKey
  */
@@ -63,7 +60,7 @@
  */
 
 /**
- * One of the 254 records in counties.json (§3.1).
+ * One of the 254 records in counties.json.
  *
  * @typedef {Object} County
  * @property {string} geoid
@@ -90,14 +87,12 @@
  * @property {number | null} d4_moe
  * @property {number | null} d5_moe
  * @property {number} vulnerability_score - Sum of the four domain percentiles, 0–4.
- * @property {number} cumulative_impact - Domains at Q5, 0–4. Overlay and filter only, never a fill (§3.1).
- * @property {number} newly_subject_persons - D1 count basis. PUMS-modelled — flag wherever shown (§10).
+ * @property {number} cumulative_impact - Domains at Q5, 0–4. Overlay and filter only, never a fill.
+ * @property {number} newly_subject_persons - D1 count basis. PUMS-modelled — flag wherever shown.
  * @property {number} noncit_snap_persons - D2 count basis.
  * @property {number[]} snap_enrolled - Monthly enrolled individuals, parallel to statewide meta.months.
  * @property {number[]} snap_children - Monthly enrolled children (under 18), parallel to statewide meta.months.
- *   For the Children view. NOT in the spec's §3.1 contract —
- *   see docs/SPEC-DEVIATIONS.md §A4. Built from HHSC's own county age columns
- *   (under 5 + 5–17), so it is observed, not apportioned.
+ *   Built from HHSC's own county age columns (under 5 + 5–17), so it is observed, not apportioned.
  * @property {Record<string, number[]>} snap_age - Monthly enrolled per age band, keyed like statewide age_series.
  * @property {number | null} aptc_consumers - ACA Marketplace consumers with an advance premium tax credit at the
  *   latest open enrollment (meta.aca_year). null where CMS suppresses the county.
@@ -112,8 +107,8 @@
  * @property {string[] | null} foodbank_banks - The banks behind infra.food_bank, by full name.
  * @property {boolean} is_gap - Top-quintile vulnerability and zero CMS navigators. The spec's food-bank clause
  *   waits on the registry. Precomputed.
- * @property {boolean} small_denominator - pop < 10,000. Drives dimming in rate view (§6.5).
- * @property {[number, number]} centroid - [lon, lat]. See docs/SPEC-DEVIATIONS.md.
+ * @property {boolean} small_denominator - pop < 10,000. Drives dimming in rate view.
+ * @property {[number, number]} centroid - [lon, lat].
  * @property {{ r: number; c: number }} grid - Tile-cartogram cell. Precomputed, never solved at runtime.
  * @property {boolean} [fixture] - Present only on fixture data.
  */
@@ -127,7 +122,7 @@
  */
 
 /**
- * statewide.json (§3.3). Everything the Insights page and brush need, precomputed.
+ * statewide.json. Everything the Insights page and brush need, precomputed.
  *
  * @typedef {Object} FoodbankMeta - statewide.meta.foodbank, derived by build-county-data.mjs.
  * @property {[string, string]} period - First and last month of the food-bank data, "YYYY-MM".
@@ -154,7 +149,7 @@
  */
 
 /**
- * Minimal TopoJSON shape we consume (§3.2).
+ * Minimal TopoJSON shape we consume.
  *
  * @typedef {Object} Topology
  * @property {'Topology'} type

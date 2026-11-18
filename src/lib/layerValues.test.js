@@ -14,7 +14,7 @@ import { defaultLayerFor, layerByKey, viewForLayer, VIEWS } from '../config/laye
  * @typedef {import('../types').County} County
  */
 
-/** Only the fields these functions touch; the rest of §3.1 is irrelevant here. */
+/** Only the fields these functions touch. */
 const county = (
   geoid,
   enrolled,
@@ -101,7 +101,7 @@ describe('score layers read their columns', () => {
     expect(v.count?.get('a')).toBe(1_000);
   });
 
-  it('has no count map where the layer has no count basis (C-03)', () => {
+  it('has no count map where the layer has no count basis', () => {
     expect(buildLayerValues(COUNTIES, 'd3', 0, 1).count).toBeNull();
     expect(buildLayerValues(COUNTIES, 'composite', 0, 1).count).toBeNull();
   });

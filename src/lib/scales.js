@@ -1,7 +1,7 @@
 /**
  * Bins, ramps and the percentile→colour mapping. Every value here is traceable
- * to rscripts/build_scores.R, rscripts/analyze_marketplace_aptc.R or spec §6.4
- * — do not tune them for looks.
+ * to rscripts/build_scores.R or rscripts/analyze_marketplace_aptc.R; do not
+ * tune them for looks.
  */
 import { LOSS_LAYERS } from '../config/layers';
 import { colorRampPalette } from './colorRamp';
@@ -21,9 +21,8 @@ export const RAMP_ANCHORS = {
   d2: ['#EEF6F7', '#9CC8CD', '#3F8E96'], // citizenship (teal)
   d3: ['#FDF2E1', '#F8CE87', '#F2A02F'], // access to work (amber)
   d4: ['#EAF4EE', '#87BE9C', '#288C46'], // socioeconomic need (green)
-  // build_scores.R:329 cumulative-impact ramp, reused for the composite index.
-  // Spec §6.4 calls the composite ramp "burgundy, 6 stops"; these are the four
-  // anchors the R code uses, interpolated to whatever bin count is in play.
+  // build_scores.R's cumulative-impact anchors, reused for the composite index
+  // and interpolated to however many bins are in play.
   composite: ['#F2F0EE', '#D9A29A', '#B44A3F', '#5A1D18'],
   /*
    * Burnt orange to brown. The two SNAP loss layers share it on purpose:
@@ -116,13 +115,13 @@ export function equalShareBins(shares, classes = 5) {
 export const BINS_INSIGHTS_LOSS = [0, 0.12, 0.15, 0.18, 0.21, 0.24, 1];
 
 /**
- * Spec §6.4 — the composite index is rebinned because it sums four percentiles
- * onto a 0–4 range with a very different distribution than a single domain.
+ * The composite sums four percentiles onto 0–4, a very different distribution
+ * from a single domain, so it has its own bins.
  */
 export const BINS_COMPOSITE = [0.8, 1.35, 1.65, 1.85, 2.05, 2.27, 2.66, 3.4];
 
 /** analyze_marketplace_aptc.R's bins_aptc: APTC consumers per 1,000 residents. Seven classes. */
-export const BINS_ACA = [0, 50, 75, 100, 125, 150, 200, Infinity];
+const BINS_ACA = [0, 50, 75, 100, 125, 150, 200, Infinity];
 
 /** A loss layer's bands before any window is known: 5 classes of 8 points. */
 const BINS_LOSS_DEFAULT = [0, 0.08, 0.16, 0.24, 0.32, 1];
@@ -189,34 +188,16 @@ export function colorFor(
 // ------------------------------------------------------------------ bivariate
 
 /**
- * The 3x3 red-blue scheme for the bivariate work layer.
+ * The 3x3 red-blue scheme for the bivariate work layer (not from build_scores.R).
  *
- * NOT from build_scores.R — this layer does not exist on the R side, so it is
- * the one ramp in this file with no upstream to stay bit-identical to. R review
- * maps of this layer would need the same corners.
+ *   lowLow    near-neutral: little of either
+ *   highA     red: a large share of the caseload newly subject
+ *   highB     blue: work is hard to reach
+ *   highBoth  dark: both at once
  *
- * The corners, and why these four:
- *
- *   lowLow    near-neutral, so "little of either" recedes
- *   highA     red   — a large share of the caseload newly subject
- *   highB     blue  — work is hard to reach
- *   highBoth  dark  — both at once, the corner the eye should land on
- *
- * THE TWO SINGLE-HIGH CORNERS ARE LUMINANCE-MATCHED ON PURPOSE — red #C13840
- * and blue #215E9E both sit at relative luminance 86, against 39 for the joint
- * corner and 231 for the neutral. With a darker red, a high-blue/low-red county
- * would read as nearly as urgent as a both-high one. Matching them means
- * lightness encodes only ONE thing: how much of both is going on. Check any
- * replacement corners against that before committing them.
- *
- * Nine classes, not sixteen: at 254 counties a 4x4 asks the reader to tell
- * apart colours that differ by a few RGB units. At 3x3 the closest adjacent
- * pair is ~58 units apart in RGB.
- *
- * The brief's framing is "red at one opacity over blue at another". Blending
- * two translucent layers over white is exactly a bilinear interpolation between
- * these corners, so that is what this computes — as one solid fill per county,
- * which keeps a single path per shape and avoids double-stroking every border.
+ * The red and blue corners are luminance-matched (both 86), so lightness only
+ * says how much of both is going on; a test pins this. Cells are a bilinear
+ * blend of the corners, as one solid fill per county.
  */
 export const BIVARIATE_CORNERS = {
   lowLow: '#EAE7E5',

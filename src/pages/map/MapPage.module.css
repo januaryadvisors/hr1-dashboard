@@ -1,0 +1,608 @@
+.root {
+  /* One width for every right-hand column, so their edges line up down the page. */
+  --col-side: clamp(260px, 28vw, 440px);
+  --col-gap: var(--space-6);
+  /* One width for the map's side panel and the scatter's. */
+  --side-panel: 288px;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--surface-warm);
+  /* `clip`, not `hidden`: it contains the full-bleed grounds without breaking the sticky rail. */
+  overflow-x: clip;
+}
+
+/* Parallax under the hero band (useStoryParallax sets both variables). */
+.story > .stage {
+  transform: translate3d(0, var(--under-shift, 0px), 0);
+}
+
+.story::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--ft-green);
+  opacity: var(--under-dim, 0);
+  pointer-events: none;
+}
+
+/*
+ * Below the story: the main column and the sticky policy rail. No column gap,
+ * so the two grounds meet edge to edge and the colour change is the divider.
+ */
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-side);
+  column-gap: 0;
+  row-gap: var(--col-gap);
+  /* start, not stretch: a stretched grid item cannot be sticky. */
+  align-items: start;
+  max-width: 1680px;
+  margin-inline: auto;
+  padding-block: 0;
+  padding-inline: clamp(var(--space-5), 5vw, 5rem);
+  min-width: 0;
+}
+
+.mainCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------ map card */
+
+.panel {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+/* The map's title, with Map options at its right. */
+.stageHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Drops the Map options button to the top of the title's capitals. */
+.stageHead > :last-child {
+  flex: 0 0 auto;
+  margin-top: 10px;
+}
+
+.stageTitle {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-figure);
+  font-size: clamp(1.75rem, 2.6vw, var(--text-title));
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.panelCopy {
+  max-width: 80ch;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* The map beside its side panel. */
+.mapBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--side-panel);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.mapCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.mapHead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+/* Capped so the colour key reads as a key, not a band across the map. */
+.panelLegend {
+  width: 100%;
+  max-width: 200px;
+}
+
+/* Texas is nearly square: the height cap wins and the map centres in the column. */
+.mapHolder {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+
+.mapHolder > svg {
+  width: auto;
+  max-width: 100%;
+  max-height: 660px;
+}
+
+/* The no-count reason, laid over a faded map. */
+.mapCallout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+}
+
+.mapCallout > * {
+  max-width: 44ch;
+  box-shadow: var(--shadow-panel);
+}
+
+.panelFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--hairline);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Only the index view has a marks key; elsewhere the rule would be a stray line. */
+.panelFooter:empty {
+  display: none;
+}
+
+/* ---------------------------------------------------------- side panel */
+
+.sidePanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--hairline);
+}
+
+.panelBlock {
+  padding: var(--space-3) 0;
+}
+
+.panelBlock:first-child {
+  padding-top: var(--space-2);
+}
+
+.panelBlock + .panelBlock {
+  border-top: 1px solid var(--hairline);
+}
+
+.blockTitle {
+  margin-bottom: var(--space-1);
+  font-family: var(--font-figure);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.blockNote {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------- page rail */
+
+/*
+ * The policy feed: one tan ground running off the right edge. The aside
+ * stretches the page's height; .railInner inside it is what sticks, and the
+ * feed inside that scrolls, so there is only ever one scrollbar.
+ */
+.rail {
+  align-self: stretch;
+  min-width: 0;
+  background: var(--ft-tan-alt);
+  /* Needed beside sections that share the rail's tan. */
+  border-left: 1px solid var(--hairline);
+  padding-inline: var(--space-4);
+  padding-left: var(--space-6);
+  /* Bleeds to the viewport edge. */
+  margin-right: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
+  padding-right: clamp(var(--space-5), 5vw, 5rem);
+}
+
+.railInner {
+  position: sticky;
+  top: var(--header-height);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--header-height));
+  overflow: hidden;
+  padding: var(--space-5) 0 var(--space-4);
+}
+
+/* -------------------------------------------------------------- story */
+
+/*
+ * The map and the story rail. Pinned (STORY_PINNED), the section is one
+ * viewport plus --step-h per extra step, the stage sticks under the header,
+ * and the step markers are the scroll stops. --step-h tunes how far a reader
+ * scrolls between steps.
+ */
+.story {
+  --stage-h: calc(100vh - var(--header-height));
+  --step-h: 70vh;
+
+  position: relative;
+}
+
+/* svh: the height with a tablet's toolbars showing, so the stage always fits. */
+@supports (height: 100svh) {
+  .story {
+    --stage-h: calc(100svh - var(--header-height));
+    --step-h: 70svh;
+  }
+}
+
+/* +2px so the last stop still has the stage pinned (see .stepMarker). */
+.storyPinned {
+  --side-panel: 240px;
+
+  height: calc(var(--stage-h) + (var(--story-steps) - 1) * var(--step-h) + 2px);
+}
+
+/* Same width, gutters and columns as .page, so the story lines up with it. */
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-side);
+  align-items: stretch;
+  max-width: 1680px;
+  margin-inline: auto;
+  padding-inline: clamp(var(--space-5), 5vw, 5rem);
+}
+
+.stageMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5) 0;
+}
+
+/* The story rail: the page rail's tan, bleeding right the same way. */
+.storyRail {
+  min-width: 0;
+  background: var(--ft-tan-alt);
+  border-left: 1px solid var(--hairline);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+  margin-right: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
+  padding-right: clamp(var(--space-5), 5vw, 5rem);
+}
+
+/* One per step, spaced --step-h apart. +1px so landing on a stop always has the stage pinned. */
+.stepMarker {
+  position: absolute;
+  top: calc(var(--i) * var(--step-h) + 1px);
+  left: 0;
+  width: 1px;
+  height: var(--step-h);
+  pointer-events: none;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+/* ------------------------------------------------------- story, pinned */
+
+/*
+ * Pinned, nothing above the map may change height between steps, so the map
+ * never moves: the title is one fixed line, and the key and marks key float
+ * in the map's empty corners.
+ */
+.storyPinned .stage {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 1;
+  height: var(--stage-h);
+}
+
+/* A faint glow inside the edges, so the stage reads as a window. */
+.storyPinned .stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    inset 0 0 64px 14px rgba(255, 255, 255, 0.65);
+}
+
+.storyPinned .stageMain {
+  height: 100%;
+  min-height: 0;
+  padding-bottom: var(--space-4);
+}
+
+/* No card, pinned: the map sits straight on the page. */
+.storyPinned .panel {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.storyPinned .mapBody {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  /* Stretch, so the side panel's scroller fills the row. */
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) var(--side-panel);
+}
+
+/* Rem, so the slot does not shrink with the fitted title (useFitText). */
+.storyPinned .stageTitle {
+  height: 2.75rem;
+  overflow: hidden;
+  line-height: 2.75rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.storyPinned .mapCol {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+
+/* The key floats in the empty top-right corner, north of the Red River. */
+.storyPinned .mapHead {
+  --legend-h: 88px;
+
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  height: var(--legend-h);
+}
+
+.storyPinned .panelLegend {
+  height: var(--legend-h);
+  margin-top: 0;
+}
+
+.storyPinned .mapHolder {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.storyPinned .mapHolder > svg {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+}
+
+.storyPinned .mapHolder:has(.mapCallout) > svg {
+  opacity: 0.18;
+}
+
+/* The marks key floats in the empty lower-left corner, below El Paso. */
+.storyPinned .panelFooter {
+  position: absolute;
+  bottom: var(--space-2);
+  left: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: 0;
+  border-top: 0;
+  pointer-events: none;
+}
+
+.storyPinned .sidePanel {
+  min-height: 0;
+  padding-top: 0;
+  padding-left: var(--space-4);
+  border-top: 0;
+  border-left: 0;
+}
+
+/* The list scrolls inside the panel on a short stage; the search above it does not. */
+.storyPinned .sideScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+
+/* A tall step chart scrolls the rail; the bottom padding leaves room for the Jump to button. */
+.storyPinned .storyRail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: auto;
+  padding-bottom: calc(var(--space-5) + 44px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+
+@media (max-height: 800px), (max-width: 899px) {
+  .storyPinned .storyRail {
+    padding-top: var(--space-4);
+  }
+}
+
+/* Tablets, pinned: the side panel narrows so the map keeps the room. */
+@media (max-width: 1099px) {
+  .storyPinned {
+    --side-panel: 220px;
+  }
+  .storyPinned .stageMain {
+    gap: var(--space-2);
+    padding-right: var(--space-4);
+  }
+  .storyPinned .storyRail {
+    padding-left: var(--space-4);
+  }
+}
+
+/* Portrait tablets: the title gets two fixed lines. */
+@media (max-width: 1099px) and (orientation: portrait) {
+  .storyPinned .stageTitle {
+    display: -webkit-box;
+    height: 4.2rem;
+    line-height: 2.1rem;
+    white-space: normal;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
+
+@media (max-width: 899px) {
+  .storyPinned {
+    --side-panel: 180px;
+  }
+}
+
+/* ------------------------------------------------- story, pinned phone */
+
+/*
+ * The map is the whole stage: progress bar above, step caption below, no
+ * rail and no side panel (the list opens in the caption's sheet).
+ */
+.storyPhone .stage {
+  grid-template-columns: minmax(0, 1fr);
+  padding-inline: var(--space-4);
+}
+
+.storyPhone .stageMain {
+  position: relative;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 0;
+}
+
+/* dvh follows the phone's toolbars, keeping the caption on the bottom edge. */
+@supports (height: 100dvh) {
+  .storyPhone {
+    --stage-h: calc(100dvh - var(--header-height));
+  }
+}
+
+.storyPhone .mapBody {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.storyPhone .stageTitle {
+  height: 3.6rem;
+  font-size: var(--text-xl);
+  line-height: 1.8rem;
+}
+
+/* Taller: the count key's note wraps to two lines at phone width. */
+.storyPhone .mapHead {
+  --legend-h: 100px;
+}
+
+.storyPhone .sidePanel {
+  padding: 0;
+  border: 0;
+}
+
+/* ---------------------------------------------------------- responsive */
+
+/* Unpinned and narrow: the map card, then the story rail under it. */
+@media (max-width: 899px) {
+  .story:not(.storyPinned) .stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .story:not(.storyPinned) .stageMain {
+    padding-right: 0;
+  }
+  .story:not(.storyPinned) .storyRail {
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+    margin-inline: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
+    padding-inline: clamp(var(--space-5), 5vw, 5rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .stage {
+    padding-inline: var(--space-4);
+  }
+  .storyRail {
+    margin-inline: calc(-1 * var(--space-4));
+    padding-inline: var(--space-4);
+  }
+}
+
+/* The side panel moves under the map first. */
+@media (max-width: 1199px) {
+  .mapBody {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidePanel {
+    padding-left: 0;
+    padding-top: var(--space-3);
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+  }
+}
+
+@media (max-width: 899px) {
+  .rail {
+    padding-left: var(--space-4);
+  }
+}
+
+/* One column: the rail stacks under the page and stops sticking. */
+@media (max-width: 640px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .railInner {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .rail {
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
+    margin-inline: calc(-1 * clamp(var(--space-5), 5vw, 5rem));
+    padding-inline: clamp(var(--space-5), 5vw, 5rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .page {
+    gap: var(--space-5);
+    padding-inline: var(--space-4);
+  }
+  .rail {
+    margin-inline: calc(-1 * var(--space-4));
+    padding-inline: var(--space-4);
+  }
+}

@@ -1,4 +1,4 @@
-/** Formatters. Tabular figures everywhere a number sits in a column (§6.1). */
+/** Formatters. Tabular figures everywhere a number sits in a column. */
 
 const int = new Intl.NumberFormat('en-US');
 const signed = new Intl.NumberFormat('en-US', { signDisplay: 'always' });
@@ -53,6 +53,14 @@ export function fmtDollars(v) {
   return `${sign}$${Math.round(a)}`;
 }
 
+/** Unsigned dollars for prose: "$1.09 billion", "$964 million", "$89,400". */
+export function fmtDollarsLong(v) {
+  const a = Math.abs(v);
+  if (a >= 1e9) return `$${trimFixed(a / 1e9, 2)} billion`;
+  if (a >= 1e6) return `$${a >= 1e8 ? Math.round(a / 1e6) : trimFixed(a / 1e6, 1)} million`;
+  return `$${fmtInt(Math.round(a))}`;
+}
+
 /** Counts for axis labels: 1_400_000 → "1.4M", 250_000 → "250K", 2_000 → "2K", 40 → "40". */
 export function fmtCompact(v) {
   const a = Math.abs(v);
@@ -66,7 +74,7 @@ export const fmtMillions = (v) => `${trimFixed(v / 1e6, 1)}M`;
 
 const MONTH_NAMES = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-/** "2025-07" → "JUL 2025", for the eyebrow and brush handles (§6.1, §6.2). */
+/** "2025-07" → "JUL 2025", for the eyebrow and brush handles. */
 export function fmtMonth(month) {
   const [y, m] = month.split('-').map(Number);
   return `${MONTH_NAMES[m - 1]} ${y}`;
@@ -88,3 +96,12 @@ export function fmtMonthBody(month) {
   const label = fmtMonth(month);
   return label.charAt(0) + label.slice(1, 3).toLowerCase() + label.slice(3);
 }
+
+/** "2025-07" → "Jul". */
+export const fmtMonthShort = (month) => MONTH_FULL[Number(month.slice(5, 7)) - 1].slice(0, 3);
+
+/** "2025-07" → "Jul '25", for axis ticks. */
+export const fmtMonthTick = (month) => `${fmtMonthShort(month)} '${month.slice(2, 4)}`;
+
+/** 366,936 → "367", for figures written in thousands ("367k"). */
+export const fmtThousands = (v) => fmtInt(Math.round(v / 1000));

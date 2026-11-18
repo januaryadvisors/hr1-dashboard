@@ -1,0 +1,34 @@
+.card {
+  --chart-h: 460px;
+
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+/* A fixed height: the chart is drawn at this slot's measured size, so the SVG
+   must not be able to change it. */
+.chart {
+  position: relative;
+  min-width: 0;
+  height: var(--chart-h);
+}
+
+.chart > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 1199px) {
+  .chart {
+    height: 360px;
+  }
+}
+
+@media (max-width: 560px) {
+  .card {
+    padding: var(--space-4);
+  }
+}

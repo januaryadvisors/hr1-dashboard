@@ -80,10 +80,10 @@ export function PlaceRankList({ units, picked, noun, singular }) {
   const rows = rankRows(ranked, picked);
   return (
     <div className={styles.root}>
-      <h3 className={styles.title}>Most people no longer on SNAP</h3>
-      <p className={styles.sub}>
-        Rank among {fmtInt(ranked.length)} {noun}
-      </p>
+      <h3 className={styles.title}>
+        Ranking among {fmtInt(ranked.length)} {noun}
+      </h3>
+      <p className={styles.sub}>By people no longer on SNAP</p>
       <div className={cx(styles.row, styles.head)} aria-hidden="true">
         <span />
         <span />

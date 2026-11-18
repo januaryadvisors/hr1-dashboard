@@ -1,10 +1,8 @@
 /**
  * <LineChart> — levels over months, with the policy window shaded.
  *
- * §8 tab 1's "Enrollment line 2022 → May 2026". The shaded band is what makes
- * the chart an argument rather than a time series: it puts the pre-policy years
- * on the same axis as the decline, so the reader can see the caseload was flat
- * before the window and is not now.
+ * The shaded band puts the years before H.R. 1 on the same axis as the
+ * decline, so the reader sees the caseload was flat before and is not now.
  *
  * Y is fitted to the data rather than starting at zero, because a 3.0M–4.0M
  * range on a 0-based axis flattens a 15% fall to nothing. Its ends are rounded

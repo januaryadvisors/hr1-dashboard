@@ -1,5 +1,5 @@
 /**
- * <DumbbellChart> — §7 / §6.8 "Who is falling off".
+ * The "Who is falling off" arrows, one row per age group.
  * A rounded arrow from the window's start to its latest month, with a faint
  * tick where it began; percent change right-aligned. Rows draw in the order
  * given — youngest band first. The axis runs from zero to a round number past

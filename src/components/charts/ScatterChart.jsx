@@ -1,22 +1,15 @@
 /**
- * <ScatterChart> — §7 / §6.8 "Where need meets capacity".
+ * The "Where need meets capacity" scatter.
  *
- * Two county metrics chosen by a preset (config/metrics.js). Median
- * crosshairs, or a none-listed floor strip on a zero-inflated y axis; the
- * preset's concern corner is tinted and counted. Points scale by population.
+ * Two metrics from a preset (config/metrics.js), with the preset's concern
+ * corner tinted and counted. Points scale by population.
  *
- * MEDIAN-CENTRED AXES. Each axis runs from the 2nd to the 98th percentile with
- * the Texas median at its midpoint, so the crosshair sits in the middle of the
- * plot and the four quadrants are the same size. On a plain linear axis from
- * zero the cloud bunches into one corner — most counties lose a similar share
- * and a few lose far more — and the quadrants are unreadable. The two halves of
- * an axis have different units per pixel as a result, so the ends and the
- * median are labelled with their values; the few counties past the 2nd/98th
- * percentiles sit on the edge, and the end labels say ≤ / ≥.
+ * Each axis runs from the 2nd to the 98th percentile with the Texas median at
+ * its midpoint, so the four quadrants are equal (a linear axis bunches the
+ * cloud in one corner). The two halves therefore have different scales, so the
+ * ends and the median are labelled; counties past the ends sit on the edge (≤ / ≥).
  *
- * The `hovered` county is highlighted with a ring and a label. The base points
- * are memoised into their own layer so a hover repaints only the highlight
- * overlay, not the whole cloud — which is what keeps hovering smooth.
+ * The points are memoised in their own layer, so a hover repaints only the highlight.
  */
 import { memo, useMemo } from 'react';
 import { splitQuadrants } from '../../config/metrics';

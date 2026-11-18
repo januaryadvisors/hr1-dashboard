@@ -1,12 +1,9 @@
 /**
- * The whole app state — spec §4. One reducer; every field except `hovered` and
- * `hoverOrigin` mirrored to a query param so any view is a shareable link.
+ * The app state: one reducer, mirrored to query params (except the hover and
+ * pin) so any view is a shareable link.
  *
- * NOTE: there is deliberately no `view` field. The views are a function of
- * `layer` (config/layers.js viewForLayer), so the view cannot drift out of sync
- * with the layer being drawn and a `?layer=` link opens the matching view.
- *
- * Spec §2 is explicit: no Redux, no Zustand.
+ * There is no `view` field: the view follows from `layer` (viewForLayer), so
+ * the two cannot drift apart.
  */
 import { INFRA_TYPES, VIEWS } from '../config/layers';
 /**
@@ -48,29 +45,18 @@ import { INFRA_TYPES, VIEWS } from '../config/layers';
  */
 
 /** A scope key naming a legislative or congressional district rather than a county. */
-export const isDistrictKey = (key) => typeof key === 'string' && /^(txhouse|txsenate|ushouse)-\d+$/.test(key);
+const isDistrictKey = (key) => typeof key === 'string' && /^(txhouse|txsenate|ushouse)-\d+$/.test(key);
 
 /** Registries that can draw marks — the sourced ones only (see INFRA_TYPES). */
 export const ALL_INFRA = INFRA_TYPES.filter((t) => t.available).map((t) => t.key);
 
 export function initialState(policyStart, latest) {
   return {
-    /*
-       COUNT by default, not §6.5's Rate. A share is comparable across counties
-       of wildly different size, but the first question a reader brings to this
-       page is how many people, and a percentage answers a question they have
-       not asked yet.
-    */
+    // Count first: a reader's first question is how many people.
     measure: 'count',
-    /*
-       The Benefits-lost view, not §6.4's D1: observed enrollment change rather
-       than a modelled exposure percentile, so the first thing a reader sees is
-       a fact, not an index.
-    */
+    // Observed losses first, a fact rather than an index.
     layer: 'loss',
-    // §6.5: Geo is the default style.
     style: 'geo',
-    // §6.2: "Since H.R. 1" is the default preset.
     window: [policyStart, latest],
     infra: [...ALL_INFRA],
     overlayQ5: false,
@@ -126,13 +112,7 @@ export function reducer(state, action) {
   }
 }
 
-/**
- * §6.5: "hovered ?? pinned is the county every readout reads from. One selector,
- * used everywhere."
- *
- * `pinned` is the county picked from the search; a hover covers it while the
- * pointer is there.
- */
+/** The county every readout shows: the hovered one, else the pinned search pick. */
 export const activeGeoid = (state) => state.hovered ?? state.pinned ?? null;
 
 // ---------------------------------------------------------------- URL mirroring

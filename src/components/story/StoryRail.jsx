@@ -1,23 +1,13 @@
 /**
- * <StoryRail> — the right-hand column of the story, as ONE TIMELINE.
+ * The story's right-hand column, as one timeline: every chapter listed, the
+ * current one open with its steps, the active step expanded.
  *
- * Every chapter is always on it, so the reader can see the whole story and
- * where they are in it. Only the chapter they are in opens: its name becomes
- * the section title, over its steps as smaller nodes on the same rule, with
- * the active step's collapsible open. The other chapters stay one line each —
- * a list of five questions is easy to take in; five chapters of expanded steps
- * is not.
+ * The open step is always the active scroll step: clicking scrolls there (via
+ * `onSelect`) rather than toggling locally, so the rail, the map and the
+ * scrollbar always agree. Unpinned, the same markup reads as an accordion.
  *
- * The open step is ALWAYS the active scroll step. Clicking anything does not
- * toggle it locally, it scrolls there (via `onSelect`), and the scroll position
- * opens it — so the rail, the map and the scrollbar can never describe three
- * different states. On narrow screens the parent's `onSelect` sets the step
- * directly and the same markup reads as an accordion.
- *
- * THE RULE. Each block on the timeline — a chapter's head, each step — draws
- * its own stretch of the vertical rule, coloured by whether the reader has
- * passed it: navy up to the active step's node, hairline after. Drawn per block because CSS cannot know where the active node is, but
- * each block knows which side of it it is on.
+ * Each block draws its own stretch of the vertical rule, navy before the
+ * active step and hairline after, since only the block knows which side it is on.
  *
  * @typedef {import('react').ReactNode} ReactNode
  * @typedef {import('../../config/story').StoryStep} StoryStep

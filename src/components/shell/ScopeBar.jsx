@@ -1,21 +1,11 @@
 /**
- * <ScopeBar> — the Insights page header. Picks what every chart below reads
- * from: Texas, one or more counties (checked in the list and added together),
- * or one TX House, TX Senate or US House district.
+ * The Insights page's header and report box: picks the place every chart reads
+ * (Texas, one or more counties added together, or a district) and shows its
+ * headline figures. The pick mirrors to the URL, so the address bar is the
+ * shareable link.
  *
- * This is the control that turns the Insights page into a county stat page. The
- * selection lives in `state.scope` and mirrors to `?county=`, so the URL in the
- * address bar after picking a county IS the shareable link — there is no
- * separate "generate report" step to get out of sync with what is on screen.
- *
- * When a county is scoped the bar also carries its headline figures, because a
- * reader who was sent this link arrives wanting four numbers, not a chart.
- *
- * A DISTRICT'S NUMBERS MAY BE ESTIMATES, and the bar says which every time. HHSC
- * publishes SNAP by county; a district containing part of a split county gets
- * an apportioned share of it (see build-county-data.mjs). These pages go to
- * legislative offices who will repeat the figure, so "exact" and "estimated" are
- * stated beside the numbers rather than in a methodology note.
+ * A district holding part of a split county has apportioned, estimated figures,
+ * and the box says "exact" or "estimated" beside the numbers.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { CountySearch } from '../map/CountySearch';
@@ -43,8 +33,9 @@ import styles from './ScopeBar.module.css';
  * @property {[string, string]} window
  * @property {{ people: number | null, children: number | null,
  *   shortfall: { total: number, monthly: number, base: number, baseFrom: number } | null,
- *   baseFromLabel: string | null, sinceLabel: string }} figures - The three headline
- *   figures, for the window. baseFromLabel is the first month the shortfall's yardstick averages. sinceLabel is "H.R. 1" when the window starts at the policy month, else that month.
+ *   baseFromLabel: string | null, totalRange: string, baseRange: string | null }} figures - The three
+ *   headline figures for the window. `totalRange` is the months the benefits change totals and
+ *   `baseRange` the months its average is taken over, e.g. "Aug 2025 – Oct 2026", "Aug 2024 – Jul 2025".
  * @property {(scope: string | null) => void} onSelect - A county geoid, several joined with commas, a district key, or null.
  * @property {() => void} onPrint
  * @property {import('./PlaceOutline').PlaceOutlineProps | null} outline - The place's boundary, once its
@@ -226,20 +217,15 @@ export function ScopeBar({
               sub="under 18"
               negative={figures.children > 0}
             />
-            {/*
-              Cumulative, not one month against another: every month
-              after the start, the average month of the year to the start minus
-              benefits paid, summed, net (benefitShortfall). One number for the
-              whole period — the Map story's figure for Texas — rather than one that
-              moves with whichever month is latest. SNAP benefits can only be spent
-              at SNAP-authorized retailers, so this is money those stores did not
-              take in.
-            */}
+            {/* One total for the whole period (benefitShortfall), the same arithmetic as the hero. */}
             <Stat
               {...(figures.shortfall
                 ? shortfallLabels(figures.shortfall.total)
                 : { label: SPENDING_LABEL, value: '—' })}
-              sub={`estimated, compared with the monthly average the year before ${figures.sinceLabel}`}
+              sub={
+                figures.baseRange &&
+                `estimated, ${figures.totalRange}, vs. if benefits had stayed at the ${figures.baseRange} monthly average`
+              }
               negative={figures.shortfall?.total > 0}
               title={
                 figures.shortfall

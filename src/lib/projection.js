@@ -2,12 +2,8 @@
  * Texas Albers, tuned to EPSG:3083 (NAD83 / Texas Centric Albers Equal Area):
  * standard parallels 27.5°N and 35°N, central meridian 100°W.
  *
- * Spec §2: "Fit once to the state bbox and reuse the same projection object
- * across every panel so thumbnails and the hero map register exactly."
- *
- * That is why this module builds ONE projection at load time and exports a
- * canonical viewBox with it. Every panel renders the same viewBox at a different
- * width — never its own refitted projection, which would break registration.
+ * Built once and shared with a canonical viewBox: every map renders the same
+ * viewBox at its own width, so thumbnails and the hero map line up exactly.
  */
 import { geoAlbers, geoPath } from 'd3-geo';
 /**

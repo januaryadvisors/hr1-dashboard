@@ -1,11 +1,7 @@
 /**
- * Static figures for the story rail.
- *
- * Every chart here is a picture to read, not a control: no hover, no tabs, no
- * tooltips — the rail sets `pointer-events: none` on them as well. Each one is
- * authored at the rail's content width (W) so its type renders at the size it
- * was written at, and takes its data as props, so the copy beside a chart and
- * the chart itself read from the same figures in MapPage.
+ * Static figures for the story rail: pictures to read, with no hover or
+ * tooltips. Each is authored at the rail's width (W) so its type renders at the
+ * intended size, and takes its data as props (see renderStoryChart).
  *
  * @typedef {import('react').ReactNode} ReactNode
  */

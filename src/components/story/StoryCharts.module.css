@@ -247,3 +247,24 @@
   border-radius: 50%;
   background: var(--text-faint);
 }
+
+/* The numbered markers' key, under the enrollment chart. */
+.figureKey {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-2xs);
+  font-style: italic;
+  line-height: 1.25;
+  color: var(--text-muted);
+}
+
+.figureKey b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: var(--text-2xs);
+  color: #fff;
+  background: var(--ja-ink);
+  border-radius: 50%;
+}

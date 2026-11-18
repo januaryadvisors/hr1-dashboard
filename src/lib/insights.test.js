@@ -331,7 +331,17 @@ describe('headline figures', () => {
     expect(children.body).toBe('41.7% of all Texans who lost SNAP since H.R.\u00a01.');
     expect(dollars.value).toBe('−$600K');
     expect(dollars.body).toBe(
-      'Estimated SNAP benefits not going to Texans since H.R.\u00a01, compared with the monthly average the year before.',
+      'vs. if benefits had stayed at the Jan 2025 monthly average.',
+    );
+    // A full year to average over.
+    const later = headlineStats(
+      { ...statewide, meta: { ...statewide.meta, months: [...Array(14)].map((_, i) => `${2024 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`) } },
+      Array(14).fill(1_000_000).map((v, i) => (i > 12 ? 900_000 : v)),
+      12,
+      13,
+    ).at(-1);
+    expect(later.body).toBe(
+      'vs. if benefits had stayed at the Feb 2024 – Jan 2025 monthly average.',
     );
   });
 
@@ -361,9 +371,9 @@ describe('windowLoss and benefitShortfall', () => {
   });
 
   it('signs a gain as +, not as $0 less', () => {
-    expect(shortfallLabels(600_000)).toEqual({ label: 'Change in SNAP spending at authorized stores', value: '−$600K' });
+    expect(shortfallLabels(600_000)).toEqual({ label: 'Change in SNAP benefits paid', value: '−$600K' });
     expect(shortfallLabels(0).value).toBe('$0');
-    expect(shortfallLabels(-19_723)).toEqual({ label: 'Change in SNAP spending at authorized stores', value: '+$19.7K' });
+    expect(shortfallLabels(-19_723)).toEqual({ label: 'Change in SNAP benefits paid', value: '+$19.7K' });
   });
 
   it('averages up to 12 months ending at the start for the yardstick', () => {

@@ -1,10 +1,8 @@
 /**
  * Faithful port of R's grDevices::colorRampPalette(anchors)(n).
  *
- * Spec §13: "The domain ramps in §6.4 must match rscripts/build_scores.R:317–325
- * character for character. If the internal leaflet review maps and the dashboard
- * disagree on colour, every conversation about the data turns into a conversation
- * about the tool."
+ * The domain ramps must match rscripts/build_scores.R exactly, so the
+ * dashboard and the analysis's review maps never disagree on colour.
  *
  * Two details are load-bearing and were confirmed against real R output:
  *

@@ -1,9 +1,7 @@
 /**
- * <BrushChart> — §7, spec'd in §6.2.
- *
- * "This is the only time control in the app. There is no separate month slider
- * on the map." Drag either handle; everything below follows this window.
- * Debounced at 120ms; 24px hit areas; arrow keys move one month per press.
+ * The period brush: the app's only time control. Drag either handle and
+ * everything below follows. Debounced at 120ms; 24px hit areas; arrow keys
+ * move one month per press.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { scaleLinear } from 'd3-scale';
@@ -32,7 +30,7 @@ const LABEL_W = 64;
  * @property {[string, string]} window
  * @property {Preset[]} presets
  * @property {(window: [string, string]) => void} onChange
- * @property {(window: [string, string] | null) => void} [onPreview] - Fires on every drag frame, undebounced. §6.2 debounces `onChange` at 120ms
+ * @property {(window: [string, string] | null) => void} [onPreview] - Fires on every drag frame, undebounced. `onChange` is debounced at 120ms
  *   so the map and the summary charts do not recompute mid-drag; cheap readouts
  *   (the eyebrow, the hero number, the feed highlight) follow this instead so
  *   they do not freeze until the handle is released.
@@ -77,7 +75,7 @@ export function BrushChart({
     if (i !== -1 && j !== -1) setRange([i, j]);
   }, [win, months, drag]);
 
-  // §6.2: debounce the drag at 120ms before recomputing dependents.
+  // Debounce the drag before everything downstream recomputes.
   const timer = useRef();
   const commit = useCallback(
     (next) => {
@@ -187,7 +185,6 @@ export function BrushChart({
           <div className={styles.title}>
             Map period: {fmtMonthBody(months[i0])} – {fmtMonthBody(months[i1])}
           </div>
-          {/* §6.2: instruction text, always visible. */}
           <div className={styles.instruction}>
             Drag either handle. The map and charts below follow this window.
           </div>
@@ -259,7 +256,7 @@ export function BrushChart({
                 rx={3}
                 className={styles.grip}
               />
-              {/* 24px hit area (§6.2), keyboard-reachable, one month per arrow press. */}
+              {/* 24px hit area, keyboard-reachable, one month per arrow press. */}
               <rect
                 x={x(i) - HIT / 2}
                 y={M.top}
@@ -300,7 +297,7 @@ export function BrushChart({
   );
 }
 
-/** §6.2 presets. "Since H.R. 1" is the default. */
+/** The preset windows; "Since H.R. 1" is the default. */
 export function buildPresets(policyStart) {
   return [
     {

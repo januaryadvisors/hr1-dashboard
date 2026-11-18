@@ -1,20 +1,9 @@
 /**
- * Measure an element's content box and keep it current.
+ * An element's content-box size, kept current. For charts drawn at their
+ * slot's real pixels (like the scatter) instead of a fixed, letterboxed viewBox.
  *
- * Most charts are authored at a fixed viewBox and scaled to whatever width they
- * land in — right for a chart in a column, where the aspect ratio is a design
- * decision that should survive the resize.
- *
- * A chart in a slot whose height is fixed by its surroundings and whose width
- * is fluid (the "Where need meets capacity" scatter, for one) is different: a
- * fixed viewBox is letterboxed, drawn as a square with dead space above and
- * below. Measuring the slot and authoring the viewBox at its real pixel size
- * makes the SVG's coordinate system 1:1 with the screen — the plot fills the
- * slot exactly, and axis type renders at the size it was written at instead of
- * being scaled up with the chart.
- *
- * The element MUST get its height from something other than this SVG (a grid row
- * or an explicit height), or the observer and the layout chase each other.
+ * The element must get its height from elsewhere (a grid row or an explicit
+ * height), or the observer and the layout chase each other.
  */
 import { useLayoutEffect, useRef, useState } from 'react';
 

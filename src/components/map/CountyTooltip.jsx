@@ -1,257 +1,86 @@
 /**
- * <CountyTooltip> — §7, spec'd in §6.5.
+ * The county panel over the hero map. What it shows depends on the view
+ * (ViewDef.tooltip):
  *
- * WHAT SHOWS DEPENDS ON THE VIEW: `ViewDef.tooltip` decides, and the sections
- * are:
- *
- *   head      county, FIPS                    always
- *   focus     the active layer's own band      score layers, except the index
- *   index     all five indexes, one row each   Vulnerability index only
- *   stats     the three facts, per ViewDef     always
- *   capacity  the four registries as columns   Vulnerability index only
- *   chart     caseload line, or exposure bars  per view
- *
- * The index table gives every index the same full-size scale in one column, so
- * the five read against each other.
- *
- * The domain spread is the Vulnerability index's whole argument — that the four
- * domains disagree (§8 tab 3) — so it stays there and only there.
- *
- * Follows the cursor on hover.
+ *   head      county name and FIPS                    always
+ *   focus     the mapped layer's scale                score layers, not the index
+ *   index     all five indexes                        Vulnerability index
+ *   stats     a row of facts                          always
+ *   capacity  the assistance registries as columns    Vulnerability index
+ *   chart     caseload line or work-rule bars         per view
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import {
-  DOMAINS,
-  foodbankCoverage,
-  layerBasis,
-  layerByKey,
-  SCORE_LAYERS,
-  scoreField,
-  viewForLayer,
-} from '../../config/layers';
+import { useEffect, useMemo } from 'react';
+import { layerBasis, layerByKey, SCORE_LAYERS, scoreField, viewForLayer } from '../../config/layers';
 import { cx } from '../../lib/cx';
-import { fmtInt, fmtMonth, fmtPct, fmtPctDelta, fmtPercentile } from '../../lib/format';
-import { binIndex, bivariatePalette, BIVARIATE_STEPS } from '../../lib/scales';
-import { formatLayerValue } from '../../lib/layerValues';
+import { fmtInt, fmtMonth } from '../../lib/format';
 import { median } from '../../lib/stats';
-import { DomainScale } from '../charts/DomainScale';
-import { InfraColumnChart, infraMax } from './InfraBars';
 import { ExposureBars } from '../charts/ExposureBars';
 import { Sparkline } from '../charts/Sparkline';
+import { InfraColumnChart, infraMax } from './InfraBars';
+import { BivariateReadout, FocusedIndex, IndexTable } from './TooltipIndex';
+import { seriesLabels, TooltipStats } from './TooltipStats';
+import { useTooltipPlacement } from './useTooltipPlacement';
 import styles from './CountyTooltip.module.css';
 
-/**
- * @typedef {import('../../lib/layerValues').LayerValues} LayerValues
- * @typedef {import('../../types').County} County
- * @typedef {import('../../types').LayerKey} LayerKey
- * @typedef {import('../../types').Measure} Measure
- */
-
-/**
- * Gap between the cursor and the panel's near corner. Small enough that the
- * panel reads as attached to the pointer rather than floating near it, and
- * still clear of the arrow cursor's own hotspot so it does not sit under the tip.
- */
-const OFFSET = 6;
 const WIDTH = 272;
-/** The Vulnerability index tooltip carries the most (five rows, four figures, the help bars), so it is drawn larger. */
+/** The index view's panel carries the most, so it is drawn larger. */
 const WIDTH_LARGE = 360;
 
-/**
- * The labels for the layer's own series. Anything without an entry is SNAP.
- * `lost` and `lostRate` are followed by the window's first month.
- */
-const SERIES_LABELS = {
-  snap_enrolled: {
-    enrolled: 'On SNAP',
-    enrolledRate: '% of residents on SNAP',
-    lost: 'Lost since',
-    lostRate: '% lost since',
-    chart: 'SNAP enrolled',
-  },
-  snap_children: {
-    enrolled: 'Children on SNAP',
-    enrolledRate: 'Children on SNAP, % of residents',
-    lost: 'Children lost since',
-    lostRate: '% of children lost since',
-    chart: 'Children enrolled',
-  },
-};
+const CHART_TITLES = { snap_enrolled: 'SNAP enrolled', snap_children: 'Children enrolled' };
 
 /**
- * Statewide median per SCORED layer, and the registries' bar scale — computed
- * once for the dataset.
+ * Statewide medians for the index scales, and the assistance bars' scale
+ * (shared with the box chart). Computed once for the dataset.
  *
- * The two loss layers are absent on purpose: their value moves with the brush,
- * so a fixed statewide reference would not describe them.
- *
- * @typedef {Object} LayerStats
- * @property {Record<string, number | null>} median
- * @property {Record<string, number>} infraMax - Top of each registry's bar, shared with the grid tiles so the
- *   tooltip's columns are drawn to the same scale.
+ * @returns {{ median: Record<string, number | null>, infraMax: Record<string, number> }}
  */
-
 export function buildLayerStats(counties) {
-  const medians = {};
-  for (const layer of SCORE_LAYERS) {
-    const field = scoreField(layer.key);
-    medians[layer.key] = median(counties.map((c) => c[field]));
-  }
+  const medians = Object.fromEntries(
+    SCORE_LAYERS.map((l) => [l.key, median(counties.map((c) => c[scoreField(l.key)]))]),
+  );
   return { median: medians, infraMax: infraMax(counties) };
 }
 
-/** The county's score on a scored layer, or null when it has none. */
-function scoreOf(county, key) {
-  const value = county[scoreField(key)];
-  return typeof value === 'number' ? value : null;
+/** The series at the window's ends, skipping months it has no number for. */
+function trendOf(county, series) {
+  const published = series.filter((v) => typeof v === 'number' && Number.isFinite(v));
+  const start = published[0] ?? 0;
+  const end = published.at(-1) ?? 0;
+  return {
+    start,
+    end,
+    published: published.length > 0,
+    change: start > 0 ? (end - start) / start : null,
+    subjectShare: start > 0 ? county.newly_subject_persons / start : null,
+  };
 }
 
-/** One index's scale: the county's caret against the statewide median tick. */
-function IndexScale({ layerKey, value, stats }) {
-  return (
-    <DomainScale
-      layer={layerKey}
-      value={value}
-      median={stats.median[layerKey] ?? 0}
-      domain={layerKey === 'composite' ? [0, 4] : [0, 1]}
-    />
-  );
-}
-
-/**
- * The focused layer in full: every band coloured, caret, median tick. No
- * percentile or rank line — the scale already places the county.
- */
-function FocusedIndex({ county, layer, stats }) {
-  const l = layerByKey(layer);
-  const value = scoreOf(county, l.key);
-  return (
-    <div className={cx(styles.domain, styles.active)}>
-      <div className={styles.domainHead}>
-        <span className={styles.domainLabel}>
-          {l.key.toUpperCase()} · {l.label}
-        </span>
-        {value == null && <span className={styles.domainUnavailable}>no data</span>}
-      </div>
-      <IndexScale layerKey={l.key} value={value} stats={stats} />
-    </div>
-  );
+function useEscape(onClose) {
+  useEffect(() => {
+    if (!onClose) return undefined;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 }
 
 /**
- * All five indexes, one per row: name and reading on the left, the scale on the
- * right, every scale the same width. Composite first, because it is what the
- * map is coloured by; the domains follow in the index's own order (DOMAINS:
- * work-requirement exposure, citizenship and status, access to work,
- * socioeconomic need), the order the panel beside the map lists them in.
- * SCORE_LAYERS is in map-menu order, which is not that.
+ * @param {object} props
+ * @param {object | null} props.county
+ * @param {string} props.layer
+ * @param {ReturnType<typeof buildLayerStats>} props.stats
+ * @param {object} [props.values] - What the map is drawing, so the panel quotes the same numbers.
+ * @param {string[]} props.months
+ * @param {[string, string]} props.window
+ * @param {'rate' | 'count'} [props.measure]
+ * @param {'enrollment' | 'index'} [props.tooltipStats] - Which facts row to show.
+ * @param {object} [props.foodbank] - statewide.meta.foodbank.
+ * @param {number} [props.acaYear]
+ * @param {'pointer' | 'external' | 'list'} props.origin - What it is anchored to; see useTooltipPlacement.
+ * @param {() => void} [props.onClose] - Shows a close button (and Escape closes).
+ * @param {() => void} [props.onHold] - Called when the pointer rests on the panel.
+ * @param {() => void} [props.onRelease] - Called when the pointer leaves it.
  */
-const DOMAIN_RANK = new Map(DOMAINS.map((d, i) => [d.key, i]));
-function IndexTable({ county, layer, stats }) {
-  const ordered = [
-    ...SCORE_LAYERS.filter((l) => l.key === 'composite'),
-    ...SCORE_LAYERS.filter((l) => l.key !== 'composite').sort(
-      (a, b) => (DOMAIN_RANK.get(a.key) ?? Infinity) - (DOMAIN_RANK.get(b.key) ?? Infinity),
-    ),
-  ];
-  return (
-    <div className={styles.indexTable}>
-      {ordered.map((l) => {
-        const value = scoreOf(county, l.key);
-        /* The scale places the county, so only the composite quotes a number:
-           its 0–4 score, the one the map is coloured by. A missing value still
-           says so. */
-        const valueLine =
-          value == null ? 'no data' : l.key === 'composite' ? value.toFixed(2) : null;
-        return (
-          <div key={l.key} className={cx(styles.indexRow, l.key === layer && styles.indexRowActive)}>
-            <div className={styles.indexText}>
-              <div className={styles.indexLabel}>{l.label}</div>
-              {valueLine && <div className={cx(styles.indexValue, 'tabular')}>{valueLine}</div>}
-            </div>
-            <IndexScale layerKey={l.key} value={value} stats={stats} />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
- * Which cell of the 3x3 this county is in. On a two-axis map the reader's first
- * question is "where am I in the key", and a single highlighted band per axis
- * answers it in the same colours the legend uses.
- */
-function BivariateReadout({ county, layer, values }) {
-  const grid = bivariatePalette(BIVARIATE_STEPS);
-  const axes = layerByKey(layer).axes;
-  const a = values.fill.get(county.geoid) ?? null;
-  const b = values.secondary.fill.get(county.geoid) ?? null;
-  const rows = [
-    {
-      axis: axes[0],
-      text: formatLayerValue(layer, a),
-      bin: binIndex(a, values.bins),
-      // Red edge of the matrix: blue held at its low end.
-      swatches: grid[0],
-    },
-    {
-      axis: axes[1],
-      text: fmtPercentile(b),
-      bin: binIndex(b, values.secondary.bins),
-      // Blue edge: red held at its low end.
-      swatches: grid.map((row) => row[0]),
-    },
-  ];
-  return (
-    <div className={styles.bivariate}>
-      <div className={styles.bivariateHead}>On this map</div>
-      {rows.map((r) => (
-        <div key={r.axis.label} className={styles.bivariateRow}>
-          <span className={styles.bivariateLabel}>{r.axis.label}</span>
-          <span className={cx(styles.bivariateValue, 'tabular')}>{r.text}</span>
-          <span className={styles.bivariateBands} aria-hidden="true">
-            {r.swatches.map((c, i) => (
-              <span
-                key={c + i}
-                className={cx(styles.bivariateBand, i === r.bin && styles.bivariateBandActive)}
-                style={{ background: i === r.bin ? c : '#efeded' }}
-              />
-            ))}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * @typedef {Object} CountyTooltipProps
- * @property {County | null} county
- * @property {LayerKey} layer
- * @property {LayerStats} stats
- * @property {LayerValues} [values] - The values the map is currently drawing. Passed in so the panel quotes the
- *   same numbers and the same classes as the shapes under the cursor — the
- *   bivariate readout below is meaningless if it re-derives them.
- * @property {string[]} months
- * @property {[string, string]} window
- * @property {Measure} [measure] - Rate or count. Decides the unit of the three facts at the top.
- * @property {'enrollment' | 'index'} [tooltipStats] - Which facts to show. From the view's TooltipSpec.
- *   'enrollment' — residents, on SNAP, lost since the window start — is every view's but the index's.
- * @property {import('../../types').FoodbankMeta} [foodbank] - statewide.meta.foodbank: the period and
- *   bank coverage the food-bank figures quote, so no date is written into this panel.
- * @property {number} [acaYear] - statewide.meta.aca_year: the open enrollment the Marketplace figure is from.
- * @property {'pointer' | 'external' | 'list'} origin - 'pointer' anchors the panel to the cursor. 'external'
- *   (search) anchors it beside the county's own shape on the hero map. 'list' anchors it beside the
- *   shortlist row being hovered — on its left, or its right on the Vulnerability index view — so it
- *   opens where the reader is looking and never covers the list.
- * @property {() => void} [onClose] - Set for a pinned search pick or a shortlist hover: the panel then takes the pointer,
- *   shows a ✕, and closes on Escape.
- * @property {() => void} [onHold] - Set for a shortlist hover. The panel then takes the pointer, so a row
- *   underneath it cannot be hovered through it; resting on the panel calls this to keep it up.
- * @property {() => void} [onRelease] - Pairs with onHold: the pointer has left the panel.
- */
-
 export function CountyTooltip({
   county,
   layer,
@@ -268,166 +97,37 @@ export function CountyTooltip({
   onHold,
   onRelease,
 }) {
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [countyAnchor, setCountyAnchor] = useState(null);
-
-  /*
-     The panel's real height, measured after each render, for the "would it
-     overflow?" test below: a fixed estimate larger than most panels would pin
-     the panel in place in the lower half of the screen. Set only when it
-     changes, so this settles in one pass.
-  */
-  const rootRef = useRef(null);
-  const [panelH, setPanelH] = useState(240);
-  useLayoutEffect(() => {
-    const h = rootRef.current?.offsetHeight;
-    if (h && Math.abs(h - panelH) > 1) setPanelH(h);
+  const view = viewForLayer(layer);
+  const spec = view.tooltip;
+  const placement = useTooltipPlacement({
+    origin,
+    geoid: county?.geoid,
+    width: spec.domains ? WIDTH_LARGE : WIDTH,
+    rowRight: view.key === 'vulnerability',
   });
+  useEscape(onClose);
 
-  useEffect(() => {
-    const onMove = (e) => setPos({ x: e.clientX, y: e.clientY });
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, []);
-
-  /**
-   * For an external selection, find the county's shape on the hero map and
-   * anchor to its right edge. Read from the DOM rather than re-deriving screen
-   * coordinates from the projection, because the map is scaled to fit its column
-   * and the rendered geometry is the only thing that knows the true scale.
-   */
-  const geoid = county?.geoid;
-  /*
-     A layout effect, not a plain one: the anchor is read before the browser
-     paints, so the panel's first frame is already in place. With a plain
-     effect it painted once at the cursor and then jumped to its anchor.
-  */
-  useLayoutEffect(() => {
-    if ((origin !== 'external' && origin !== 'list') || !geoid) {
-      setCountyAnchor(null);
-      return undefined;
-    }
-    /*
-       Re-read on scroll and resize: a pinned pick stays up while the page
-       moves, so it follows its county — and hides while the county is off
-       screen rather than sticking to the viewport edge over other content.
-    */
-    const place = () => {
-      const el =
-        origin === 'list'
-          ? document.querySelector(`[data-rank-geoid="${geoid}"]`)
-          : document.querySelector(`[data-hero-map] [data-geoid="${geoid}"]`);
-      if (!el) {
-        setCountyAnchor(null);
-        return;
-      }
-      const r = el.getBoundingClientRect();
-      const offscreen = r.bottom < 0 || r.top > window.innerHeight;
-      setCountyAnchor(
-        origin === 'list'
-          ? { x: r.right, xFlip: r.left, y: r.top, row: true, offscreen }
-          : { x: r.right, y: r.top + r.height / 2, offscreen },
-      );
-    };
-    place();
-    window.addEventListener('scroll', place, { capture: true, passive: true });
-    window.addEventListener('resize', place);
-    return () => {
-      window.removeEventListener('scroll', place, { capture: true });
-      window.removeEventListener('resize', place);
-    };
-  }, [origin, geoid]);
-
-  useEffect(() => {
-    if (!onClose) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const spec = viewForLayer(layer).tooltip;
-
+  // Every figure reads the mapped layer's own series: children on Children, everyone elsewhere.
+  const seriesField = layerByKey(layer).seriesField ?? 'snap_enrolled';
   const i0 = months.indexOf(win[0]);
   const i1 = months.indexOf(win[1]);
-
-  /**
-   * Everything below reads the LAYER'S OWN series, so each view's tooltip is
-   * about the population its map is coloured by — child enrollment on Children,
-   * the whole caseload elsewhere.
-   */
-  const seriesField = layerByKey(layer).seriesField ?? 'snap_enrolled';
-  const labels = SERIES_LABELS[seriesField] ?? SERIES_LABELS.snap_enrolled;
-  /** Work requirements: the third figure is who the requirement reaches, not who left. */
-  const isWorkView = viewForLayer(layer).key === 'work';
-  /** ACA Marketplace: the third figure is the subsidised Marketplace population. */
-  const isAcaView = viewForLayer(layer).key === 'aca';
-
-  const enrollment = useMemo(() => {
-    if (!county || i0 < 0 || i1 < 0) return [];
-    return county[seriesField]?.slice(i0, i1 + 1) ?? [];
-  }, [county, i0, i1, seriesField]);
-
-  if (!county || countyAnchor?.offscreen) return null;
-
-  const fbCoverage = foodbankCoverage(foodbank);
-  const fbHouseholds = county.foodbank_households;
-
-  const anchor = countyAnchor ?? pos;
-
-  // Flip at the viewport edge rather than letting the panel clip.
-  const width = spec.domains ? WIDTH_LARGE : WIDTH;
-  /*
-     Beside a shortlist row the panel opens on the row's LEFT, over the map,
-     on every view but the Vulnerability index: there it opens on the right,
-     where the larger index panel has room. Either side falls back to the
-     other when the window has no room for it.
-  */
-  const rowLeft = anchor.row && viewForLayer(layer).key !== 'vulnerability';
-  const flipX = rowLeft
-    ? anchor.xFlip - OFFSET - width >= 8
-    : anchor.x + OFFSET + width > window.innerWidth;
-  const left = Math.max(
-    8,
-    flipX ? (anchor.xFlip ?? anchor.x) - OFFSET - width : anchor.x + OFFSET,
+  const series = useMemo(
+    () => (county && i0 >= 0 && i1 >= 0 ? county[seriesField]?.slice(i0, i1 + 1) ?? [] : []),
+    [county, i0, i1, seriesField],
   );
-  // Beside a shortlist row: top-aligned with it, nudged up only as far as the
-  // window needs, so the panel stays level with the row being read.
-  const top = anchor.row
-    ? Math.max(8, Math.min(anchor.y - 4, window.innerHeight - panelH - 8))
-    : Math.max(
-        8,
-        anchor.y + OFFSET + panelH > window.innerHeight
-          ? Math.min(anchor.y - OFFSET - panelH, window.innerHeight - panelH - 8)
-          : anchor.y + OFFSET,
-      );
 
-  /* The window's endpoints, skipping any month the series does not have. */
-  const published = enrollment.filter((v) => typeof v === 'number' && Number.isFinite(v));
-  const start = published[0] ?? 0;
-  const end = published[published.length - 1] ?? 0;
-  const pctChange = start > 0 ? (end - start) / start : null;
-  // Share of the county's own caseload that is newly subject to the work
-  // requirement. Independent of the active layer.
-  const shareOfCaseload = start > 0 ? county.newly_subject_persons / start : null;
+  if (!county || placement.hidden) return null;
 
-  /*
-     Which facts this view puts at the top, and in which unit: the index view
-     has its own four; every other view reports enrollment.
-  */
-  const counting = measure === 'count';
-  const indexStats = tooltipStats === 'index';
-  // Signed headcount change over the window; a gain is shown, not floored to 0.
-  const netLost = start - end;
+  const trend = trendOf(county, series);
+  const span = `${fmtMonth(win[0])} → ${fmtMonth(win[1])}`;
 
   return (
     <div
-      ref={rootRef}
+      ref={placement.ref}
       className={cx(styles.root, spec.domains && styles.large, (onClose || onHold) && styles.solid)}
       onMouseEnter={onHold}
       onMouseLeave={onRelease}
-      style={{ left, top }}
+      style={placement.style}
       role={onClose ? 'dialog' : 'tooltip'}
       aria-label={`${county.name} County details`}
     >
@@ -443,158 +143,22 @@ export function CountyTooltip({
         )}
       </div>
 
-      {/* Skipped on the loss layers, which have no percentile and no median to
-          tick — the window change in the stat row below is their readout. */}
-      {layerBasis(layer) === 'score' && !spec.domains && (
-        <FocusedIndex county={county} layer={layer} stats={stats} />
-      )}
-
-      {/* Vulnerability index only — see ViewDef.tooltip.domains. */}
+      {layerBasis(layer) === 'score' && !spec.domains && <FocusedIndex county={county} layer={layer} stats={stats} />}
       {spec.domains && <IndexTable county={county} layer={layer} stats={stats} />}
+      {values?.secondary && layerByKey(layer).axes && <BivariateReadout county={county} layer={layer} values={values} />}
 
-      {values?.secondary && layerByKey(layer).axes && (
-        <BivariateReadout county={county} layer={layer} values={values} />
-      )}
+      <TooltipStats
+        kind={tooltipStats}
+        view={view.key}
+        county={county}
+        window={win}
+        counting={measure === 'count'}
+        trend={trend}
+        labels={seriesLabels(seriesField)}
+        foodbank={foodbank}
+        acaYear={acaYear}
+      />
 
-      {/*
-        THE THREE FACTS, IN THE MEASURE THE READER PICKED. The row follows the
-        view AND the Rate/Count toggle, so the tooltip answers in the same unit
-        as the map under it.
-
-        `Residents` stays in both measures. It is the denominator rather than the
-        measure, and keeping it holds the three columns steady when the toggle
-        moves — a row that changes width as well as content reads as a different
-        panel rather than the same one restated.
-      */}
-      <div className={cx(styles.stats, indexStats && styles.statsQuad)}>
-        {indexStats ? (
-          <>
-            {/* Raw headcounts whatever the Rate/Count toggle says: the index is
-                already the rate. Caseload now, its change, the county's
-                population, then food-bank help. Three count PEOPLE and the
-                food-bank one counts HOUSEHOLDS, so every figure names its unit —
-                side by side they would otherwise read as the same kind of
-                number. */}
-            <div>
-              <div className={styles.statLabel}>People on SNAP, {fmtMonth(win[1])}</div>
-              <div className={cx(styles.statValue, 'tabular')}>
-                {published.length ? fmtInt(end) : '—'}
-              </div>
-            </div>
-            <div>
-              <div className={styles.statLabel}>Change since {fmtMonth(win[0])}</div>
-              <div className={cx(styles.statValue, netLost > 0 && styles.negative, 'tabular')}>
-                {!published.length
-                  ? '—'
-                  : netLost > 0
-                    ? `−${fmtInt(netLost)}`
-                    : `+${fmtInt(-netLost)}`}
-              </div>
-              <div className={styles.statUnit}>people</div>
-            </div>
-            {/* Total population: the scale the other three figures sit against. */}
-            <div>
-              <div className={styles.statLabel}>Total population</div>
-              <div className={cx(styles.statValue, 'tabular')}>{fmtInt(county.pop)}</div>
-              <div className={styles.statUnit}>residents</div>
-            </div>
-            <div>
-              <div
-                className={styles.statLabel}
-                title={[
-                  'Unique households connected to benefits assistance by reporting food banks',
-                  fbCoverage.period,
-                  county.foodbank_banks?.join(', '),
-                  fbCoverage.banks,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              >
-                Households connected to benefits assistance through food banks
-              </div>
-              {/* null is "no reporting bank covers this county", not zero. */}
-              <div
-                className={cx(styles.statValue, fbHouseholds == null && styles.statMissing, 'tabular')}
-              >
-                {fbHouseholds == null ? 'No data yet' : fmtInt(fbHouseholds)}
-              </div>
-              <div className={styles.statUnit}>{fbCoverage.period}</div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div>
-              <div className={styles.statLabel}>Residents</div>
-              <div className={cx(styles.statValue, 'tabular')}>{fmtInt(county.pop)}</div>
-            </div>
-            <div>
-              <div className={styles.statLabel}>
-                {counting ? labels.enrolled : labels.enrolledRate}
-              </div>
-              <div className={cx(styles.statValue, 'tabular')}>
-                {counting
-                  ? fmtInt(end)
-                  : county.pop > 0
-                    ? fmtPct(end / county.pop, 1)
-                    : '—'}
-              </div>
-            </div>
-            {isWorkView ? (
-              // Work requirements: the PUMS-modelled headcount newly subject, or
-              // under Rate its share of the caseload.
-              <div>
-                <div
-                  className={styles.statLabel}
-                  title="Modelled: SNAP recipients newly subject to the H.R. 1 work requirement"
-                >
-                  {counting ? 'Newly subject to requirements' : '% of caseload newly subject'}
-                </div>
-                <div className={cx(styles.statValue, styles.negative, 'tabular')}>
-                  {counting
-                    ? fmtInt(county.newly_subject_persons)
-                    : shareOfCaseload == null
-                      ? '—'
-                      : fmtPct(shareOfCaseload, 1)}
-                </div>
-              </div>
-            ) : isAcaView ? (
-              // ACA Marketplace: enrollees with a premium tax credit at the
-              // latest open enrollment, or under Rate per 1,000 residents.
-              <div>
-                <div className={styles.statLabel} title="CMS open-enrollment county file">
-                  {counting
-                    ? `Subsidised Marketplace enrollees, ${acaYear}`
-                    : `Subsidised Marketplace enrollees per 1,000, ${acaYear}`}
-                </div>
-                <div className={cx(styles.statValue, 'tabular')}>
-                  {counting ? fmtInt(county.aptc_consumers) : (county.aptc_per_1k?.toFixed(0) ?? '—')}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className={styles.statLabel}>
-                  {counting ? labels.lost : labels.lostRate} {fmtMonth(win[0])}
-                </div>
-                <div className={cx(styles.statValue, styles.negative, 'tabular')}>
-                  {counting
-                    ? start > end
-                      ? `−${fmtInt(start - end)}`
-                      : '0'
-                    : pctChange == null
-                      ? '—'
-                      : fmtPctDelta(pctChange)}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Capacity is the index view's story — see ViewDef.tooltip.capacity.
-          The same bars as the grid tiles, on the same scale. §L7 applies:
-          unsourced is n/a, and a county no reporting food bank covers is
-          "no data", never a zero. The Insights report lists the same
-          registries in words — see <HelpList>. */}
       {spec.capacity && (
         <div className={styles.capacity}>
           <InfraColumnChart county={county} max={stats.infraMax} large={spec.domains} />
@@ -609,35 +173,33 @@ export function CountyTooltip({
       {spec.chart === 'enrollment' && (
         <>
           <div className={styles.sparkHead}>
-            {labels.chart}, {fmtMonth(win[0])} → {fmtMonth(win[1])}
+            {CHART_TITLES[seriesField] ?? CHART_TITLES.snap_enrolled}, {span}
           </div>
-          <Sparkline values={enrollment} />
+          <Sparkline values={series} />
           <div className={styles.foot}>
-            <span>{fmtInt(start)}</span>
-            <span>{fmtInt(end)}</span>
+            <span>{fmtInt(trend.start)}</span>
+            <span>{fmtInt(trend.end)}</span>
           </div>
         </>
       )}
 
       {spec.chart === 'exposure' && (
         <>
-          <div className={styles.sparkHead}>
-            Who the requirement reaches, {fmtMonth(win[0])} → {fmtMonth(win[1])}
-          </div>
+          <div className={styles.sparkHead}>Who the requirement reaches, {span}</div>
           <ExposureBars
             rows={[
-              { label: `Caseload, ${fmtMonth(win[0])}`, value: start, tone: 'base' },
+              { label: `Caseload, ${fmtMonth(win[0])}`, value: trend.start, tone: 'base' },
               {
                 label: 'Newly subject',
                 value: county.newly_subject_persons,
-                share: shareOfCaseload,
+                share: trend.subjectShare,
                 tone: 'subject',
                 modelled: true,
               },
               {
                 label: 'Lost SNAP since',
-                value: Math.max(0, start - end),
-                share: start > 0 ? Math.max(0, start - end) / start : null,
+                value: Math.max(0, trend.start - trend.end),
+                share: trend.start > 0 ? Math.max(0, trend.start - trend.end) / trend.start : null,
                 tone: 'left',
               },
             ]}

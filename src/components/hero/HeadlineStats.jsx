@@ -1,9 +1,5 @@
 /**
- * <HeadlineStats> — §6.3's statement rail: three statewide narrative points
- * that "never become county metrics".
- *
- * The three figures sit in the green hero band, apart from the policy feed in
- * the sticky rail below.
+ * The hero band's three statewide figures (never county ones).
  *
  * The figures are computed for the brush window (headlineStats() in
  * src/lib/insights.js), so they follow the slider. Keyed by position, not

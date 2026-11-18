@@ -4,6 +4,7 @@ import {
   fmtOrdinal,
   fmtDelta,
   fmtDollars,
+  fmtDollarsLong,
   fmtInt,
   fmtMonth,
   fmtPct,
@@ -12,7 +13,7 @@ import {
 } from './format';
 
 describe('formatters', () => {
-  it('renders the hero number with a true minus sign (§6.1)', () => {
+  it('renders the hero number with a true minus sign', () => {
     expect(fmtDelta(-547051)).toBe('−547,051');
     expect(fmtDelta(-547051)).not.toContain('-'); // hyphen-minus must not appear
   });
@@ -25,7 +26,7 @@ describe('formatters', () => {
     expect(fmtPercentile(0.98)).toBe('p98');
   });
 
-  it('renders eyebrow months as tracked caps (§6.1)', () => {
+  it('renders eyebrow months as tracked caps', () => {
     expect(fmtMonth('2025-07')).toBe('JUL 2025');
     expect(fmtMonth('2026-05')).toBe('MAY 2026');
   });
@@ -35,6 +36,15 @@ describe('formatters', () => {
     expect(fmtDelta(null)).toBe('—');
     expect(fmtPct(null)).toBe('—');
     expect(fmtPercentile(null)).toBe('—');
+  });
+});
+
+describe('fmtDollarsLong', () => {
+  it('writes dollars out for prose, unsigned', () => {
+    expect(fmtDollarsLong(1_091_400_000)).toBe('$1.09 billion');
+    expect(fmtDollarsLong(-964_200_000)).toBe('$964 million');
+    expect(fmtDollarsLong(12_340_000)).toBe('$12.3 million');
+    expect(fmtDollarsLong(89_400)).toBe('$89,400');
   });
 });
 

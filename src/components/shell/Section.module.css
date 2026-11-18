@@ -1,19 +1,7 @@
 /*
- * A section is a band: its own ground, its own padding, so consecutive sections
- * read as separate territory without needing a rule between them.
- *
- * FULL BLEED TO THE LEFT, AND ONLY TO THE LEFT. The ground is painted by a
- * pseudo-element that overshoots the viewport's left edge, so the band runs off
- * the side of the page while its content stays on the main column's grid.
- * Leftward overflow is not scrollable in LTR and `.root` on the page carries
- * `overflow-x: clip` as well, so this cannot produce a horizontal scrollbar —
- * verified by asserting scrollWidth === innerWidth.
- *
- * The RIGHT edge stops dead on the main column, with no negative margin: the
- * page's two columns meet with no gutter between them (see .page and .rail),
- * so the band's right edge IS the boundary with the rail. Bleed it and the
- * section's tan would paint over the rail's ground for 24px and the colour
- * change would stop reading as the divider between the two columns.
+ * A section is a band with its own ground and padding. The ground bleeds off
+ * the left edge of the page (a pseudo-element; the page clips overflow) and
+ * stops dead on the right, where its edge is the boundary with the rail.
  */
 .root {
   position: relative;

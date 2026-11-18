@@ -68,7 +68,7 @@
 /*
  * The county tooltip, beside its point. Same panel as the map's <CountyTooltip>
  * — surface, hairline, radius, shadow — so the two read as one family. Placed
- * absolutely inside the chart's slot by MapPage; never takes the pointer, so it
+ * absolutely inside the chart's slot by CapacitySection; never takes the pointer, so it
  * cannot steal the hover from the point under it.
  */
 .tooltip {

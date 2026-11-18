@@ -1,19 +1,9 @@
 /**
- * County metrics available to the scatter's axis pickers.
+ * The county metrics the scatter can plot, and its curated pairings.
  *
- * WHAT THIS IS AND IS NOT
- * Every metric here is computed from data the export actually ships (§3.1) or
- * from the monthly series. The brief asked for things like "# of school lunch
- * programs" or "median teacher income" on the Children view — **those are not
- * in this dataset and are not faked here.** What the Children view offers
- * instead is the child caseload, the child loss, and the child share of the
- * caseload, which are the child-specific quantities that do exist. If the
- * school-nutrition or district-finance series can be sourced, each one is a
- * single entry in this file plus a column in the export.
- *
- * Metrics are grouped by view because the question changes with the view, but
- * anything in `SHARED_VIEWS` is offered everywhere — a reader comparing child
- * loss against navigator coverage needs both lists at once.
+ * Every metric is computed from data the dashboard actually has. Metrics the
+ * brief asked for that the data lacks (school lunch programs, teacher income)
+ * are absent, not approximated; each would be one entry here once sourced.
  *
  * @typedef {import('../types').County} County
  * @typedef {import('../types').ViewKey} ViewKey
@@ -42,7 +32,7 @@ import { domainByKey, SCORED_INFRA } from './layers';
  *   something when the x metric is `worse-high` and the y metric is
  *   `better-high` — high need, low capacity. Any other pairing and the tinted
  *   corner would be asserting a reading the axes do not support, so it is
- *   hidden. See ScatterPanel / MapPage.
+ *   hidden. See ScatterChart.
  * @property {ViewKey[]} views
  */
 
@@ -340,32 +330,15 @@ export const metricById = (id) =>
   METRICS.find((m) => m.id === id) ?? METRICS[0];
 
 /**
- * THE CURATED AXIS PAIRS.
+ * The scatter's curated pairings: each asks one question, names all four
+ * quadrants, and marks the corner that is the finding (tinted on the chart).
  *
- * Two free dropdowns over the whole registry would be ~500 orderings, most of
- * them meaningless (population against population; navigators against food
- * banks) and a few actively misleading. So the section asks a QUESTION and
- * draws the pair that answers it. Each preset names its four quadrants, because
- * a quadrant chart is only readable if the corners are labelled — and marks the
- * corner (or corners) that are the finding, which the chart tints.
+ * Quadrant keys are `<x>-<y>`, `lo` or `hi` against the median of the plotted
+ * counties; `hi` on y is always the top. On a loss axis `lo` means losing more
+ * slowly, not holding: nearly every county lost SNAP.
  *
- * Adding a preset is two metric ids and four labels; nothing here invents a
- * number.
- *
- * QUADRANT KEYS are `<x>-<y>`, each `lo` or `hi` relative to the median of the
- * counties actually plotted. `hi` on y is the TOP of the chart whatever the
- * metric means — "high vulnerability" and "high capacity" both read upward, and
- * which of those is bad is what `concern` records.
- *
- * `lo` on a loss axis is NOT "holding". 248 of 254 counties lost SNAP between
- * Jul 2025 and May 2026, and every county with 1,000+ enrollees did; below the
- * median means losing more slowly than most, and the labels say so.
- *
- * `ySplit: 'any'` replaces the median on a zero-inflated y axis. Capacity is
- * zero in 149 counties, so its median IS zero and a median split leaves both
- * lower quadrants empty — the concern corner would read "0 counties" on every
- * view. Split there at none-listed / some-listed instead, which is also the
- * honest reading of a presence registry. See splitQuadrants().
+ * `ySplit: 'any'` splits a zero-inflated y axis at none listed / some listed
+ * instead of the median (capacity is zero in 149 counties, so its median is zero).
  *
  * @typedef {Object} Quadrant
  * @property {'lo-lo'|'hi-lo'|'lo-hi'|'hi-hi'} corner
@@ -434,18 +407,8 @@ export const SCATTER_PRESETS = [
     x: 'loss_share',
     y: 'child_share',
     quadrants: [
-      /*
-         WHY THIS PAIR AND NOT CHILD LOSS AGAINST OVERALL LOSS.
-
-         On the real HHSC child series those two correlate at r = 0.89, so
-         their median quadrants mostly restate "this county is losing fast".
-
-         Child SHARE is the more informative axis: it runs 0.36–0.58 across the
-         175 counties with 1,000+ enrollees and correlates NEGATIVELY with the
-         loss share across all 254 (r = −0.35). Child-heavy caseloads are falling
-         more slowly than adult-heavy ones — consistent with the age bands, where
-         18–59 fell hardest.
-      */
+      // Child share, not child loss: child loss and overall loss correlate at r = 0.89,
+      // while child share runs against the loss share (r = −0.35).
       { corner: 'hi-hi', label: 'Child-heavy caseload, losing fastest', concern: true },
       { corner: 'hi-lo', label: 'Losing fastest, fewer children on it' },
       { corner: 'lo-hi', label: 'Child-heavy caseload, losing slower' },

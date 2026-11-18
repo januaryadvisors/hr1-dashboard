@@ -1,20 +1,8 @@
 /**
- * <ScatterPanel> — the scatter's title and controls, framing the chart.
- *
- * The preset's question as a full-width title, the controls in a row under it,
- * then the chart at the card's full width, so the plot is wider than it is tall
- * and the quadrants stay easy to tell apart. The chart comes in as `chart` so
- * this component owns the order and the chart keeps its own sizing.
- *
- * The county readout is a tooltip beside the point (<ScatterTooltip>), styled
- * like the map's: hovering a point, or searching a county, shows the two axis
- * values, the enrollment line for the population the map above is coloured by,
- * and the two flags that matter whatever the axes are set to.
- *
- * ONE PICKER, NOT TWO. Offering the whole metric registry on each axis would be
- * some 500 orderings; most are meaningless and a handful are misleading. The
- * control picks a QUESTION and the preset supplies both axes, so every state of
- * this chart is one somebody chose. See SCATTER_PRESETS.
+ * The scatter's frame: the preset's question as the title, the controls under
+ * it, then the chart (passed in as `chart`). One picker chooses a question and
+ * the preset supplies both axes, so every state of the chart is a curated one.
+ * <ScatterTooltip> is the county readout beside a hovered or searched point.
  */
 import { CountySearch } from '../map/CountySearch';
 import { Sparkline } from './Sparkline';

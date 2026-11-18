@@ -1,6 +1,5 @@
 // Build public/data/counties.json, statewide.json, snap-observed.json and
-// district-counts.json from the analysis repo's data-clean/ outputs — spec §3.1
-// and §3.3, on REAL data.
+// district-counts.json from the analysis repo's data-clean/ outputs (real data).
 //
 // Nothing here is synthetic. Every value is read from a parquet the R pipeline
 // wrote, and every number derived here is arithmetic on those reads.
@@ -54,11 +53,11 @@ import { countyTrends, excessDecline } from './lib/trends.mjs';
 
 const GEOMETRY = resolve(ROOT, 'public/data/geometry.json');
 
-/** HR1/OBBBA signed 4 Jul 2025; July is the pre-decline baseline (spec §6.1). */
+/** HR1/OBBBA signed 4 Jul 2025; July is the pre-decline baseline. */
 const POLICY_START = '2025-07';
 /** The notebook's pre-policy trend window for the excess-decline figure. */
 const TREND_WINDOW = ['2024-01', '2025-08'];
-/** Spec §3.1: counties under this many residents are dimmed in rate view. */
+/** Counties under this many residents are flagged as small denominators. */
 const SMALL_DENOMINATOR = 10_000;
 
 const round = (v, p = 6) => Number(v.toFixed(p));
@@ -264,7 +263,7 @@ MONTHS.forEach((m, i) => {
 
 // -------------------------------------------------------------- counties
 const quintileOf = (tier) => {
-  // build_scores.R emits the factor labels "Q1"–"Q5"; spec §3.1 wants 1–5.
+  // build_scores.R emits the labels "Q1"–"Q5"; the app wants 1–5.
   const n = Number(String(tier ?? '').replace(/^Q/, ''));
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
 };
@@ -285,11 +284,10 @@ const records = shapes.map((shape) => {
     rec[`${d}_score`] = score == null ? null : round(score);
     rec[`${d}_tier`] = quintileOf(v[`${d}_tier`]);
     rec[`${d}_n`] = num(v[`${d}_n`]);
-    // build_scores.R does not propagate MOEs to the domain scores yet — see
-    // docs/SPEC-DEVIATIONS.md §A1. null renders as "—", never as a zero MOE.
+    // build_scores.R does not produce domain MOEs yet. null renders as "—", never a zero MOE.
     rec[`${d}_moe`] = null;
   }
-  // D5 (Children) has no source column — §3 warning, §A3.
+  // D5 (Children) has no source column yet.
   Object.assign(rec, { d5_score: null, d5_tier: null, d5_n: null, d5_moe: null });
 
   rec.vulnerability_score = round(v.vulnerability_score);
@@ -300,7 +298,7 @@ const records = shapes.map((shape) => {
   rec.noncit_snap_persons = Math.round(v.noncit_snap_persons);
 
   rec.snap_enrolled = s.enrolled;
-  // Under-18s, straight from the county's own age columns (§A4).
+  // Under-18s, straight from the county's own age columns.
   rec.snap_children = s.enrolled.map((_, i) => s.bands[0][i] + s.bands[1][i]);
   // 65+, the same band the statewide "seniors" series uses.
   rec.snap_seniors = s.bands[4].slice();
@@ -356,7 +354,7 @@ const records = shapes.map((shape) => {
 });
 
 /*
-   is_gap — spec §3.1 defines it as top-quintile vulnerability with zero
+   is_gap — top-quintile vulnerability with zero
    food-bank sites AND zero navigators. Food-bank coverage is partial (only some
    member banks report), so a county with no reporting bank is unknown, not
    zero. This uses the half that covers every county: top-quintile
@@ -368,7 +366,7 @@ for (const r of records) {
   r.is_gap = r.vulnerability_score >= q5Cut && r.infra.cms_navigator === 0;
 }
 
-// Tile-cartogram lattice (§3.1 grid): the story's grid view draws it, and it
+// Tile-cartogram lattice: the box chart draws it, and it
 // sets keyboard navigation order on the map. Biggest counties place first so
 // metros hold their true position and rural counties absorb displacement.
 function assignGrid(cols = 22, rows = 24) {
@@ -584,7 +582,7 @@ const snapObserved = {
    Fallbacks, for a split county with no ACS SNAP households in its tracts (none
    today): residents under 200% of poverty, then population. Both have no MOE.
 
-   Scores are NOT allocated. Percentiles cannot be weighted into districts (§9);
+   Scores are NOT allocated. Percentiles cannot be weighted into districts;
    they have to be re-ranked from rates in build_scores.R, and districts.json is
    reserved for that. This file is enrollment, children, newly subject and
    population only.
@@ -838,7 +836,7 @@ const districtCounts = {
       Object.entries(weightCheck).map(([k, v]) => [k, round(v, 6)]),
     ),
     notes: [
-      'Counts only. Vulnerability scores are not allocated to districts — they must be re-ranked within the district set (spec §9).',
+      'Counts only. Vulnerability scores are not allocated to districts — they must be re-ranked within the district set.',
       'newly_subject_persons is a PUMS-modelled county estimate, apportioned the same way as enrollment.',
       'pop apportions the 2026 projected county population by block population.',
       'Each chamber reconciles to the statewide total exactly in every month.',
