@@ -198,7 +198,7 @@ describe('URL mirroring', () => {
   });
 
   it('accepts every layer a view can show', () => {
-    for (const layer of ['loss', 'child_loss', 'd1', 'd3', 'work_both', 'composite']) {
+    for (const layer of ['loss', 'child_loss', 'd1', 'composite']) {
       expect(fromSearchParams(new URLSearchParams(`layer=${layer}`), defaults, MONTHS).layer).toBe(
         layer,
       );
@@ -206,9 +206,10 @@ describe('URL mirroring', () => {
   });
 
   it('sends a layer no view can show back to the default', () => {
-    // d2 and d4 have no view of their own. Accepting them would highlight one
+    // d2 and d4 have no view of their own, nor (since the Work view went to one
+    // metric) d3 and work_both. Accepting them would highlight one
     // view's card while drawing another view's map.
-    for (const layer of ['d2', 'd4', 'd5']) {
+    for (const layer of ['d2', 'd3', 'd4', 'd5', 'work_both']) {
       expect(fromSearchParams(new URLSearchParams(`layer=${layer}`), defaults, MONTHS).layer).toBe(
         defaults.layer,
       );
@@ -251,5 +252,35 @@ describe('hoverOrigin', () => {
   it('is not mirrored to the URL', () => {
     const s = reducer(defaults, { type: 'hover', geoid: '48201', origin: 'external' });
     expect(toSearchParams(s, defaults).toString()).toBe('');
+  });
+});
+
+describe('pinned search pick', () => {
+  const pinned = reducer(defaults, { type: 'pin', geoid: '48201' });
+
+  it('is the active county while nothing is hovered', () => {
+    expect(pinned.pinned).toBe('48201');
+    expect(activeGeoid(pinned)).toBe('48201');
+  });
+
+  it('is covered by a shortlist hover and comes back when it ends', () => {
+    const over = reducer(pinned, { type: 'hover', geoid: '48113', origin: 'external' });
+    expect(activeGeoid(over)).toBe('48113');
+    const off = reducer(over, { type: 'hover', geoid: null, origin: 'external' });
+    expect(activeGeoid(off)).toBe('48201');
+  });
+
+  it('is replaced by a county hovered on the map', () => {
+    const over = reducer(pinned, { type: 'hover', geoid: '48113' });
+    expect(over.pinned).toBeNull();
+    expect(activeGeoid(reducer(over, { type: 'hover', geoid: null }))).toBeNull();
+  });
+
+  it('survives the pointer leaving the map', () => {
+    expect(activeGeoid(reducer(pinned, { type: 'hover', geoid: null }))).toBe('48201');
+  });
+
+  it('closes', () => {
+    expect(activeGeoid(reducer(pinned, { type: 'pin', geoid: null }))).toBeNull();
   });
 });

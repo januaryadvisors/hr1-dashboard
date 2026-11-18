@@ -141,3 +141,14 @@ export function loadDistrictShapes() {
   );
   return districtShapes;
 }
+
+let districtOfficials = null;
+
+/**
+ * Who holds each seat (officials.json), fetched the first time a district is
+ * picked. null if the file is absent: the report then names no member.
+ */
+export function loadDistrictOfficials() {
+  districtOfficials ??= fetchOptionalJson('officials.json');
+  return districtOfficials;
+}

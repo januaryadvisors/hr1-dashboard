@@ -64,7 +64,7 @@ const SIZE_SPEC = {
  * @property {LayerValues} values - The numbers to draw, precomputed by the page (src/lib/layerValues.js).
  *   Passed in rather than derived here because the loss layers recompute from
  *   the brush window — the map would otherwise need to know about months.
- * @property {MapStyle | 'grid'} style - 'grid' is set by a story step, never by the reader.
+ * @property {MapStyle} style - 'grid' is the box chart: a story step's, or the reader's on the Vulnerability index.
  * @property {Measure} measure
  * @property {MapSize} size
  * @property {InfraKey[]} [marks] - Infrastructure types whose marks should draw (§6.6).
@@ -72,6 +72,8 @@ const SIZE_SPEC = {
  * @property {boolean} [interactive]
  * @property {string | null} [hovered]
  * @property {(geoid: string | null) => void} [onHover]
+ * @property {string | null} [spotlight] - A county picked from the search: drawn again over everything,
+ *   enlarged and boldly outlined, so it is found at a glance wherever it is on the map.
  * @property {string} title - Accessible name; every map needs one (§13 step 9).
  */
 
@@ -92,6 +94,7 @@ function CountyMapInner(props) {
     interactive = false,
     hovered = null,
     onHover,
+    spotlight = null,
     title,
   } = props;
 
@@ -499,6 +502,36 @@ function CountyMapInner(props) {
               />
             ));
           })}
+        </g>
+      )}
+
+      {/* The hovered county's outline, drawn above every shape so no
+          neighbour covers half of it: bold and black. The main map only —
+          the thumbnails keep the in-place stroke. Skipped when the
+          spotlight below already outlines the same county. */}
+      {interactive && hovered && hovered !== spotlight && outlineFor(hovered) && (
+        <path d={outlineFor(hovered)} className={styles.hoverOutline} aria-hidden="true" />
+      )}
+
+      {/* The searched county, last so nothing draws over it: its own fill,
+          enlarged, under a white halo and a heavy ink line. Keyed on the
+          county so the pop-in replays for each new pick. No data-geoid, so
+          the tooltip still anchors to the real shape. */}
+      {spotlight && byGeoid.get(spotlight) && outlineFor(spotlight) && (
+        <g key={spotlight} className={styles.spotlight} aria-hidden="true">
+          <path
+            d={outlineFor(spotlight)}
+            className={styles.spotlightHalo}
+          />
+          <path
+            d={outlineFor(spotlight)}
+            className={styles.spotlightShape}
+            fill={
+              style === 'density'
+                ? 'none'
+                : colorOf(byGeoid.get(spotlight), fillValue(byGeoid.get(spotlight)))
+            }
+          />
         </g>
       )}
     </svg>

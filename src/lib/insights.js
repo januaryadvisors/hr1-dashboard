@@ -207,6 +207,59 @@ export function shortfallLabels(total) {
   };
 }
 
+/**
+ * What a SNAP dollar does beyond the checkout, for the report's second row.
+ * Each is applied to the place's own spending change, so every county,
+ * district and Texas carries its own figures.
+ *   economic       — USDA ERS (ERR-265): each $1 of SNAP generates ~$1.54 of
+ *                    local economic activity.
+ *   jobsPerBillion — USDA ERS (ERR-265): $1 billion of SNAP supports 13,560 jobs.
+ *   mealCost       — Feeding America, Map the Meal Gap: the average Texas meal costs $3.45.
+ */
+export const SNAP_MULTIPLIERS = { economic: 1.54, jobsPerBillion: 13_560, mealCost: 3.45 };
+
+/**
+ * The spending change carried through the multipliers. Same sign as the
+ * dollars: positive is activity, jobs and meals lost.
+ *
+ * @param {number | null | undefined} dollars - benefitShortfall's total.
+ * @returns {{ economic: number, jobs: number, meals: number } | null}
+ */
+export function snapImpact(dollars) {
+  if (dollars == null || !Number.isFinite(dollars)) return null;
+  return {
+    economic: dollars * SNAP_MULTIPLIERS.economic,
+    jobs: (dollars / 1e9) * SNAP_MULTIPLIERS.jobsPerBillion,
+    meals: dollars / SNAP_MULTIPLIERS.mealCost,
+  };
+}
+
+/** A loss as a signed count, abbreviated past a million: 279_420_290 → "−279.4M", 5_710 → "−5,710". */
+function lossCount(n) {
+  if (Math.round(n) === 0) return '0';
+  const a = Math.abs(n);
+  const body = a >= 1e6 ? `${trimDecimals(a / 1e6, 1)}M` : fmtInt(a);
+  return n > 0 ? `−${body}` : `+${body}`;
+}
+
+const trimDecimals = (v, digits) => String(Number(v.toFixed(digits)));
+
+/**
+ * The second row's three labels and values, signed as the spending change is:
+ * "−$1.48B" for activity lost, "+" for a place above its yardstick. Values are
+ * "—" without a spending figure.
+ *
+ * @param {number | null | undefined} total - benefitShortfall's total, positive for less.
+ */
+export function impactLabels(total) {
+  const impact = snapImpact(total);
+  return [
+    { label: 'Estimated change in economic activity', value: impact ? shortfallLabels(impact.economic).value : '—' },
+    { label: 'Estimated change in jobs supported', value: impact ? lossCount(impact.jobs) : '—' },
+    { label: 'Estimated change in meals', value: impact ? lossCount(impact.meals) : '—' },
+  ];
+}
+
 /** Months averaged for the shortfall's yardstick: the year up to the window's start. */
 export const SHORTFALL_BASE_MONTHS = 12;
 
@@ -342,7 +395,7 @@ export function ageGroupLoss(ageSeries, i0, i1) {
 
 /**
  * The age pie's title: the group with the most people lost, and its share.
- * "Children under 18 were the largest group to lose SNAP, at 52.6% of everyone who left".
+ * "Children under 18 were the largest group to lose SNAP, at 52.6% of everyone who lost it".
  * null when no group lost.
  *
  * @param {AgeGroupLoss[] | null} rows
@@ -351,7 +404,7 @@ export function ageLeadTitle(rows) {
   const lead = rows?.reduce((a, b) => (b.lost > a.lost ? b : a));
   if (!lead || lead.lost <= 0) return null;
   const noun = AGE_GROUPS.find((g) => g.label === lead.label).noun;
-  return `${noun} were the largest group to lose SNAP, at ${fmtPct(lead.share)} of everyone who left`;
+  return `${noun} were the largest group to lose SNAP, at ${fmtPct(lead.share)} of everyone who lost it`;
 }
 
 /** "a", "a and b", "a, b and c". */
@@ -381,12 +434,12 @@ export function whoHeadline(rows, where, since) {
   if (!grew.length) {
     const total = lost.reduce((sum, r) => sum + r.lost, 0);
     return (
-      `Of the ${fmtInt(total)} individuals who left SNAP${where} since ${since}, ` +
+      `Of the ${fmtInt(total)} individuals who lost SNAP${where} since ${since}, ` +
       `${andList(lost.map((r) => `${fmtInt(r.lost)} are ${groupNoun(r.label)}`))}.`
     );
   }
   return (
-    `Since ${since}, ${andList(lost.map((r) => `${fmtInt(r.lost)} ${groupNoun(r.label)}`))} left SNAP${where}, ` +
+    `Since ${since}, ${andList(lost.map((r) => `${fmtInt(r.lost)} ${groupNoun(r.label)}`))} lost SNAP${where}, ` +
     `while ${andList(grew.map((r) => `${groupNoun(r.label)} on SNAP grew by ${fmtInt(-r.lost)}`))}.`
   );
 }
@@ -541,7 +594,7 @@ export function headlineStats(statewide, payments, i0, i1) {
       value: childLost === 0 ? '0' : fmtDelta(-childLost),
       body:
         childLost > 0 && allLost >= childLost
-          ? `${fmtPct(childLost / allLost)} of all Texans who left SNAP since ${since}.`
+          ? `${fmtPct(childLost / allLost)} of all Texans who lost SNAP since ${since}.`
           : `Children under 18, since ${since}.`,
       tone: childLost > 0 ? 'negative' : undefined,
     });
@@ -557,8 +610,8 @@ export function headlineStats(statewide, payments, i0, i1) {
       ...shortfallLabels(short.total),
       body:
         short.total >= 0
-          ? `Estimated SNAP benefits not going to Texans since ${since}, against a typical month in the year before.`
-          : `Estimated extra SNAP benefits going to Texans since ${since}, against a typical month in the year before.`,
+          ? `Estimated SNAP benefits not going to Texans since ${since}, compared with the monthly average the year before.`
+          : `Estimated extra SNAP benefits going to Texans since ${since}, compared with the monthly average the year before.`,
       tone: short.total > 0 ? 'negative' : undefined,
     });
   }

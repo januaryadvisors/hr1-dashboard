@@ -28,9 +28,35 @@
   border-bottom: 0;
 }
 
-.row:hover,
+/* A light ink wash, so the row the pointer (or the
+   map's hover) is on stands out. Pointer hover only where there is a pointer:
+   on touch a tap would leave the row stuck highlighted. */
+.row {
+  transition: background 120ms ease;
+}
+
+@media (hover: hover) {
+  .row:hover {
+    background: rgba(38, 38, 38, 0.08);
+  }
+}
+
+/* Inert (a pinned search pick owns the tooltip): no hover wash, no pointer. */
+.inert .row {
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .inert .row:hover:not(.active) {
+    background: none;
+  }
+}
+
+/* An ink wash rather than a tan: the list sits on the page's tan ground, where
+   the next tan along barely registers. Translucent, so it reads the same on
+   any ground. */
 .active {
-  background: var(--surface-warm);
+  background: rgba(38, 38, 38, 0.08);
 }
 
 /* Level 4: the rank is a pointer, not a reading. */

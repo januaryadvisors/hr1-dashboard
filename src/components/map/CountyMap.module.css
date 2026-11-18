@@ -31,6 +31,60 @@
   stroke: var(--ja-ink);
 }
 
+/* The hovered county on the main map, over everything: screen pixels, so it
+   is equally bold whatever the map's scale. */
+.hoverOutline {
+  fill: none;
+  stroke: #000;
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* The searched county: scaled up about its own centre and outlined heavily,
+   popping in from larger still so the eye goes straight to it. Strokes are
+   screen pixels whatever the map's scale. */
+.spotlight {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(1.2);
+  pointer-events: none;
+  animation: spotlightIn 420ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.spotlightHalo {
+  fill: none;
+  stroke: var(--surface);
+  stroke-width: 7px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.spotlightShape {
+  stroke: var(--ja-ink);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+@keyframes spotlightIn {
+  from {
+    transform: scale(2);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight {
+    animation: none;
+  }
+}
+
 .stateOutline {
   fill: none;
   stroke: var(--ja-navy);

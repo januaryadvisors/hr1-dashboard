@@ -10,6 +10,9 @@
   /* Brand */
   --ja-navy: #004e7b;
   --ja-teal: #00b9c3;
+  /* The brand teal darkened for small text on white (about 5:1; the brand
+     teal itself is under 3:1). */
+  --ja-teal-dark: #00747c;
   --ja-orange: #faa634;
   --ja-ink: #262626;
   --ja-warm-grey: #f0eded;

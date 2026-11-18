@@ -122,16 +122,24 @@ function BucketGlyph({ bin, bins }) {
   );
 }
 
-export function RankList({ rows, max = MAX_ROWS, glyph, bins = 6, activeGeoid, onHover }) {
+/**
+ * `inert`: the rows neither hover nor look hoverable — no wash, no pointer —
+ * while something else owns the tooltip (a pinned search pick, or the search
+ * itself). The row whose county is active still shows it.
+ */
+export function RankList({ rows, max = MAX_ROWS, glyph, bins = 6, activeGeoid, onHover, inert = false }) {
+  const hover = inert ? undefined : onHover;
   return (
-    <div className={styles.root} onMouseLeave={() => onHover?.(null)}>
+    <div className={cx(styles.root, inert && styles.inert)} onMouseLeave={() => hover?.(null)}>
       {rows.slice(0, Math.min(max, MAX_ROWS)).map((row, i) => (
         <button
           key={row.geoid}
+          // The county panel anchors beside the hovered row — see CountyTooltip's 'list' origin.
+          data-rank-geoid={row.geoid}
           type="button"
           className={cx(styles.row, row.geoid === activeGeoid && styles.active)}
-          onMouseEnter={() => onHover?.(row.geoid)}
-          onFocus={() => onHover?.(row.geoid)}
+          onMouseEnter={() => hover?.(row.geoid)}
+          onFocus={() => hover?.(row.geoid)}
         >
           <span className={styles.rank}>{i + 1}</span>
           <span className={styles.name}>{row.name}</span>

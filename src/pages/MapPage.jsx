@@ -103,6 +103,8 @@ const RULES_MONTH = '2025-11';
 const COUNTY_TYPES = ['Metro', 'Micro', 'Rural'];
 
 const EMPTY_TIMELINE = { feed: [] };
+/** How long the pointer must rest on a map county before it replaces a pinned search pick. */
+const PIN_DWELL_MS = 50;
 
 /** One empty marks list, so the hero map's memo holds while no marks draw. */
 const NO_MARKS = [];
@@ -514,16 +516,54 @@ export default function MapPage() {
     () => ({ q5: state.overlayQ5, gap: showCapacity && state.overlayGap }),
     [state.overlayQ5, state.overlayGap, showCapacity],
   );
-  const onMapHover = useCallback((geoid) => dispatch({ type: 'hover', geoid }), [dispatch]);
+  /*
+     While a search pick is pinned, a county on the map replaces it only once
+     the pointer rests there for PIN_DWELL_MS. Without that, the reader could
+     never reach the pinned tooltip's ✕: the first county crossed on the way
+     would take it down. With no pin, hover is immediate as before.
+  */
+  const pinnedRef = useRef(state.pinned);
+  pinnedRef.current = state.pinned;
+  const dwellRef = useRef(0);
+  useEffect(() => () => clearTimeout(dwellRef.current), []);
+  const onMapHover = useCallback(
+    (geoid) => {
+      clearTimeout(dwellRef.current);
+      if (geoid && pinnedRef.current) {
+        dwellRef.current = setTimeout(() => dispatch({ type: 'hover', geoid }), PIN_DWELL_MS);
+        return;
+      }
+      dispatch({ type: 'hover', geoid });
+    },
+    [dispatch],
+  );
+
+  /*
+     The search's dropdown opens over the shortlist, so while the search is
+     hovered, or focused with something typed in it, the shortlist's hover is
+     ignored — otherwise reaching for a result pops up whichever county row
+     sits under it. Focused but empty there is no dropdown, so the shortlist
+     works again as soon as the pointer moves onto it.
+  */
+  const [searchHover, setSearchHover] = useState(false);
+  const [searchFocus, setSearchFocus] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchActive = searchHover || (searchFocus && searchQuery.trim() !== '');
 
   /**
-   * The hero map's render style. The reader's Geo/Density choice everywhere
-   * except a story step that declares its own — today only the index's second
-   * step, which draws the equal-size tile grid. Read off the step rather than
-   * dispatched into state, so the grid never leaks into the URL, the
-   * thumbnails, or the next step.
+   * The hero map's render style. The reader's Geo/Density/Box chart choice
+   * everywhere except a story step that declares its own — today only the
+   * index's second step, which draws the equal-size tile grid. Read off the
+   * step rather than dispatched into state, so a step's grid never leaks into
+   * the URL, the thumbnails, or the next step.
+   *
+   * The reader can pick the box chart (the same tile grid) on the
+   * Vulnerability index only, where its in-tile assistance bars belong. Any
+   * other view draws Geo while that choice stands.
    */
-  const drawStyle = storyPinned && step.mapStyle ? step.mapStyle : state.style;
+  const boxChartView = view.key === 'vulnerability';
+  const stepStyle = storyPinned ? step.mapStyle : undefined;
+  const drawStyle = stepStyle ?? (state.style === 'grid' && !boxChartView ? 'geo' : state.style);
 
   /**
    * The figures the story's copy quotes, from the data and the brush window —
@@ -740,13 +780,6 @@ export default function MapPage() {
           <button
             type="button"
             className={styles.selectAll}
-            onClick={() => dispatch({ type: 'setInfra', keys: [...ALL_INFRA] })}
-          >
-            Select all
-          </button>
-          <button
-            type="button"
-            className={styles.selectAll}
             onClick={() => dispatch({ type: 'setInfra', keys: [] })}
           >
             Clear
@@ -761,7 +794,18 @@ export default function MapPage() {
             checked={state.infra.includes(t.key)}
             onChange={() => dispatch({ type: 'toggleInfra', key: t.key })}
           />
-          <span>{t.label}</span>
+          {/* Keyed to the map: the mark each type draws as, in its colour —
+              a bar on the box chart, where the marks are bars in each tile. */}
+          <svg className={styles.checkKey} width="12" height="12" aria-hidden="true">
+            {drawStyle === 'grid' ? (
+              <rect x={4} y={1} width={4} height={10} rx={1} fill={INFRA_COLOR[t.key]} />
+            ) : (
+              <InfraGlyph type={t.key} x={6} y={6} size={3.5} legend />
+            )}
+          </svg>
+          <span style={{ '--key': INFRA_COLOR[t.key] }} className={styles.checkLabel}>
+            {t.label}
+          </span>
           <span className={cx(styles.countyCount, 'tabular')}>
             {infraCounts[t.key]}
           </span>
@@ -1171,13 +1215,20 @@ export default function MapPage() {
    */
   const sidePanel = (
     <aside className={styles.sidePanel}>
-      <div className={styles.panelBlock}>
+      <div
+        className={styles.panelBlock}
+        onMouseEnter={() => setSearchHover(true)}
+        onMouseLeave={() => setSearchHover(false)}
+        onFocus={() => setSearchFocus(true)}
+        onBlur={() => setSearchFocus(false)}
+      >
         <CountySearch
           counties={counties}
           renderValue={(c) =>
             formatLayerValue(state.layer, layerValues.fill.get(c.geoid) ?? null)
           }
-          onSelect={(geoid) => dispatch({ type: 'hover', geoid, origin: 'external' })}
+          onSelect={(geoid) => dispatch({ type: 'pin', geoid })}
+          onQueryChange={setSearchQuery}
         />
       </div>
 
@@ -1203,7 +1254,9 @@ export default function MapPage() {
                 glyph={rankGlyph}
                 bins={rankBins}
                 activeGeoid={activeId}
-                onHover={(geoid) => dispatch({ type: 'hover', geoid, origin: 'external' })}
+                // While the search is in use or a pick is pinned, the pick owns the tooltip.
+                inert={searchActive || !!state.pinned}
+                onHover={(geoid) => dispatch({ type: 'hover', geoid, origin: 'list' })}
               />
             </div>
           </div>
@@ -1407,8 +1460,8 @@ export default function MapPage() {
                 )}
                 {capacityShown && <MapOption label="Marks">{infraPicker}</MapOption>}
                 {/* Hidden on the one step that forces the tile grid, where it would
-                    be inert. */}
-                {drawStyle !== 'grid' && (
+                    be inert. The box chart is offered on the Vulnerability index only. */}
+                {!stepStyle && (
                   <MapOption label="Style">
                     <SegmentedControl
                       label="Render style"
@@ -1416,15 +1469,19 @@ export default function MapPage() {
                       options={[
                         { value: 'geo', label: 'Geo', title: 'True county polygons' },
                         { value: 'density', label: 'Density', title: 'Centroid bubbles' },
+                        ...(boxChartView
+                          ? [{ value: 'grid', label: 'Box chart', title: 'One equal-size box per county' }]
+                          : []),
                       ]}
-                      value={state.style}
+                      value={drawStyle}
                       onChange={(v) => dispatch({ type: 'setStyle', style: v })}
                     />
                   </MapOption>
                 )}
                 {/* M-08's overlays: they change what the map draws, like every
-                    other control in this popover. */}
-                <MapOption label="Highlight">
+                    other control in this popover. No row label: the switch
+                    names itself. */}
+                <MapOption>
                   <div className={styles.overlayRows}>
                     <Switch
                       label="Highlight top quintile"
@@ -1463,10 +1520,11 @@ export default function MapPage() {
                         {...mapProps}
                         layer={layer}
                         values={values}
-                        style={state.style}
+                        // The box chart is the index's own; other thumbnails stay geographic.
+                        style={state.style === 'grid' && c.key !== 'vulnerability' ? 'geo' : state.style}
                         measure="rate"
                         size="thumb"
-                        hovered={state.hovered}
+                        hovered={activeId}
                         title={`${c.label} thumbnail`}
                       />
                     ) : null,
@@ -1543,7 +1601,8 @@ export default function MapPage() {
                                every choropleth — see ViewDef.showCapacity. */
                             marks={mapMarks}
                             overlays={mapOverlays}
-                            hovered={noCount ? null : state.hovered}
+                            hovered={noCount ? null : activeId}
+                            spotlight={noCount || state.hovered ? null : state.pinned}
                             onHover={noCount ? undefined : onMapHover}
                             title={`${layerDef.formalName}, ${drawStyle} view`}
                           />
@@ -1764,7 +1823,32 @@ export default function MapPage() {
         tooltipStats={view.tooltip.stats}
         foodbank={statewide.meta.foodbank}
         acaYear={statewide.meta.aca_year}
-        origin={state.hoverOrigin}
+        // A pinned search pick (nothing hovered over it) anchors to its county and can be closed.
+        origin={state.hovered ? state.hoverOrigin : 'external'}
+        /* The ✕: on a pinned search pick, and on a shortlist hover's panel. Not on
+           a map hover's — that one follows the cursor, so it could never be reached. */
+        onClose={
+          !state.hovered
+            ? () => dispatch({ type: 'pin', geoid: null })
+            : state.hoverOrigin === 'list'
+              ? () => dispatch({ type: 'hover', geoid: null, origin: 'list' })
+              : undefined
+        }
+        /* A shortlist hover's panel sits beside its row, and in a narrow window
+           can lie over the shortlist itself. It blocks the rows under it, and resting on it keeps
+           it up: the list's mouse-leave (null) and this re-assert arrive in the
+           same event, so the panel never drops. Leaving it onto another row
+           hands over to that row. */
+        onHold={
+          state.hovered && state.hoverOrigin === 'list'
+            ? () => dispatch({ type: 'hover', geoid: state.hovered, origin: 'list' })
+            : undefined
+        }
+        onRelease={
+          state.hovered && state.hoverOrigin === 'list'
+            ? () => dispatch({ type: 'hover', geoid: null, origin: 'list' })
+            : undefined
+        }
       />
     </div>
   );

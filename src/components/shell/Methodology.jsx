@@ -6,6 +6,7 @@
  * Kept short: it is there for anyone who needs to defend a figure. Every
  * definition here must match the code that computes it (lib/insights.js).
  */
+import { SNAP_MULTIPLIERS } from '../../lib/insights';
 import styles from './Methodology.module.css';
 
 /** Sources cited in the methodology. */
@@ -14,6 +15,11 @@ const SOURCES = {
   acs: 'https://www.census.gov/programs-surveys/acs',
   // Table B22001, Texas tracts — the counts the split uses.
   snapHouseholds: 'https://data.census.gov/table/ACSDT5Y2024.B22001?g=040XX00US48$1400000',
+  usdaMultiplier: 'https://ers.usda.gov/sites/default/files/_laserfiche/publications/93529/ERR-265.pdf?v=87339',
+  mealGap: 'https://map.feedingamerica.org/county/2022/overall/texas',
+  openStates: 'https://openstates.org/tx/',
+  congress: 'https://github.com/unitedstates/congress-legislators',
+  sosResults: 'https://results.texas-election.com/',
   blocks: 'https://www.census.gov/programs-surveys/decennial-census/about/rdo/summary-files.html',
   // Texas Legislative Council block-equivalency files, one per plan.
   plans: {
@@ -48,7 +54,7 @@ export function Methodology({ from, to, county, district }) {
       <p>
         <strong>People no longer on SNAP.</strong> Enrollment in {from}, when H.R. 1 was signed, minus
         enrollment in {to}, the latest month. A net change: people who joined in between offset
-        people who left.
+        people who lost SNAP.
       </p>
       <p>
         <strong>Age groups.</strong> HHSC&rsquo;s five age bands, combined: under 5 and 5–17 as 0–17;
@@ -58,6 +64,22 @@ export function Methodology({ from, to, county, district }) {
         <strong>Change in SNAP spending.</strong> An estimate: the average month of benefits paid over
         the 12 months to {from}, minus the benefits paid each month after it, summed. Months above that
         average count against the total. SNAP benefits can only be spent at SNAP-authorized stores.
+      </p>
+      <p>
+        <strong>Estimated change in economic activity.</strong> The change in SNAP spending × ${SNAP_MULTIPLIERS.economic}.
+        According to <Source href={SOURCES.usdaMultiplier}>USDA research</Source>, every dollar spent on
+        SNAP generates about ${SNAP_MULTIPLIERS.economic} in local economic activity.
+      </p>
+      <p>
+        <strong>Estimated change in jobs supported.</strong> The change in SNAP spending ÷ $1 billion ×{' '}
+        {SNAP_MULTIPLIERS.jobsPerBillion.toLocaleString('en-US')}. According to the same{' '}
+        <Source href={SOURCES.usdaMultiplier}>USDA research</Source>, $1 billion in SNAP benefits
+        supports {SNAP_MULTIPLIERS.jobsPerBillion.toLocaleString('en-US')} jobs.
+      </p>
+      <p>
+        <strong>Estimated change in meals.</strong> The change in SNAP spending ÷ ${SNAP_MULTIPLIERS.mealCost}, the average
+        cost of a meal in Texas according to Feeding America&rsquo;s{' '}
+        <Source href={SOURCES.mealGap}>Map the Meal Gap</Source>.
       </p>
       <p>
         <strong>Map and ranking.</strong> The map shades each place by the share of its {from}{' '}
@@ -106,6 +128,15 @@ export function Methodology({ from, to, county, district }) {
               </li>
             </ol>
           </div>
+          <p>
+            <strong>Elected official.</strong> The district&rsquo;s member in the chamber shown, from
+            the Texas Secretary of State&rsquo;s{' '}
+            <Source href={SOURCES.sosResults}>certified November 2026 results</Source>; until a
+            seat&rsquo;s result is entered it reads &ldquo;to be confirmed.&rdquo; Once the new members
+            take office in January, sitting members are from{' '}
+            <Source href={SOURCES.openStates}>Open States</Source> and{' '}
+            <Source href={SOURCES.congress}>congress-legislators</Source>.
+          </p>
         </>
       )}
     </section>

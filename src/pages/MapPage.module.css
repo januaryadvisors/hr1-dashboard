@@ -452,13 +452,28 @@
   max-width: 300px;
 }
 
+/* Checkbox, the type's map mark, its name in the mark's colour, the count.
+   Tight rows: four short options read as one key, not a form. */
 .checkRow {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr auto;
   gap: var(--space-2);
   align-items: center;
-  padding: 0.25rem 0;
+  padding: 1px 0;
   font-size: var(--text-sm);
+  line-height: 1.25;
+}
+
+.checkKey {
+  display: block;
+  flex: none;
+}
+
+/* The mark's colour, darkened for text: the orange and green marks are too
+   light to read as type on white at full strength. */
+.checkLabel {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--key, var(--text)) 70%, #000);
 }
 
 .countyCount {
@@ -827,7 +842,7 @@
 .storyInfra {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 2px;
 }
 
 .infraActions {

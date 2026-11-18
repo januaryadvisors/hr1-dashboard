@@ -370,7 +370,10 @@ export const VIEWS = [
     key: 'work',
     label: 'H.R. 1 work requirements',
     blurb: 'Who is newly subject, and whether work is reachable',
-    metrics: ['d1', 'd3', 'work_both'],
+    // Work-requirement exposure only: one metric, so the view has no Metric
+    // toggle. Access to work and the two-axis map were taken off it; their
+    // layers stay defined, but no view (and so no link) shows them.
+    metrics: ['d1'],
     showCapacity: false,
     // The caseload line belongs to the loss views; here the question is how many
     // people the requirement reaches, so the panel ends on the exposure bars.
@@ -482,11 +485,12 @@ export const INFRA_TYPES = [
   },
   {
     key: 'chw',
-    shortLabel: 'Certified CHWs',
+    shortLabel: 'Certified Community Health Workers',
     label: 'Certified community health workers',
-    plural: 'Certified CHWs',
+    plural: 'Certified Community Health Workers',
     glyph: 'diamond',
-    source: 'DSHS annual report, certified CHWs by county — a range read from its map, exact for the top five',
+    source:
+      'DSHS annual report, certified community health workers by county — a range read from its map, exact for the top five',
     available: true,
     banded: true,
   },

@@ -59,6 +59,11 @@
 .card {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
+  /* The outline takes the first free cell; a district's member sits under it. */
+  grid-template-areas:
+    'outline body'
+    'officials body';
+  grid-template-rows: auto 1fr;
   gap: var(--space-6);
   align-items: start;
   padding: var(--space-5) var(--space-6);
@@ -69,10 +74,15 @@
 }
 
 .body {
+  grid-area: body;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+}
+
+.officials {
+  grid-area: officials;
 }
 
 /* Holds the badge to its own width in the column. */
@@ -166,6 +176,16 @@
   }
 }
 
+/* The second row — economic impact, jobs, meals — derives from the spending
+   figure above it, so it sits a step smaller and tucks closer. */
+.impact {
+  padding-top: var(--space-3);
+}
+
+.impact .statValue {
+  font-size: var(--text-xl);
+}
+
 .statLabel {
   font-family: var(--font-display);
   font-size: var(--text-xs);
@@ -228,6 +248,9 @@
   }
   .card {
     grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-areas:
+      'outline body'
+      '. officials';
     gap: 12px;
     padding: 8px 12px;
     border-left-width: 3px;
@@ -255,8 +278,12 @@
   .root .stat + .stat::before {
     display: block;
   }
-  .statValue {
+  .statValue,
+  .impact .statValue {
     font-size: 18px;
+  }
+  .impact {
+    padding-top: 6px;
   }
   .statLabel,
   .statSub,
@@ -265,6 +292,10 @@
   }
   .capacity {
     padding-top: 6px;
+  }
+  .root .officials {
+    padding-top: 6px;
+    border-top: 1px solid var(--hairline);
   }
   /* minmax(0, …) so a long item wraps inside its column rather than running
      past the card's edge. */
@@ -311,6 +342,18 @@
   }
   .card > :first-child {
     max-width: 180px;
+  }
+  /* Narrow: the member follows the figures, full width. */
+  .card {
+    grid-template-areas:
+      'outline'
+      'body'
+      'officials';
+    grid-template-rows: auto;
+  }
+  .officials {
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--hairline);
   }
   .name {
     font-size: var(--text-2xl);

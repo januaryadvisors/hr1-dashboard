@@ -46,7 +46,7 @@
  * How the map draws, as the reader picks it. One story step draws the tile grid
  * instead (StoryStep.mapStyle).
  *
- * @typedef {'geo' | 'density'} MapStyle
+ * @typedef {'geo' | 'density' | 'grid'} MapStyle - 'grid' (the box chart) is offered on the Vulnerability index only.
  */
 /**
  * @typedef {'food_bank' | 'cms_navigator' | 'chw' | 'cpp'} InfraKey

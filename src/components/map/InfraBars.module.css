@@ -67,10 +67,18 @@
   border-radius: 1.5px;
 }
 
-.unsourced .value,
-.unsourced .label {
-  color: var(--text-faint);
-  font-weight: 400;
+/* "no data" in ink like the counts, a step smaller so it sits on one line;
+   the dashed baseline and grey swatch carry "not measured". */
+.unsourced .value {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14.3px;
+  white-space: nowrap;
+}
+
+.large .unsourced .value {
+  font-size: 12px;
+  line-height: 16.5px;
 }
 
 .unsourced .swatch {

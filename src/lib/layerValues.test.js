@@ -289,7 +289,7 @@ describe('per-view tooltip specs', () => {
 
   it('shows the domain spread on the vulnerability index and nowhere else', () => {
     expect(spec('composite').domains).toBe(true);
-    for (const layer of ['loss', 'child_loss', 'd1', 'd3', 'work_both']) {
+    for (const layer of ['loss', 'child_loss', 'd1']) {
       expect(spec(layer).domains).toBe(false);
     }
   });
@@ -302,8 +302,6 @@ describe('per-view tooltip specs', () => {
 
   it('ends the work view on exposure bars, and the loss views on the caseload line', () => {
     expect(spec('d1').chart).toBe('exposure');
-    expect(spec('d3').chart).toBe('exposure');
-    expect(spec('work_both').chart).toBe('exposure');
     expect(spec('loss').chart).toBe('enrollment');
     expect(spec('child_loss').chart).toBe('enrollment');
   });

@@ -118,7 +118,7 @@ export const METRICS = [
   {
     id: 'loss_people',
     label: 'People no longer on SNAP',
-    axis: 'People who left',
+    axis: 'People who lost SNAP',
     group: 'Enrollment',
     format: fmtInt,
     value: (c, ctx) => lostCount(ends(c.snap_enrolled, ctx)),
@@ -229,7 +229,7 @@ export const METRICS = [
   {
     id: 'child_loss_people',
     label: 'Children no longer on SNAP',
-    axis: 'Children who left',
+    axis: 'Children who lost SNAP',
     group: 'Children',
     format: fmtInt,
     value: (c, ctx) => lostCount(ends(c.snap_children, ctx)),

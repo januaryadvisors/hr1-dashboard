@@ -18,6 +18,36 @@
   margin-bottom: 8px;
 }
 
+/* A pinned search pick, or a panel opened from the shortlist, takes the
+   pointer: the ✕ can be clicked, and the counties and shortlist rows under it
+   are not hovered through it. */
+.solid {
+  pointer-events: auto;
+}
+
+.close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: -3px -4px 0 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.close:hover,
+.close:focus-visible {
+  color: var(--text);
+  background: var(--ft-tan-alt);
+}
+
 .countyName {
   display: block;
   font-family: var(--font-display);
@@ -34,7 +64,7 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ja-teal);
+  color: var(--ja-teal-dark);
 }
 
 /* ------------------------------------------------------------ domain rows */
@@ -179,10 +209,13 @@
 }
 
 /* "No data yet" is a statement, not a figure — set it smaller and faint. */
+/* "No data yet": ink like the other figures, a step smaller, and given the
+   value's own line height so the unit under it lines up with its neighbours. */
 .statMissing {
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-faint);
+  font-weight: 700;
+  line-height: 15px;
+  color: var(--text);
 }
 
 .negative {
@@ -192,6 +225,21 @@
 /* ------------------------------------------------------------- resources */
 .capacity {
   border-top: 1px solid var(--hairline);
+}
+
+/* A methodology-style footnote under the help bars: smaller and lighter than
+   the figures, so it reads as context rather than data. */
+.note {
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--hairline);
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.large .note {
+  font-size: 11px;
 }
 
 /* -------------------------------------------------------------- sparkline */
@@ -275,7 +323,7 @@
 
 /* The Vulnerability index tooltip, a step larger throughout (WIDTH_LARGE). */
 .large {
-  width: 320px;
+  width: 360px;
   padding: 12px 14px;
 }
 
@@ -307,4 +355,8 @@
 
 .large .statValue {
   font-size: 17px;
+}
+
+.large .statMissing {
+  line-height: 17px;
 }

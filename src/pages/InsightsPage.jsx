@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { useApp } from '../state/AppContext';
-import { loadDistrictShapes } from '../data/load';
+import { loadDistrictOfficials, loadDistrictShapes } from '../data/load';
 import { DumbbellChart } from '../components/charts/DumbbellChart';
 import { IndexedLines } from '../components/charts/IndexedLines';
 import { LineChart } from '../components/charts/LineChart';
@@ -42,6 +42,7 @@ import { PHONE } from '../lib/breakpoints';
 import { cx } from '../lib/cx';
 import { fmtDelta, fmtInt, fmtMillions, fmtMonthBody, fmtMonthFull, fmtOrdinal, fmtPct } from '../lib/format';
 import { buildLayerValues } from '../lib/layerValues';
+import { seatHolder } from '../lib/officials';
 import { lossShare, windowEnds } from '../lib/series';
 import { scrollBelowHeader } from '../lib/layout';
 import { useLoaded } from '../lib/useLoaded';
@@ -177,6 +178,12 @@ export default function InsightsPage() {
 
   /** The map's shapes: every county, or every district of the picked one's chamber. */
   const districtShapes = useLoaded(scope.district ? loadDistrictShapes : loadNothing);
+  /** A district's member in the chamber picked, for the report box. Districts only: none for a county or Texas. */
+  const officialsData = useLoaded(scope.district ? loadDistrictOfficials : loadNothing);
+  const official = useMemo(
+    () => (scope.district && officialsData ? seatHolder(scope.district.geoid, officialsData) : null),
+    [scope.district, officialsData],
+  );
   const mapShapes = useMemo(() => {
     const features = scope.district ? districtShapes?.[scope.district.plan] : data.geometry.counties;
     if (!features) return null;
@@ -363,6 +370,7 @@ export default function InsightsPage() {
           onSelect={(geoid) => dispatch({ type: 'setScope', geoid })}
           onPrint={printReport}
           outline={outline}
+          official={official}
         />
 
         {/* ---------------------------------------------------- 1 Enrollment */}

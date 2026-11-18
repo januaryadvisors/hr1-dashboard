@@ -48,11 +48,11 @@ export function MapOptions({ children }) {
   );
 }
 
-/** One labelled row inside the popover. */
+/** One row inside the popover, labelled unless its control names itself (no `label`). */
 export function MapOption({ label, children }) {
   return (
     <div className={styles.row}>
-      <span className={styles.rowLabel}>{label}</span>
+      {label && <span className={styles.rowLabel}>{label}</span>}
       {children}
     </div>
   );

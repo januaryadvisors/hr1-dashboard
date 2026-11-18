@@ -34,14 +34,17 @@ import { INFRA_TYPES, VIEWS } from '../config/layers';
  *   `/insights/decline?county=48201` a county stat page someone can send to a
  *   legislator.
  * @property {string | null} hovered - Transient. Never in the URL.
- * @property {'pointer' | 'external'} hoverOrigin - How `hovered` was set. The tooltip anchors to the cursor for 'pointer' and
- *   to the county's own position on the map for 'external' (search, rank list) —
- *   otherwise a search result opens its panel next to the search box, nowhere
- *   near the county it highlighted.
+ * @property {'pointer' | 'external' | 'list'} hoverOrigin - How `hovered` was set. The tooltip anchors to the
+ *   cursor for 'pointer', to the county's own position on the map for 'external' (search) — otherwise
+ *   a search result opens its panel next to the search box, nowhere near the county it highlighted —
+ *   and beside the hovered shortlist row for 'list'.
+ * @property {string | null} pinned - A county picked from the search. Never in the URL. Its tooltip stays
+ *   up when nothing is hovered, until the reader closes it, clears the search, or hovers a county on
+ *   the map (which replaces it). The shortlist does not hover while a pick is pinned.
  */
 
 /**
- * @typedef {| { type: 'setMeasure'; measure: Measure } | { type: 'setLayer'; layer: LayerKey } | { type: 'setStyle'; style: MapStyle } | { type: 'setWindow'; window: [string, string] } | { type: 'toggleInfra'; key: InfraKey } | { type: 'setInfra'; keys: InfraKey[] } | { type: 'toggleOverlayQ5' } | { type: 'toggleOverlayGap' } | { type: 'setScope'; geoid: string | null } | { type: 'hover'; geoid: string | null; origin?: 'pointer' | 'external' }} Action
+ * @typedef {| { type: 'setMeasure'; measure: Measure } | { type: 'setLayer'; layer: LayerKey } | { type: 'setStyle'; style: MapStyle } | { type: 'setWindow'; window: [string, string] } | { type: 'toggleInfra'; key: InfraKey } | { type: 'setInfra'; keys: InfraKey[] } | { type: 'toggleOverlayQ5' } | { type: 'toggleOverlayGap' } | { type: 'setScope'; geoid: string | null } | { type: 'hover'; geoid: string | null; origin?: 'pointer' | 'external' | 'list' } | { type: 'pin'; geoid: string | null }} Action
  */
 
 /** A scope key naming a legislative or congressional district rather than a county. */
@@ -76,6 +79,7 @@ export function initialState(policyStart, latest) {
     scope: null,
     hovered: null,
     hoverOrigin: 'pointer',
+    pinned: null,
   };
 }
 
@@ -107,9 +111,16 @@ export function reducer(state, action) {
       return state.scope === action.geoid ? state : { ...state, scope: action.geoid };
     case 'hover': {
       const origin = action.origin ?? 'pointer';
-      if (state.hovered === action.geoid && state.hoverOrigin === origin) return state;
-      return { ...state, hovered: action.geoid, hoverOrigin: origin };
+      // The pointer landing on a county on the map replaces a search pick.
+      const pinned = origin === 'pointer' && action.geoid ? null : state.pinned;
+      if (state.hovered === action.geoid && state.hoverOrigin === origin && state.pinned === pinned) {
+        return state;
+      }
+      return { ...state, hovered: action.geoid, hoverOrigin: origin, pinned };
     }
+    case 'pin':
+      if (state.pinned === action.geoid && state.hovered === null) return state;
+      return { ...state, pinned: action.geoid, hovered: null, hoverOrigin: 'external' };
     default:
       return state;
   }
@@ -119,11 +130,10 @@ export function reducer(state, action) {
  * §6.5: "hovered ?? pinned is the county every readout reads from. One selector,
  * used everywhere."
  *
- * There is no pinned selection, so this is `hovered`. Every readout goes through
- * it, so adding a persistent selection means changing this one line, not
- * hunting call sites.
+ * `pinned` is the county picked from the search; a hover covers it while the
+ * pointer is there.
  */
-export const activeGeoid = (state) => state.hovered;
+export const activeGeoid = (state) => state.hovered ?? state.pinned ?? null;
 
 // ---------------------------------------------------------------- URL mirroring
 

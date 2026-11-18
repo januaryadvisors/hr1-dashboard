@@ -7,7 +7,7 @@
  *
  * That highlight is transient: moving the pointer over the map replaces it.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { cx } from '../../lib/cx';
 /**
  * @typedef {import('../../types').County} County
@@ -35,6 +35,8 @@ const MAX_RESULTS = 8;
  *   The field shows `summary` while closed and is a plain search box while open.
  * @property {string[]} [selected] - Multiple only: the geoids checked, in the order picked.
  * @property {string} [summary] - Multiple only: what the closed field says about the selection.
+ * @property {(query: string) => void} [onQueryChange] - Told what the field holds whenever it changes,
+ *   typed or set by a pick or a clear.
  * @property {boolean} [browse] - Open on focus with every item listed, before
  *   anything is typed, so a reader can see what there is to pick from. Typing
  *   narrows it as usual. Also lists everything again when the field still holds
@@ -61,8 +63,14 @@ export function CountySearch({
   multiple = false,
   selected = [],
   summary,
+  onQueryChange,
 }) {
   const [query, setQuery] = useState(multiple ? '' : initialLabel ?? '');
+  useEffect(() => {
+    onQueryChange?.(query);
+    // Only the text matters; a new callback identity is not a change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
   /** The label last committed to the field, so browse can tell a pick from a search. */
   const [picked, setPicked] = useState(initialLabel ?? null);
   const [open, setOpen] = useState(false);

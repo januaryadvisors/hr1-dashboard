@@ -3,6 +3,8 @@ import {
   ageBandRows,
   benefitShortfall,
   shortfallLabels,
+  snapImpact,
+  impactLabels,
   buildFunnel,
   ageGroupLoss,
   ageLeadTitle,
@@ -326,10 +328,10 @@ describe('headline figures', () => {
     expect(children.label).toBe('Change in children on SNAP');
     expect(children.value).toBe('−25');
     // 25 of the 60 who left.
-    expect(children.body).toBe('41.7% of all Texans who left SNAP since H.R.\u00a01.');
+    expect(children.body).toBe('41.7% of all Texans who lost SNAP since H.R.\u00a01.');
     expect(dollars.value).toBe('−$600K');
     expect(dollars.body).toBe(
-      'Estimated SNAP benefits not going to Texans since H.R.\u00a01, against a typical month in the year before.',
+      'Estimated SNAP benefits not going to Texans since H.R.\u00a01, compared with the monthly average the year before.',
     );
   });
 
@@ -377,6 +379,26 @@ describe('windowLoss and benefitShortfall', () => {
   });
 });
 
+describe('snapImpact and impactLabels', () => {
+  it('carries the spending change through the USDA and Feeding America multipliers', () => {
+    const impact = snapImpact(1e9);
+    expect(impact.economic).toBeCloseTo(1.54e9);
+    expect(impact.jobs).toBeCloseTo(13_560);
+    expect(impact.meals).toBeCloseTo(1e9 / 3.45);
+    expect(snapImpact(null)).toBeNull();
+  });
+
+  it('signs a loss − and a gain +, abbreviating meals past a million', () => {
+    expect(impactLabels(1e9)).toEqual([
+      { label: 'Estimated change in economic activity', value: '−$1.54B' },
+      { label: 'Estimated change in jobs supported', value: '−13,560' },
+      { label: 'Estimated change in meals', value: '−289.9M' },
+    ]);
+    expect(impactLabels(-34_500).map((r) => r.value)).toEqual(['+$53.1K', '0', '+10,000']);
+    expect(impactLabels(null).map((r) => r.value)).toEqual(['—', '—', '—']);
+  });
+});
+
 describe('againstTexas', () => {
   it('compares the shares as printed', () => {
     expect(againstTexas(0.194, 0.201)).toEqual({ here: '19.4%', texas: '20.1%', relation: 'lower than' });
@@ -420,11 +442,11 @@ describe('ageGroupLoss', () => {
   it('writes the age section’s sentence', () => {
     const all = { ...series, '65+': [80, 75] };
     expect(whoHeadline(ageGroupLoss(all, 0, 1), ' in Harris County', 'July 2025')).toBe(
-      'Of the 105 individuals who left SNAP in Harris County since July 2025, 50 are children under 18, ' +
+      'Of the 105 individuals who lost SNAP in Harris County since July 2025, 50 are children under 18, ' +
         '50 are adults 18–64 and 5 are adults 65 and older.',
     );
     expect(whoHeadline(ageGroupLoss(series, 0, 1), '', 'July 2025')).toBe(
-      'Since July 2025, 50 children under 18 and 50 adults 18–64 left SNAP, ' +
+      'Since July 2025, 50 children under 18 and 50 adults 18–64 lost SNAP, ' +
         'while adults 65 and older on SNAP grew by 10.',
     );
   });
@@ -432,7 +454,7 @@ describe('ageGroupLoss', () => {
   it('titles the pie by the group that lost the most', () => {
     const shift = { ...series, '18–59': [500, 400] };
     expect(ageLeadTitle(ageGroupLoss(shift, 0, 1))).toBe(
-      'Adults 18–64 were the largest group to lose SNAP, at 66.7% of everyone who left',
+      'Adults 18–64 were the largest group to lose SNAP, at 66.7% of everyone who lost it',
     );
     const none = Object.fromEntries(Object.keys(series).map((b) => [b, [10, 10]]));
     expect(ageLeadTitle(ageGroupLoss(none, 0, 1))).toBeNull();

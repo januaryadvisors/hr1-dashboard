@@ -92,9 +92,15 @@ export function ScatterChart({
    * Top: the "Texas median" label over the vertical crosshair. Bottom: the x
    * tick values and, under them, the x-axis name.
    */
-  const M = { top: 26, right: 18, bottom: 48, left: 76 };
+  const M = { top: 32, right: 18, bottom: 48, left: 76 };
   /** Inset from the axis lines, so a county clamped to an end is not drawn on the axis. */
   const INSET = 10;
+  /**
+   * Extra room under the top edge for the upper quadrant labels, so the
+   * highest dots start below that text instead of sitting on it (and stealing
+   * its hover).
+   */
+  const LABEL_BAND = 16;
 
   /**
    * Height of the strip along the bottom that holds the zeros on a `ySplit:
@@ -127,7 +133,7 @@ export function ScatterChart({
     const yHi = yVals.length ? Math.max(quantile(yVals, 0.98), yMid) : 1;
 
     const x = pivotScale(xLo, split.mx, xHi, M.left + INSET, W - M.right - INSET);
-    const yPos = pivotScale(yLo, yMid, yHi, bottom - FLOOR - INSET, M.top + INSET);
+    const yPos = pivotScale(yLo, yMid, yHi, bottom - FLOOR - INSET, M.top + INSET + LABEL_BAND);
     const maxWeight = Math.max(...points.map((p) => p.weight)) || 1;
 
     return {

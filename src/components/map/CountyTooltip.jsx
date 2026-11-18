@@ -4,7 +4,7 @@
  * WHAT SHOWS DEPENDS ON THE VIEW: `ViewDef.tooltip` decides, and the sections
  * are:
  *
- *   head      county, FIPS, population        always
+ *   head      county, FIPS                    always
  *   focus     the active layer's own band      score layers, except the index
  *   index     all five indexes, one row each   Vulnerability index only
  *   stats     the three facts, per ViewDef     always
@@ -21,6 +21,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  DOMAINS,
   foodbankCoverage,
   layerBasis,
   layerByKey,
@@ -54,7 +55,7 @@ import styles from './CountyTooltip.module.css';
 const OFFSET = 6;
 const WIDTH = 272;
 /** The Vulnerability index tooltip carries the most (five rows, four figures, the help bars), so it is drawn larger. */
-const WIDTH_LARGE = 320;
+const WIDTH_LARGE = 360;
 
 /**
  * The labels for the layer's own series. Anything without an entry is SNAP.
@@ -140,12 +141,18 @@ function FocusedIndex({ county, layer, stats }) {
 /**
  * All five indexes, one per row: name and reading on the left, the scale on the
  * right, every scale the same width. Composite first, because it is what the
- * map is coloured by; the domains follow in framework order.
+ * map is coloured by; the domains follow in the index's own order (DOMAINS:
+ * work-requirement exposure, citizenship and status, access to work,
+ * socioeconomic need), the order the panel beside the map lists them in.
+ * SCORE_LAYERS is in map-menu order, which is not that.
  */
+const DOMAIN_RANK = new Map(DOMAINS.map((d, i) => [d.key, i]));
 function IndexTable({ county, layer, stats }) {
   const ordered = [
     ...SCORE_LAYERS.filter((l) => l.key === 'composite'),
-    ...SCORE_LAYERS.filter((l) => l.key !== 'composite'),
+    ...SCORE_LAYERS.filter((l) => l.key !== 'composite').sort(
+      (a, b) => (DOMAIN_RANK.get(a.key) ?? Infinity) - (DOMAIN_RANK.get(b.key) ?? Infinity),
+    ),
   ];
   return (
     <div className={styles.indexTable}>
@@ -234,8 +241,15 @@ function BivariateReadout({ county, layer, values }) {
  * @property {import('../../types').FoodbankMeta} [foodbank] - statewide.meta.foodbank: the period and
  *   bank coverage the food-bank figures quote, so no date is written into this panel.
  * @property {number} [acaYear] - statewide.meta.aca_year: the open enrollment the Marketplace figure is from.
- * @property {'pointer' | 'external'} origin - 'pointer' anchors the panel to the cursor. 'external' (search, rank list)
- *   anchors it beside the county's own shape on the hero map.
+ * @property {'pointer' | 'external' | 'list'} origin - 'pointer' anchors the panel to the cursor. 'external'
+ *   (search) anchors it beside the county's own shape on the hero map. 'list' anchors it beside the
+ *   shortlist row being hovered — on its left, or its right on the Vulnerability index view — so it
+ *   opens where the reader is looking and never covers the list.
+ * @property {() => void} [onClose] - Set for a pinned search pick or a shortlist hover: the panel then takes the pointer,
+ *   shows a ✕, and closes on Escape.
+ * @property {() => void} [onHold] - Set for a shortlist hover. The panel then takes the pointer, so a row
+ *   underneath it cannot be hovered through it; resting on the panel calls this to keep it up.
+ * @property {() => void} [onRelease] - Pairs with onHold: the pointer has left the panel.
  */
 
 export function CountyTooltip({
@@ -250,6 +264,9 @@ export function CountyTooltip({
   foodbank,
   acaYear,
   origin,
+  onClose,
+  onHold,
+  onRelease,
 }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [countyAnchor, setCountyAnchor] = useState(null);
@@ -280,19 +297,55 @@ export function CountyTooltip({
    * and the rendered geometry is the only thing that knows the true scale.
    */
   const geoid = county?.geoid;
-  useEffect(() => {
-    if (origin !== 'external' || !geoid) {
+  /*
+     A layout effect, not a plain one: the anchor is read before the browser
+     paints, so the panel's first frame is already in place. With a plain
+     effect it painted once at the cursor and then jumped to its anchor.
+  */
+  useLayoutEffect(() => {
+    if ((origin !== 'external' && origin !== 'list') || !geoid) {
       setCountyAnchor(null);
-      return;
+      return undefined;
     }
-    const el = document.querySelector(`[data-hero-map] [data-geoid="${geoid}"]`);
-    if (!el) {
-      setCountyAnchor(null);
-      return;
-    }
-    const r = el.getBoundingClientRect();
-    setCountyAnchor({ x: r.right, y: r.top + r.height / 2 });
+    /*
+       Re-read on scroll and resize: a pinned pick stays up while the page
+       moves, so it follows its county — and hides while the county is off
+       screen rather than sticking to the viewport edge over other content.
+    */
+    const place = () => {
+      const el =
+        origin === 'list'
+          ? document.querySelector(`[data-rank-geoid="${geoid}"]`)
+          : document.querySelector(`[data-hero-map] [data-geoid="${geoid}"]`);
+      if (!el) {
+        setCountyAnchor(null);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      const offscreen = r.bottom < 0 || r.top > window.innerHeight;
+      setCountyAnchor(
+        origin === 'list'
+          ? { x: r.right, xFlip: r.left, y: r.top, row: true, offscreen }
+          : { x: r.right, y: r.top + r.height / 2, offscreen },
+      );
+    };
+    place();
+    window.addEventListener('scroll', place, { capture: true, passive: true });
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, { capture: true });
+      window.removeEventListener('resize', place);
+    };
   }, [origin, geoid]);
+
+  useEffect(() => {
+    if (!onClose) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const spec = viewForLayer(layer).tooltip;
 
@@ -316,7 +369,7 @@ export function CountyTooltip({
     return county[seriesField]?.slice(i0, i1 + 1) ?? [];
   }, [county, i0, i1, seriesField]);
 
-  if (!county) return null;
+  if (!county || countyAnchor?.offscreen) return null;
 
   const fbCoverage = foodbankCoverage(foodbank);
   const fbHouseholds = county.foodbank_households;
@@ -325,14 +378,30 @@ export function CountyTooltip({
 
   // Flip at the viewport edge rather than letting the panel clip.
   const width = spec.domains ? WIDTH_LARGE : WIDTH;
-  const flipX = anchor.x + OFFSET + width > window.innerWidth;
-  const left = Math.max(8, flipX ? anchor.x - OFFSET - width : anchor.x + OFFSET);
-  const top = Math.max(
+  /*
+     Beside a shortlist row the panel opens on the row's LEFT, over the map,
+     on every view but the Vulnerability index: there it opens on the right,
+     where the larger index panel has room. Either side falls back to the
+     other when the window has no room for it.
+  */
+  const rowLeft = anchor.row && viewForLayer(layer).key !== 'vulnerability';
+  const flipX = rowLeft
+    ? anchor.xFlip - OFFSET - width >= 8
+    : anchor.x + OFFSET + width > window.innerWidth;
+  const left = Math.max(
     8,
-    anchor.y + OFFSET + panelH > window.innerHeight
-      ? Math.min(anchor.y - OFFSET - panelH, window.innerHeight - panelH - 8)
-      : anchor.y + OFFSET,
+    flipX ? (anchor.xFlip ?? anchor.x) - OFFSET - width : anchor.x + OFFSET,
   );
+  // Beside a shortlist row: top-aligned with it, nudged up only as far as the
+  // window needs, so the panel stays level with the row being read.
+  const top = anchor.row
+    ? Math.max(8, Math.min(anchor.y - 4, window.innerHeight - panelH - 8))
+    : Math.max(
+        8,
+        anchor.y + OFFSET + panelH > window.innerHeight
+          ? Math.min(anchor.y - OFFSET - panelH, window.innerHeight - panelH - 8)
+          : anchor.y + OFFSET,
+      );
 
   /* The window's endpoints, skipping any month the series does not have. */
   const published = enrollment.filter((v) => typeof v === 'number' && Number.isFinite(v));
@@ -355,18 +424,23 @@ export function CountyTooltip({
   return (
     <div
       ref={rootRef}
-      className={cx(styles.root, spec.domains && styles.large)}
+      className={cx(styles.root, spec.domains && styles.large, (onClose || onHold) && styles.solid)}
+      onMouseEnter={onHold}
+      onMouseLeave={onRelease}
       style={{ left, top }}
-      role="tooltip"
+      role={onClose ? 'dialog' : 'tooltip'}
       aria-label={`${county.name} County details`}
     >
       <div className={styles.head}>
         <span>
           <span className={styles.countyName}>{county.name} County</span>
-          <span className={styles.fips}>
-            FIPS {county.geoid} · {fmtInt(county.pop)} residents
-          </span>
+          <span className={styles.fips}>FIPS {county.geoid}</span>
         </span>
+        {onClose && (
+          <button type="button" className={styles.close} aria-label="Close" onClick={onClose}>
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Skipped on the loss layers, which have no percentile and no median to
@@ -524,6 +598,11 @@ export function CountyTooltip({
       {spec.capacity && (
         <div className={styles.capacity}>
           <InfraColumnChart county={county} max={stats.infraMax} large={spec.domains} />
+          <p className={styles.note}>
+            The Texas Health and Human Services (HHS) Community Partner Program (CPP) connects local
+            organizations with the state to help residents apply for and manage benefits (such as SNAP
+            food assistance, Medicaid, CHIP, and TANF) online or offline.
+          </p>
         </div>
       )}
 
@@ -556,7 +635,7 @@ export function CountyTooltip({
                 modelled: true,
               },
               {
-                label: 'Left SNAP since',
+                label: 'Lost SNAP since',
                 value: Math.max(0, start - end),
                 share: start > 0 ? Math.max(0, start - end) / start : null,
                 tone: 'left',

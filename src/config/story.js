@@ -106,7 +106,7 @@ export const STORY = [
         id: 'loss-who',
         title: (f) => `${f.youngShare} are children and working-age adults`,
         body: (f) =>
-          `About ${f.childrenK} children and ${f.adultsK} adults ages 18–59 have left SNAP.`,
+          `About ${f.childrenK} children and ${f.adultsK} adults ages 18–59 have lost SNAP.`,
         subhead: (f) =>
           `Percent change in SNAP enrollment since ${f.windowStartLong}, by age group. Each line is ` +
           `indexed to its own ${f.windowStartLong} level (100 = no change; 81 = down 19%).`,
@@ -122,9 +122,9 @@ export const STORY = [
             : 'SNAP payments to Texas grocery stores',
         body: (f) =>
           f.shortfallM
-            ? `From ${f.shortfallFrom} through ${f.shortfallTo}, SNAP payments ran a net $${f.shortfallM} ` +
-              `million ${f.shortfallMore ? 'above' : 'below'} the average month of the year before H.R. 1 was signed ` +
-              `(${f.baseRange}).`
+            ? `From ${f.shortfallFrom} through ${f.shortfallTo}, Texans received an estimated $${f.shortfallM} ` +
+              `million ${f.shortfallMore ? 'more' : 'less'} in SNAP benefits than if payments had stayed at their ` +
+              `monthly average from the year before H.R. 1 was signed (${f.baseRange}).`
             : 'Total SNAP benefits paid each month since H.R. 1 was signed.',
         subhead: (f) =>
           'Total SNAP benefits paid to Texas households each month, in millions of dollars. ' +
@@ -168,8 +168,8 @@ export const STORY = [
             : 'Children no longer receiving SNAP benefits',
         body: (f) =>
           f.childShare
-            ? `Children are ${f.childShare} of the Texans who have left SNAP since ${f.windowStartLong}.`
-            : `Children who have left SNAP since ${f.windowStartLong}.`,
+            ? `Children are ${f.childShare} of the Texans who have lost SNAP since ${f.windowStartLong}.`
+            : `Children who have lost SNAP since ${f.windowStartLong}.`,
         subhead: (f) =>
           `Texans no longer on SNAP since ${f.windowStartLong}, by age group.`,
         subheadInChart: true,
@@ -198,9 +198,9 @@ export const STORY = [
         id: 'children-share',
         title: 'Some rural counties have seen sharp declines in children enrolled in SNAP',
         body:
-          'SNAP enrollment informs funding formulas for school meal programs, such as the Community ' +
-          'Eligibility Provision (CEP). The loss of children from SNAP could mean many schools could be ' +
-          'forced to stop participating in these programs due to higher financial costs.',
+          'The Community Eligibility Provision (CEP) lets high-poverty schools serve free meals to every ' +
+          'student, funded by how many are enrolled in SNAP. As children lose SNAP, schools get less, and ' +
+          'many could be forced to drop CEP.',
         // PLACEHOLDER figure: the CEP series stands in until this step's chart is decided.
         subhead: 'Texas schools that left the Community Eligibility Provision, by school year.',
         chart: 'cepDropped',

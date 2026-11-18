@@ -18,6 +18,7 @@
     "fetch:bulletins": "node scripts/fetch-texas-works.mjs",
     "serve:pages": "node scripts/serve-as-pages.mjs",
     "fetch:data": "npm run fetch:bulletins",
+    "fetch:officials": "node scripts/fetch-officials.mjs",
     "fetch:acs-snap": "node scripts/fetch-acs-snap-tracts.mjs",
     "build:marketplace": "node scripts/build-marketplace.mjs",
     "build:spec": "node scripts/extract-spec.mjs"

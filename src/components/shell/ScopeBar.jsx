@@ -22,9 +22,10 @@ import { CountySearch } from '../map/CountySearch';
 import { SegmentedControl } from './SegmentedControl';
 import { HelpList } from '../map/HelpList';
 import { PlaceOutline } from './PlaceOutline';
+import { Official } from './Officials';
 import { cx } from '../../lib/cx';
 import { fmtDelta, fmtInt, fmtMonthBody, fmtPctDelta } from '../../lib/format';
-import { shortfallLabels, SPENDING_LABEL } from '../../lib/insights';
+import { impactLabels, shortfallLabels, SPENDING_LABEL } from '../../lib/insights';
 import styles from './ScopeBar.module.css';
 
 /**
@@ -48,6 +49,8 @@ import styles from './ScopeBar.module.css';
  * @property {() => void} onPrint
  * @property {import('./PlaceOutline').PlaceOutlineProps | null} outline - The place's boundary, once its
  *   shape has loaded.
+ * @property {import('../../lib/officials').Official | null} official - A district's member in
+ *   the chamber picked, under its outline; null for a county or Texas.
  */
 
 /** "Harris (part)", "Travis, Hays", "Bowie +4" — enough to recognise a district in a list. */
@@ -69,6 +72,7 @@ export function ScopeBar({
   onSelect,
   onPrint,
   outline,
+  official,
 }) {
   const isScoped = scope.kind !== 'state';
   const county = scope.county;
@@ -178,6 +182,8 @@ export function ScopeBar({
 
       <header className={styles.card}>
         {outline && <PlaceOutline {...outline} />}
+        {/* A district's member, under its shape. Counties and Texas name none. */}
+        {official && <Official official={official} className={styles.officials} />}
 
         <div className={styles.body}>
           {/* Exact vs estimated, over a district's name — the first thing a
@@ -233,7 +239,7 @@ export function ScopeBar({
               {...(figures.shortfall
                 ? shortfallLabels(figures.shortfall.total)
                 : { label: SPENDING_LABEL, value: '—' })}
-              sub={`estimated, against a typical month in the year before ${figures.sinceLabel}`}
+              sub={`estimated, compared with the monthly average the year before ${figures.sinceLabel}`}
               negative={figures.shortfall?.total > 0}
               title={
                 figures.shortfall
@@ -244,6 +250,13 @@ export function ScopeBar({
               }
             />
           </dl>
+
+          {/*
+            What that spending change means beyond the checkout: the same dollar
+            figure carried through USDA's and Feeding America's multipliers, for
+            the place picked. Signed as the spending change is.
+          */}
+          <ImpactRow total={figures.shortfall?.total} since={fmtMonthBody(win[0])} />
 
           {/*
             Enrollment help listed in the county — the tooltip's bar chart. Counties
@@ -267,6 +280,17 @@ export function ScopeBar({
 function changeLabel(n) {
   if (n == null) return '—';
   return n === 0 ? '0' : fmtDelta(-n);
+}
+
+/** The second row. How each figure is worked out is in the Methodology section, not here. */
+function ImpactRow({ total, since }) {
+  return (
+    <dl className={cx(styles.stats, styles.impact)}>
+      {impactLabels(total).map(({ label, value }) => (
+        <Stat key={label} label={label} value={value} sub={`since ${since}`} negative={total > 0} />
+      ))}
+    </dl>
+  );
 }
 
 function Stat({ label, value, sub, negative = false, title }) {
