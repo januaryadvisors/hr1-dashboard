@@ -1,6 +1,6 @@
 /*
  * The story rail: one timeline of every chapter, the open one expanded. It sits
- * on the page rail's single tan ground (see .storyRail in MapPage.module.css);
+ * on the page rail's single tan ground (see .storyRail in pages/map/MapPage.module.css);
  * nothing in here paints its own surface except the node discs, which take the
  * ground colour so the rule appears to stop at each ring.
  *

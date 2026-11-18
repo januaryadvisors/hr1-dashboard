@@ -24,7 +24,7 @@ export function Switch({ label, checked, onChange, definition }) {
       >
         <span className={styles.knob} aria-hidden="true" />
       </button>
-      {/* §6.8 M-08: the definition is the control's label, not a tooltip. */}
+      {/* The definition is part of the label, not a tooltip. */}
       {definition && <span className={styles.definition}>{definition}</span>}
     </div>
   );

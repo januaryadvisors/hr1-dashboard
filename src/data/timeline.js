@@ -1,18 +1,10 @@
 /**
- * The dated feed in the hero band's right column: bulletins.json, GENERATED
- * from Texas HHS "Texas Works" policy bulletins and quarterly revisions by
- * scripts/fetch-texas-works.mjs and refreshed on a schedule by
- * .github/workflows/refresh-bulletins.yml.
+ * The policy feed in the page rail: bulletins.json, scraped from Texas HHS
+ * "Texas Works" bulletins at build time by scripts/fetch-texas-works.mjs (the
+ * host sends no CORS headers) and refreshed weekly by a workflow.
  *
- * The SNAP / H.R. 1 tags are classified HERE rather than in the scraper, for two
- * reasons: the taxonomy is a display decision and should not need a re-scrape to
- * change, and the scraper runs on a schedule against a live government host, so
- * the fewer reasons to re-run it the better. It also means bulletins published
- * after this code shipped get tagged the same way, with no backfill.
- *
- * The fetch happens at BUILD time, not here: fhb.hhs.texas.gov sends no CORS
- * headers, and a static page should not depend on a government host being up for
- * every reader.
+ * The SNAP / H.R. 1 tags are a text match done here, not in the scraper, so the
+ * tagging can change without a re-scrape.
  */
 
 import { fetchOptionalJson } from './fetchJson';

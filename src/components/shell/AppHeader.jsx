@@ -1,4 +1,4 @@
-/** C-01 and C-02 — spec §5. */
+/** The sticky header: logo, the map period while the brush is out of view, and the Map/Insights switch. */
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SegmentedControl } from './SegmentedControl';
@@ -52,12 +52,12 @@ export function AppHeader() {
       </div>
       {/*
         The Map page's period control, once its brush has scrolled away
-        (PeriodControl, portalled in by MapPage). Empty everywhere else.
+        (PeriodControl, portalled in by HeroBand). Empty everywhere else.
       */}
       <div id="header-period" className={styles.period} />
       {/*
         The Map / Insights switch, on every page. The Map page's Jump to menu
-        floats over the story instead of sitting here — see MapPage.
+        floats over the story instead of sitting here.
       */}
       <div className={styles.end}>
         <SegmentedControl
@@ -69,7 +69,7 @@ export function AppHeader() {
           ]}
           value={page}
           // `fromSwitch` tells the page it was opened from here, not from a shared
-          // link: it opens at the top rather than where the link points (MapPage).
+          // link: it opens at the top rather than where the link points (see useStory).
           onChange={(v) =>
             navigate(
               { pathname: v === 'map' ? '/map' : '/insights/decline', search: location.search },

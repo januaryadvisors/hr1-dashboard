@@ -61,23 +61,24 @@ export function Methodology({ from, to, county, district }) {
         18–59 and 60–64 as 18–64; and 65+.
       </p>
       <p>
-        <strong>Change in SNAP spending.</strong> An estimate: the average month of benefits paid over
-        the 12 months to {from}, minus the benefits paid each month after it, summed. Months above that
-        average count against the total. SNAP benefits can only be spent at SNAP-authorized stores.
+        <strong>Change in SNAP benefits paid.</strong> An estimate: the average month of benefits paid
+        over the 12 months to {from}, minus the benefits paid each month after it, summed. Months above
+        that average count against the total. Benefits paid are HHSC&rsquo;s monthly SNAP payments to
+        households, which can only be spent at SNAP-authorized stores.
       </p>
       <p>
-        <strong>Estimated change in economic activity.</strong> The change in SNAP spending × ${SNAP_MULTIPLIERS.economic}.
+        <strong>Estimated change in economic activity.</strong> The change in SNAP benefits paid × ${SNAP_MULTIPLIERS.economic}.
         According to <Source href={SOURCES.usdaMultiplier}>USDA research</Source>, every dollar spent on
         SNAP generates about ${SNAP_MULTIPLIERS.economic} in local economic activity.
       </p>
       <p>
-        <strong>Estimated change in jobs supported.</strong> The change in SNAP spending ÷ $1 billion ×{' '}
+        <strong>Estimated change in jobs supported.</strong> The change in SNAP benefits paid ÷ $1 billion ×{' '}
         {SNAP_MULTIPLIERS.jobsPerBillion.toLocaleString('en-US')}. According to the same{' '}
         <Source href={SOURCES.usdaMultiplier}>USDA research</Source>, $1 billion in SNAP benefits
         supports {SNAP_MULTIPLIERS.jobsPerBillion.toLocaleString('en-US')} jobs.
       </p>
       <p>
-        <strong>Estimated change in meals.</strong> The change in SNAP spending ÷ ${SNAP_MULTIPLIERS.mealCost}, the average
+        <strong>Estimated change in meals.</strong> The change in SNAP benefits paid ÷ ${SNAP_MULTIPLIERS.mealCost}, the average
         cost of a meal in Texas according to Feeding America&rsquo;s{' '}
         <Source href={SOURCES.mealGap}>Map the Meal Gap</Source>.
       </p>

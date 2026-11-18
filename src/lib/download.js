@@ -1,10 +1,6 @@
 /**
- * §1 / §6.1: "CSV/JSON download of whatever the current filter state selects",
- * with "a companion JSON that includes the MOE columns."
- *
- * §10 requires every estimate to ship with its MOE — in the tooltip, in the
- * download, in the table. The CSV carries the columns a spreadsheet user wants;
- * the JSON carries everything including MOEs and provenance.
+ * "Download data": a CSV of what the map currently shows, and a companion
+ * JSON with everything, including margins of error and provenance.
  *
  * @typedef {import('../data/load').Dataset} Dataset
  */
@@ -132,9 +128,9 @@ export function downloadSelection(data, state) {
             isWindowLayer
               ? 'layer_value is observed enrollment loss over `window`, floored at zero — a county whose caseload grew reads 0. snap_change carries the true signed change.'
               : null,
-            'snap_children_* is the county under-18 series (HHSC age bands under 5 + 5–17); not in the build spec §3 contract — see docs/SPEC-DEVIATIONS.md §A4.',
+            'snap_children_* is the county under-18 series (HHSC age bands under 5 + 5–17).',
             data.isFixture
-              ? 'FIXTURE DATA — synthetic values generated against the build spec §3 contract.'
+              ? 'FIXTURE DATA — synthetic test values, not the real export.'
               : null,
           ].filter(Boolean),
         },

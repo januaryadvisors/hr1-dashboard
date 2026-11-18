@@ -1,5 +1,5 @@
 /**
- * Bubble placement for the Density style (§6.5).
+ * Bubble placement for the Density style.
  *
  * "Sort descending by radius when painting so small circles land on top; nudge
  * overlapping metros apart with two passes of simple collision relaxation, no

@@ -9,8 +9,8 @@
  * districts it is split between. This is the split: a district gets the share of
  * the county's SNAP-receiving households (as the ACS finds them) that live in its
  * tracts. HHSC's count stays the total; the survey only says where inside the
- * county the caseload sits. See docs/SPEC-DEVIATIONS.md §V for why this and not
- * population or low-income population.
+ * county the caseload sits. Tested against counties, it misplaces fewer
+ * enrollees than splitting by population or low-income population.
  *
  * WHY THE BULK FILE, NOT THE API
  * api.census.gov refuses requests without a key, and a build step should not

@@ -1,11 +1,6 @@
 /**
- * County lookup with autocomplete.
- *
- * Selecting a result sets the hovered county, which highlights it on the hero map
- * and in every thumbnail and opens its tooltip — the same path a mouse hover
- * takes, so there is one highlight mechanism rather than two.
- *
- * That highlight is transient: moving the pointer over the map replaces it.
+ * Search with autocomplete, for counties or districts. A single pick calls
+ * `onSelect(geoid)`; with `multiple`, a checkbox list calls it with the whole selection.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cx } from '../../lib/cx';

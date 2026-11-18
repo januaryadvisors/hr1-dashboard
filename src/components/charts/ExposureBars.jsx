@@ -25,7 +25,7 @@ import styles from './ExposureBars.module.css';
  * @property {number} value
  * @property {number | null} [share] - Share of the caseload, printed after the count. Omitted on the baseline.
  * @property {'base' | 'subject' | 'left'} tone
- * @property {boolean} [modelled] - §10: the newly-subject estimate is PUMS-modelled, not a lookup.
+ * @property {boolean} [modelled] - A modelled estimate (PUMS), flagged with a dagger.
  */
 
 /**
@@ -52,9 +52,7 @@ export function ExposureBars({ rows }) {
           </span>
           <span className={cx(styles.value, 'tabular')}>
             {fmtInt(r.value)}
-            {/* §10: flag the modelled estimate wherever it is shown. The dagger
-                sits on the number rather than the label so all three rows stay
-                one line tall and the bars keep a shared baseline. */}
+            {/* On the number, not the label, so every row stays one line tall. */}
             {r.modelled && (
               <abbr className={styles.modelled} title="PUMS-modelled estimate, not a lookup">
                 †

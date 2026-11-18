@@ -1,13 +1,9 @@
 /**
- * Assistance-infrastructure glyphs (§6.6).
+ * Assistance-infrastructure glyphs.
  *
- * §6.6 requires four glyphs "deliberately distinguishable without colour":
- * square, triangle, circle, diamond. Each also carries its own hue, so a reader
- * can tell them apart at a glance instead of squinting at outlines.
- *
- * All four are FILLED and the same visual size. Each gets a thin white halo,
- * because these sit on top of a choropleth and have to stay legible over both
- * the palest and the darkest band of any ramp.
+ * Four shapes that differ without colour, each with its own hue too. All
+ * filled, the same visual size, with a thin white halo so they read over the
+ * palest and darkest choropleth bands.
  *
  * @typedef {import('../../types').InfraKey} InfraKey
  */
@@ -27,7 +23,7 @@ export const INFRA_COLOR = {
  * source covers (food bank). Drawn rather than left blank, so a missing mark is
  * never read as a confirmed "none".
  */
-export const NO_DATA_COLOR = '#B9B5B2';
+const NO_DATA_COLOR = '#B9B5B2';
 
 /**
  * @typedef {Object} InfraGlyphProps

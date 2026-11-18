@@ -1,4 +1,4 @@
-// Build public/data/geometry.json — spec §3.2.
+// Build public/data/geometry.json.
 //
 // TopoJSON, quantized, simplified to roughly 40KB. County polygons keyed by geoid,
 // plus a state outline object for the hairline border. CRS stays EPSG:4326; the
@@ -26,7 +26,7 @@ const SIMPLIFY = process.env.SIMPLIFY ?? '3.5%';
 
 const cmd = [
   `-i "${SRC}" name=counties`,
-  // FIPS -> geoid, "Sherman County" -> "Sherman" (spec §3.1: name without "County").
+  // FIPS -> geoid, "Sherman County" -> "Sherman".
   `-each 'geoid = String(FIPS), name = String(COUNTY).replace(/ County$/, "")'`,
   `-filter-fields geoid,name`,
   `-simplify ${SIMPLIFY} keep-shapes`,
@@ -65,4 +65,4 @@ writeFileSync(OUT, JSON.stringify(topo));
 console.log(`counties:  ${counties.length}`);
 console.log(`objects:   ${Object.keys(topo.objects).join(', ')}`);
 console.log(`size:      ${(raw / 1024).toFixed(1)}KB raw / ${(gz / 1024).toFixed(1)}KB gzipped`);
-if (gz > 60 * 1024) console.warn(`WARNING: over the ~40KB gzipped target in §3.2`);
+if (gz > 60 * 1024) console.warn(`WARNING: over the ~40KB gzipped target`);

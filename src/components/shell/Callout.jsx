@@ -1,5 +1,5 @@
 /**
- * <Callout> — §7. No-count state, provisional banners, method notes.
+ * A boxed note: the no-count state, provisional banners, method notes.
  *
  * @typedef {import('react').ReactNode} ReactNode
  */

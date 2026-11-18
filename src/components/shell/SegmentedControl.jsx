@@ -1,4 +1,4 @@
-/** <SegmentedControl> — §7. Rate/Count, Style, Map/Insights, geography. */
+/** A row of mutually exclusive options: Rate/Count, Style, Map/Insights, geography. */
 import { cx } from '../../lib/cx';
 import styles from './SegmentedControl.module.css';
 

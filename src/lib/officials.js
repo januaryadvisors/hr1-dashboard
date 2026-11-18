@@ -10,7 +10,7 @@
  */
 
 /** The member's title in each chamber. */
-export const ROLE = { txhouse: 'State Representative', txsenate: 'State Senator', ushouse: 'U.S. Representative' };
+const ROLE = { txhouse: 'State Representative', txsenate: 'State Senator', ushouse: 'U.S. Representative' };
 
 /**
  * @typedef {Object} Official

@@ -47,7 +47,7 @@ export default defineConfig({
   base: '/hr1-dashboard/',
   plugins: [react(), githubPagesSpaFallback()],
   build: {
-    // Spec §3: total payload target under 900KB gzipped including geometry.
+    // The whole payload, geometry included, should stay under ~900KB gzipped.
     chunkSizeWarningLimit: 700,
   },
 });

@@ -1,25 +1,14 @@
 /**
- * <CountyMap> — spec §7: one component for the Map page's hero map and the
- * chapter bar's thumbnails.
+ * The Texas county map: the Map page's hero map and the chapter thumbnails.
+ * Every style reads the same data:
  *
- * §13 step 2: "This is the whole risk of the project; get it right before any
- * chrome." Every render style reads the same data (§6.5):
+ *   geo      true county polygons (Texas Albers)
+ *   density  centroid bubbles, sqrt-scaled, over light county outlines
+ *   grid     the box chart: one equal tile per county, with room for the
+ *            assistance bars; offered on the index view and one story step
  *
- *   grid     one equal square per county on the precomputed lattice
- *   geo      true county polygons, Texas Albers, ramp fill at percentile
- *   density  centroid bubbles, sqrt-scaled, over a light county outline
- *
- * THE GRID is not a reader-selectable style: ONE story step uses it (the index
- * chapter's second step, see config/story.js). Every county is one tile with
- * room inside it for the listed-assistance bars (<InfraTileBars>). Equal tiles
- * are the honest reading of a percentile: Loving and Harris are one square
- * each. The lattice is drawn inside the shared viewBox, so panels keep their
- * size when the style changes.
- *
- * Both measures draw the SAME kind of map — a choropleth. Rate colours by the
- * layer's own share or percentile; count colours by the raw headcount on
- * quantile breaks. See the note on `counting` below for why that departs from
- * §11, and what it costs.
+ * Both measures are choropleths: rate colours by the layer's share or
+ * percentile, count by the headcount on quantile breaks.
  */
 import { memo, useMemo } from 'react';
 import { countBinsFor, formatLayerValue } from '../../lib/layerValues';
@@ -67,14 +56,14 @@ const SIZE_SPEC = {
  * @property {MapStyle} style - 'grid' is the box chart: a story step's, or the reader's on the Vulnerability index.
  * @property {Measure} measure
  * @property {MapSize} size
- * @property {InfraKey[]} [marks] - Infrastructure types whose marks should draw (§6.6).
+ * @property {InfraKey[]} [marks] - Infrastructure types whose marks should draw.
  * @property {{ q5?: boolean; gap?: boolean }} [overlays]
  * @property {boolean} [interactive]
  * @property {string | null} [hovered]
  * @property {(geoid: string | null) => void} [onHover]
  * @property {string | null} [spotlight] - A county picked from the search: drawn again over everything,
  *   enlarged and boldly outlined, so it is found at a glance wherever it is on the map.
- * @property {string} title - Accessible name; every map needs one (§13 step 9).
+ * @property {string} title - Accessible name.
  */
 
 function CountyMapInner(props) {
@@ -100,22 +89,11 @@ function CountyMapInner(props) {
 
   const spec = SIZE_SPEC[size];
 
-  /**
-   * Count measure draws a CHOROPLETH of the raw headcount.
-   *
-   * §11 calls for proportional symbols because "Harris at 5.13M residents
-   * swamps any fill scale". That is true of a LINEAR fill scale — 253 of 254
-   * counties would land in the bottom band. The bins below are quantile breaks
-   * instead, so each colour holds the same number of counties and the map stays
-   * readable at both ends. The legend prints the actual edges, because
-   * equal-count bands are only honest if the reader can see them.
-   *
-   * The trade is real and worth stating: on a count choropleth, area is county
-   * size and colour is headcount, so a big empty county reads louder than a
-   * small crowded one. A proportional-symbol map avoids that. It is the
-   * client's call, and the two measures differ only in what they encode rather
-   * than in what kind of map they are.
-   */
+  /*
+     Count measure colours the raw headcount on quantile breaks, so Harris does
+     not push 253 counties into the bottom band; the key prints the real edges.
+     The trade-off: a big, sparse county reads louder than a small, crowded one.
+  */
   const counting = measure === 'count' && !!values.count;
 
   const countBins = useMemo(
@@ -198,7 +176,7 @@ function CountyMapInner(props) {
   const bubbles = useMemo(() => {
     if (style !== 'density') return [];
 
-    // §6.5: radius is the count metric in count measure, population in rate.
+    // Radius: the count in count measure, population in rate.
     const valueOf = (c) =>
       measure === 'count' ? values.count?.get(c.geoid) ?? 0 : c.pop;
 
@@ -236,11 +214,7 @@ function CountyMapInner(props) {
     const el = e.target;
     if (!el || !el.closest('[data-geoid]')) onHover?.(null);
   };
-  /**
-   * §6.5: "arrow keys walk counties in reading order on the grid lattice." The
-   * lattice drives keyboard order in every style, which is why grid is
-   * precomputed for all of them.
-   */
+  /** Arrow keys walk counties in reading order on the grid lattice, in every style. */
   const handleKeyDown = (e) => {
     if (!interactive) return;
 
@@ -286,12 +260,7 @@ function CountyMapInner(props) {
     }
   };
 
-  /*
-     §6.8 / M-08: outline the top fifth of counties on WHAT THE MAP SHOWS —
-     headcount in Count, rate or percentile in Rate. Sorted ascending, the cut
-     is the 80th-percentile value and every county at or above it is in: 51 of
-     254.
-  */
+  // The top fifth of counties on what the map shows (count, rate or percentile): 51 of 254.
   const q5Set = useMemo(() => {
     if (!overlays.q5) return new Set();
     const sorted = counties
@@ -454,13 +423,13 @@ function CountyMapInner(props) {
         </g>
       )}
 
-      {/* Overlays (§6.8 M-08), tracing whichever geometry is on screen.
+      {/* Overlays, tracing whichever geometry is on screen.
           Outlines, never fills — cumulative impact and Q5 are too lopsided to
-          colour a state by (§11). */}
+          colour a state by. */}
       {overlays.q5 && outlines(counties.filter((c) => q5Set.has(c.geoid)), styles.overlayQ5)}
       {overlays.gap && outlines(counties.filter((c) => c.is_gap), styles.overlayGap)}
 
-      {/* Assistance-infrastructure marks (§6.6). On the grid they are bars
+      {/* Assistance-infrastructure marks. On the grid they are bars
           inside each tile — the same encoding as the tooltip's column chart,
           see <InfraBars>. Elsewhere they are glyphs at the county centroid.
           A partial registry (food bank) with no reporting source draws grey. */}

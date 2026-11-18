@@ -20,7 +20,7 @@ import { lossShare, lostCount, windowEnds } from './series';
  * @typedef {Object} LayerValues
  * @property {Map<string, number | null>} fill - Fill value per county, on the layer's own scale. null where there is none.
  * @property {Map<string, number> | null} count - Count basis per county — people, for the proportional-symbol map. null for
- *   the whole layer where no count basis exists (C-03).
+ *   the whole layer where no count basis exists.
  * @property {number} maxCount - Largest count in the selection, for the nested-circle legend.
  * @property {readonly number[]} bins - The bin thresholds these values should be coloured with.
  *   Carried alongside the values because a loss layer's bands are anchored to

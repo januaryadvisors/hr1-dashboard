@@ -1,0 +1,123 @@
+/*
+ * The green band, full-bleed. A plain block on purpose: as a flex container it
+ * would shrink .inner to fit its content and indent the hero number.
+ * Contrast of every foreground on this green is checked in tokens.css.
+ */
+.band {
+  /* Above the story, casting a soft shadow onto it (see useStoryParallax). */
+  position: relative;
+  z-index: 2;
+  background: var(--ft-green);
+  color: var(--on-green);
+  box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.45);
+}
+
+/* Repeats the page's max-width, gutters and columns, so the hero number lines
+   up with the section titles below. --col-side and --col-gap come from the page. */
+.inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-side);
+  gap: var(--col-gap);
+  align-items: start;
+  max-width: 1680px;
+  margin-inline: auto;
+  padding-block: var(--space-6);
+  padding-inline: clamp(var(--space-5), 5vw, 5rem);
+}
+
+/* A size container, so the number can scale with the column. */
+.main {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.stats {
+  min-width: 0;
+  /* Lines the first stat up with the number's cap height. */
+  padding-top: var(--space-2);
+}
+
+/* Number and phrase on one row on desktop; phones stack them. */
+.numberRow {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+/* Scales with the column (cqi) so a long figure like "−547,051" never
+   overflows, and the phrase keeps ~22ch beside it. */
+.number {
+  flex: 0 0 auto;
+  font-family: var(--font-figure);
+  font-size: clamp(2.5rem, 12.5cqi, var(--step-hero));
+  font-weight: 800;
+  line-height: 0.86;
+  letter-spacing: -0.035em;
+  color: var(--on-green);
+}
+
+.phrase {
+  flex: 0 1 22ch;
+  max-width: 22ch;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.bodyRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.body {
+  margin: 0;
+  max-width: 56ch;
+  font-size: var(--text-md);
+  line-height: 1.6;
+  color: var(--on-green);
+}
+
+.download {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The number takes the width (vw) and the phrase goes under it. */
+  .numberRow {
+    flex-wrap: wrap;
+    align-items: last baseline;
+    gap: var(--space-2) var(--space-4);
+  }
+  .number {
+    font-size: clamp(2.5rem, 18vw, var(--step-hero));
+  }
+  .phrase {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .inner {
+    padding-inline: var(--space-4);
+    padding-block: var(--space-5);
+  }
+  .phrase {
+    font-size: var(--text-lg);
+  }
+  .bodyRow > .download {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -18,7 +18,7 @@ describe('bins', () => {
     expect(binsFor('d1')).toBe(BINS_SCORE);
   });
 
-  it('rebins the composite per spec §6.4', () => {
+  it('rebins the composite', () => {
     expect([...BINS_COMPOSITE]).toEqual([0.8, 1.35, 1.65, 1.85, 2.05, 2.27, 2.66, 3.4]);
     expect(binsFor('composite')).toBe(BINS_COMPOSITE);
   });

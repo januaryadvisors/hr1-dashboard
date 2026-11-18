@@ -53,3 +53,16 @@ export const lossShare = (ends) =>
 
 /** People lost over the window, floored at zero. null without both endpoints. */
 export const lostCount = (ends) => (ends ? Math.max(0, ends.start - ends.end) : null);
+
+/**
+ * One monthly series summed over some counties, or null when none carries it.
+ * `read` is a field name, or a function for a nested series (an age band).
+ * A missing month counts as zero, as in the data build.
+ */
+export function sumSeries(list, read) {
+  const get = typeof read === 'function' ? read : (c) => c[read];
+  const n = get(list.find(get) ?? {})?.length ?? 0;
+  return n
+    ? Array.from({ length: n }, (_, i) => list.reduce((sum, c) => sum + (get(c)?.[i] ?? 0), 0))
+    : null;
+}

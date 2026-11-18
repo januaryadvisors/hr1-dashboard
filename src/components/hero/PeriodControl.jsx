@@ -5,7 +5,7 @@
  * change it without scrolling back up.
  *
  * A pill naming the period; pressed, it opens the same brush (presets and
- * handles) in a panel under the header. MapPage portals it into the header's
+ * handles) in a panel under the header. HeroBand portals it into the header's
  * slot (AppHeader, #header-period) only while the hero's brush is out of view.
  */
 import { useCallback, useRef, useState } from 'react';

@@ -1,30 +1,23 @@
 /**
- * Scope resolution for the Insights page.
+ * The figures behind the Insights page and the hero band.
  *
- * Every chart on that page reads from a `Scope` — Texas as a whole, one county,
- * several counties added together, or one TX House, TX Senate or US House
- * district — so switching scope is a data swap rather
- * than a different code path per chart. That is what makes
- * `/insights/decline?county=48201` a county stat page and
- * `?district=txhouse-133` a district one: the same charts, the same claims, a
- * different series underneath.
+ * Every Insights chart reads from a `Scope`: Texas, one county, several
+ * counties added together, or a TX House, TX Senate or US House district. The
+ * same charts, a different series underneath.
  *
- * DISTRICTS ARE COUNTS ONLY. Their enrollment series are apportioned from
- * counties at build time (district-counts.json); a district that contains part
- * of a split county carries an estimate, and `district.exact` says which. There
- * are no district domain scores — §9 forbids weighting percentiles into
- * districts — so the domain chapter says so instead of drawing.
+ * Districts carry counts only, apportioned from counties at build time
+ * (district-counts.json); a district holding part of a split county is an
+ * estimate, and `district.exact` says which. Percentile scores are never
+ * weighted into districts.
  *
- * Every series on a Scope — enrollment, children, payments and the
- * five age bands — exists per county and per district and reconciles to the
- * statewide totals exactly (see scripts/build-county-data.mjs), so every chart
- * on the page describes the place picked.
+ * Also loaded by scripts/build-county-data.mjs under plain Node, so imports
+ * keep their .js extensions.
  *
  * @typedef {import('../types').County} County
  * @typedef {import('../types').Statewide} Statewide
  */
 import { fmtDelta, fmtDollars, fmtInt, fmtMonthBody, fmtPct, fmtPctDelta } from './format.js';
-import { changeShare, windowEnds } from './series.js';
+import { changeShare, sumSeries, windowEnds } from './series.js';
 
 /**
  * @typedef {Object} Scope
@@ -41,20 +34,6 @@ import { changeShare, windowEnds } from './series.js';
  * @property {import('../data/load').DistrictUnit | null} district - The district when kind is 'district', else null.
  */
 
-/**
- * One monthly series summed over some counties, or null where none carries it.
- * `read` picks the series off a county: a field name, or a function for a
- * nested one (an age band). A county missing a month counts as zero for that
- * month, as in the data build.
- */
-function sumSeries(list, read) {
-  const get = typeof read === 'function' ? read : (c) => c[read];
-  const n = get(list.find(get) ?? {})?.length ?? 0;
-  return n
-    ? Array.from({ length: n }, (_, i) => list.reduce((sum, c) => sum + (get(c)?.[i] ?? 0), 0))
-    : null;
-}
-
 /** "Harris and Fort Bend counties", "Harris, Fort Bend and Galveston counties", "Harris, Fort Bend and 3 other counties". */
 export function countiesLabel(names) {
   if (names.length <= 2) return `${names.join(' and ')} counties`;
@@ -62,17 +41,12 @@ export function countiesLabel(names) {
   return `${names[0]}, ${names[1]} and ${names.length - 2} other counties`;
 }
 
-export function buildScope(
-  counties,
-  byGeoid,
-  statewide,
-  geoid,
-  districtCounts = null,
-) {
-  /*
-     Several counties: every series is the counties' sum, so each chart reads
-     the group as one place. Unknown geoids drop out; one left is a plain county.
-  */
+/**
+ * The Scope for a `?county=` or `?district=` value: a county geoid, several
+ * joined by commas (summed into one place), a district key, or null for Texas.
+ * Unknown keys fall back to Texas.
+ */
+export function buildScope(counties, byGeoid, statewide, geoid, districtCounts = null) {
   const picked = geoid?.includes(',')
     ? geoid.split(',').map((g) => byGeoid.get(g)).filter(Boolean)
     : [];
@@ -128,15 +102,9 @@ export function buildScope(
         district: null,
       };
     }
-    // Unknown key falls through to statewide rather than rendering empty
-    // charts; fromSearchParams also rejects it, so this is belt and braces.
   }
 
-  /**
-   * The statewide child series is summed from the counties, which reconcile to
-   * the statewide caseload exactly — the same arithmetic the data build asserts.
-   * It equals statewide.age_series 'Under 5' + '5–17' month by month.
-   */
+  // Texas. The counties reconcile to the statewide caseload exactly, so their sums are Texas's.
   return {
     key: 'state',
     kind: 'state',
@@ -160,9 +128,8 @@ export function buildScope(
  */
 
 /**
- * What a scope is compared against: counties for Texas or a county, the other
- * districts of the same chamber for a district. A House district ranked among
- * 254 counties would be comparing a 200,000-person unit to Loving County.
+ * What a scope is ranked against: counties, or the other districts of the same
+ * chamber (a House district ranked among counties would be compared to Loving County).
  *
  * @returns {Peers}
  */
@@ -191,15 +158,17 @@ export function windowLoss(series, i0, i1) {
   return ends ? ends.start - ends.end : null;
 }
 
+export const SPENDING_LABEL = 'Change in SNAP benefits paid';
+
+/** "H.R. 1" with a no-break space, so a wrapped line never ends on "H.R.". */
+export const HR1_LABEL = 'H.R.\u00a01';
+
 /**
- * The shortfall's label and value, for the hero and the Insights report. The
- * label names what changed and the sign says which way: "−$964M" for less
- * spent, "+$19.7K" for a place above its yardstick.
+ * The spending change's label and value: "−$964M" for less spent, "+$19.7K"
+ * for a place above its yardstick.
  *
  * @param {number} total - benefitShortfall's total, positive for less.
  */
-export const SPENDING_LABEL = 'Change in SNAP spending at authorized stores';
-
 export function shortfallLabels(total) {
   return {
     label: SPENDING_LABEL,
@@ -208,13 +177,10 @@ export function shortfallLabels(total) {
 }
 
 /**
- * What a SNAP dollar does beyond the checkout, for the report's second row.
- * Each is applied to the place's own spending change, so every county,
- * district and Texas carries its own figures.
- *   economic       — USDA ERS (ERR-265): each $1 of SNAP generates ~$1.54 of
- *                    local economic activity.
- *   jobsPerBillion — USDA ERS (ERR-265): $1 billion of SNAP supports 13,560 jobs.
- *   mealCost       — Feeding America, Map the Meal Gap: the average Texas meal costs $3.45.
+ * What a SNAP dollar does beyond the checkout, applied to each place's own spending change.
+ *   economic       USDA ERS (ERR-265): $1 of SNAP generates ~$1.54 of local activity
+ *   jobsPerBillion USDA ERS (ERR-265): $1 billion of SNAP supports 13,560 jobs
+ *   mealCost       Feeding America, Map the Meal Gap: the average Texas meal costs $3.45
  */
 export const SNAP_MULTIPLIERS = { economic: 1.54, jobsPerBillion: 13_560, mealCost: 3.45 };
 
@@ -261,16 +227,14 @@ export function impactLabels(total) {
 }
 
 /** Months averaged for the shortfall's yardstick: the year up to the window's start. */
-export const SHORTFALL_BASE_MONTHS = 12;
+const SHORTFALL_BASE_MONTHS = 12;
 
 /**
- * SNAP money that did not reach the scope's grocery stores over the window, as
- * an estimate. The yardstick is the average month over the year ending with the
- * window's start (fewer months where the series begins later): a single month
- * would let one high or low month set it, and a year spans one October benefit
- * increase. Each month after the start, the yardstick minus benefits paid,
- * summed. Net: a month above the yardstick counts against the total. One
- * definition for the hero, the Insights report and the Map story's chart.
+ * Estimated SNAP money that did not reach the scope's stores over the window:
+ * each month after the start, the yardstick minus benefits paid, summed (a
+ * month above the yardstick counts against the total). The yardstick is the
+ * average month of the year up to the start, so no single month sets it and it
+ * spans one October benefit increase. Used by the hero, Insights and the story.
  *
  * @returns {{ total: number, monthly: number, base: number, baseFrom: number } | null}
  *   `monthly` is the latest month's gap, positive for less; `baseFrom` is the
@@ -287,13 +251,8 @@ export function benefitShortfall(payments, i0, i1) {
 }
 
 /**
- * Rebase to 100 at `refIndex`.
- *
- * This is the chart that answers "is my county worse than Texas", which is the
- * question a legislator actually asks. Levels cannot answer it — Harris has 60x
- * the caseload of a rural county, so on a level axis every rural line is flat
- * against the bottom. Indexing removes the size difference and leaves only the
- * shape.
+ * Rebase to 100 at `refIndex`, so places of very different sizes can share an
+ * axis ("is my county worse than Texas?").
  */
 export function indexTo(series, refIndex) {
   const base = series[refIndex];
@@ -349,18 +308,18 @@ export function againstTexas(share, texasShare) {
 }
 
 /** The three age groups the Insights pie splits a loss into, from HHSC's five bands. */
-export const AGE_GROUPS = [
+const AGE_GROUPS = [
   { label: '0–17', bands: ['Under 5', '5–17'], noun: 'Children under 18' },
   { label: '18–64', bands: ['18–59', '60–64'], noun: 'Adults 18–64' },
   { label: '65+', bands: ['65+'], noun: 'Adults 65 and older' },
 ];
 
-/**
- * The age pie's slices (Insights and the Map story's children step): burgundy
- * for children, as the loss colour, then blue and amber. Checked with the
- * dataviz palette validator against white (lightness band, chroma, colourblind
- * and normal-vision separation, 3:1 contrast).
- */
+/** "Aug 2024 – Jul 2025", or one month when both ends are the same. */
+export function monthRange(months, a, b) {
+  return a === b ? fmtMonthBody(months[a]) : `${fmtMonthBody(months[a])} – ${fmtMonthBody(months[b])}`;
+}
+
+/** The age pie's colours: burgundy (the loss colour) for children. Checked for colourblind separation and 3:1 contrast. */
 export const AGE_COLORS = { '0–17': '#b44a3f', '18–64': '#3a75a8', '65+': '#c98316' };
 
 /**
@@ -374,10 +333,9 @@ export const AGE_COLORS = { '0–17': '#b44a3f', '18–64': '#3a75a8', '65+': '#
  */
 
 /**
- * Who left SNAP over the window, in three age groups — the Insights pie, and
- * the arrow chart's rows (they carry `from`, `to` and `pctChange`). A share is of the people
- * lost in the groups that lost: a group that grew has no slice of a loss, so
- * its gain is not netted against the others (the shares add to 100%).
+ * Who lost SNAP over the window, in three age groups: the pie's slices and the
+ * arrow chart's rows. Shares are of the groups that lost, so a group that grew
+ * is not netted against them and the shares add to 100%.
  *
  * @param {Record<string, number[]>} ageSeries - A Scope's ageSeries.
  * @returns {AgeGroupLoss[] | null} null where a band is missing.
@@ -418,9 +376,8 @@ const groupNoun = (label) => {
 };
 
 /**
- * The "Who is falling off" section's sentence: how many of each age group
- * left. The total is only stated when every group lost, so it matches the
- * Enrollment section's number; a group that grew is named as growing instead.
+ * The "Who is falling off" sentence. The total is only stated when every group
+ * lost (so it matches the Enrollment section); a group that grew is named as growing.
  *
  * @param {AgeGroupLoss[] | null} rows
  * @param {string} where - " in Harris County", or '' for Texas.
@@ -471,18 +428,13 @@ export function whoHeadline(rows, where, since) {
  */
 
 /**
- * The funnel's spread, fitted to the counties' own dispersion.
+ * The funnel's spread, fitted to the counties' own dispersion. Ported from
+ * feeding-texas-hr1's snap-enrollment-trends.qmd so both agree on "outside":
+ * regress log(|deviation, pp| + 0.5) on log(caseload); × sqrt(pi/2) turns the
+ * fitted mean absolute deviation into a standard deviation.
  *
- * Ported from feeding-texas-hr1's snap-enrollment-trends.qmd, so the dashboard
- * and the analysis agree on what "outside" means. Regress
- * log(|deviation from the weighted mean| + 0.5) on log(caseload), working in
- * percentage points exactly as the notebook does; the fitted value times
- * sqrt(pi/2) turns a mean absolute deviation into a standard deviation.
- *
- * Why not binomial limits: the county-to-county variation in enrollment change is
- * structural, not sampling noise, and sd = k/sqrt(caseload) put 43% of counties
- * "outside" a band meant to catch 5% (docs/SPEC-DEVIATIONS.md §Q2). The fitted
- * spread catches the ~7% the notebook reports on the policy window.
+ * Not binomial limits: the variation between counties is structural, and
+ * k/sqrt(caseload) put 43% of counties "outside" a band meant for 5%.
  *
  * @param {{ caseload: number, pct: number }[]} points
  * @returns {FunnelFit}
@@ -516,12 +468,9 @@ export function fitFunnel(points) {
 }
 
 /**
- * Percentage change against the caseload it was measured on, with control
- * limits that widen as caseload shrinks — statewide.json's `funnel`, written by
- * the data build.
- *
- * A 300-person caseload can swing 20% on sixty households, so a county only
- * counts as unusual if it sits outside the limits FOR ITS OWN SIZE.
+ * Each county's change against its caseload, with control limits that widen
+ * as caseload shrinks, so a county is "unusual" only for its own size.
+ * Written to statewide.json's `funnel` by the data build.
  */
 export function buildFunnel(counties, i0, i1) {
   const raw = [];
@@ -563,8 +512,7 @@ export function buildFunnel(counties, i0, i1) {
 export function headlineStats(statewide, payments, i0, i1) {
   const months = statewide.meta.months;
   const from = fmtMonthBody(months[i0]);
-  // A no-break space, so a wrapped line never ends on "H.R.".
-  const since = months[i0] === statewide.meta.policy_start ? 'H.R.\u00a01' : from;
+  const since = months[i0] === statewide.meta.policy_start ? HR1_LABEL : from;
   const out = [];
 
   // 1. The whole caseload's change: the hero number above, as a share.
@@ -579,11 +527,7 @@ export function headlineStats(statewide, payments, i0, i1) {
     });
   }
 
-  /*
-     2. Children under 18 (the two youngest age bands), and their share of
-     everyone who left. The share is only stated while it is a share: both fell,
-     and the children's loss is not bigger than the whole (adults gaining).
-  */
+  // 2. Children under 18, and their share of everyone lost (stated only while it is a real share).
   const under5 = windowEnds(statewide.age_series?.['Under 5'], i0, i1);
   const school = windowEnds(statewide.age_series?.['5–17'], i0, i1);
   if (under5 && school && all) {
@@ -600,18 +544,12 @@ export function headlineStats(statewide, payments, i0, i1) {
     });
   }
 
-  /*
-     3. SNAP money that did not reach SNAP-authorized stores over the window —
-     the same arithmetic as the Insights report and the Map story's figure.
-  */
+  // 3. SNAP benefits paid, against the average month up to the window's start.
   const short = benefitShortfall(payments, i0, i1);
   if (short) {
     out.push({
       ...shortfallLabels(short.total),
-      body:
-        short.total >= 0
-          ? `Estimated SNAP benefits not going to Texans since ${since}, compared with the monthly average the year before.`
-          : `Estimated extra SNAP benefits going to Texans since ${since}, compared with the monthly average the year before.`,
+      body: `vs. if benefits had stayed at the ${monthRange(months, short.baseFrom, i0)} monthly average.`,
       tone: short.total > 0 ? 'negative' : undefined,
     });
   }

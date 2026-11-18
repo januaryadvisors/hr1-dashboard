@@ -1,12 +1,12 @@
-/** §2: react-router — /map and /insights/:tab. /districts redirects to the Insights page, which reads district scopes. */
+/** Routes: /map and /insights/:tab. /districts redirects to Insights, which handles district scopes. */
 import { useLayoutEffect, useRef } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppHeader } from './components/shell/AppHeader';
 import { AppProvider } from './state/AppContext';
 import { Callout } from './components/shell/Callout';
 import { MissingDataError } from './data/load';
-import MapPage from './pages/MapPage';
-import InsightsPage from './pages/InsightsPage';
+import MapPage from './pages/map/MapPage';
+import InsightsPage from './pages/insights/InsightsPage';
 import styles from './App.module.css';
 
 /** Keeps the query string, so a /districts?district=… link opens that district. */

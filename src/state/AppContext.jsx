@@ -1,6 +1,6 @@
 /**
- * One context, one reducer (§2, §4). Holds the dataset, the app state, and the
- * shared projection — created once so every panel registers exactly (§2).
+ * One context, one reducer. Holds the dataset, the app state, and the
+ * shared projection — created once so every panel registers exactly.
  */
 import {
   createContext,
@@ -88,7 +88,7 @@ function Ready({ data, children }) {
     [data.statewide.meta.policy_start, data.statewide.meta.latest],
   );
 
-  // Seed from the URL so a shared link opens in the state it encodes (§4).
+  // Seed from the URL so a shared link opens in the state it encodes.
   const [state, dispatch] = useReducer(reducer, undefined, () =>
     fromSearchParams(
       new URLSearchParams(location.search),
@@ -101,7 +101,7 @@ function Ready({ data, children }) {
   const projection = useMemo(() => createProjection(data.geometry.state), [data.geometry.state]);
 
   /**
-   * Projected geometry, built once. MapPage derives the path strings from it —
+   * Projected geometry, built once. The Map page derives the path strings from it —
    * see src/lib/mapGeometry.js.
    */
   const baseRings = useMemo(

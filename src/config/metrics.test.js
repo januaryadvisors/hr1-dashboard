@@ -59,7 +59,7 @@ describe('values', () => {
   /**
    * Counts on a linear axis pile 250 counties against the left edge, which is
    * why the defaults are shares. The counts stay available — "targeting by
-   * count" is a legitimate argument (§8 tab 5) — they are just not the opening
+   * count" is a legitimate argument — they are just not the opening
    * view.
    */
   it('keeps the headcounts available but off the preset axes', () => {

@@ -7,8 +7,8 @@ import { RAMP_ANCHORS } from './scales';
  *
  *   Rscript -e 'grDevices::colorRampPalette(c("#F0F3F8","#7793B8","#0E3464"))(6)'
  *
- * Spec §13 requires the dashboard and the internal leaflet review maps to agree
- * on colour exactly. This is that guarantee.
+ * The dashboard and the internal leaflet review maps must agree on colour
+ * exactly. This is that guarantee.
  */
 const R_OUTPUT_6 = {
   d1: ['#F0F3F8', '#BFCCDE', '#8FA6C4', '#617FA7', '#375985', '#0E3464'],

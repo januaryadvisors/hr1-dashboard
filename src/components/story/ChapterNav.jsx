@@ -1,20 +1,10 @@
 /**
- * <ChapterNav> — the chapter bar above the story map.
+ * The chapter bar above the story map: every chapter as a card with a live
+ * thumbnail map and a progress bar, one segment per step.
  *
- * The story's table of contents: every chapter is visible at once (no
- * carousel), the one the reader is in is unmistakable, and each card carries a
- * progress bar with one segment per step.
- *
- * TWO TARGETS PER CARD. The card itself jumps to the chapter's first step; each
- * progress segment is its own button and jumps to that step, so the second step
- * of the third chapter is one click away. The segments are separate buttons
- * beside the card button rather than inside it — a button cannot contain a
- * button. Either way the jump is a scroll, so the rail and the map stay in step
- * with the scroll position.
- *
- * The thumbnails are live maps of each chapter's first layer, so the bar doubles
- * as a preview of every map in the story. MapPage draws them as choropleths
- * whatever the measure: proportional symbols are unreadable at thumbnail size.
+ * The card jumps to the chapter's first step and each segment to its own step
+ * (separate buttons beside the card, since a button cannot hold a button).
+ * Every jump is a scroll, so the rail and the map stay in step.
  *
  * @typedef {import('react').ReactNode} ReactNode
  */

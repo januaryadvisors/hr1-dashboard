@@ -1,16 +1,6 @@
 /**
- * <RampLegend> — §7 / §6.5.
- *
- * Rate measure: a continuous ramp bar labelled PERCENTILE IN TEXAS, p0 to p100.
- *
- * Count measure: the SAME bar, labelled with the real headcounts at either end.
- * §6.5's "three nested circles with real values" is a key for proportional
- * symbols; count is a choropleth here (see <CountyMap>), and a circle key for a
- * map with no circles on it would be a key to nothing.
- *
- * Each swatch names its own range on hover or focus. The count bands are
- * equal-count, so their ranges are uneven, and the tooltip shows exactly how
- * uneven.
+ * The map's colour key: a stepped bar with its end values, in either measure.
+ * Each swatch names its range on hover or focus (count bands are uneven).
  */
 import { fmtInt } from '../../lib/format';
 import { rampFor } from '../../lib/scales';

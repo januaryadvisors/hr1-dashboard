@@ -1,9 +1,7 @@
 /**
- * Data loading — spec §2: "Static JSON fetched once, cached in context."
- *
- * counties.json and statewide.json are the §3 contract, built from the analysis
- * repo's data-clean/ parquets by scripts/build-county-data.mjs — real HHSC
- * enrollment and build_scores.R output, no synthetic values.
+ * Loading the dataset: static JSON fetched once and held in context.
+ * counties.json and statewide.json are built from the analysis repo by
+ * scripts/build-county-data.mjs (real HHSC enrollment and build_scores.R output).
  */
 import { feature } from 'topojson-client';
 import { fetchJson, fetchOptionalJson } from './fetchJson';

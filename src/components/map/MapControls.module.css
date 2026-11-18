@@ -1,0 +1,54 @@
+/* The overlay switches. Full width: the popover's rows otherwise shrink to their content. */
+.overlays {
+  align-self: stretch;
+  max-width: 300px;
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pickerHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
+}
+
+.count {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
+.clear {
+  font-size: var(--text-xs);
+  color: var(--ja-navy);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Checkbox, map mark, name, count — tight, so the rows read as one key. */
+.checkRow {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 1px 0;
+  font-size: var(--text-sm);
+  line-height: 1.25;
+}
+
+.checkKey {
+  display: block;
+  flex: none;
+}
+
+/* The mark's colour, darkened: the orange and green are too light as text on white. */
+.checkLabel {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--key, var(--text)) 70%, #000);
+}
