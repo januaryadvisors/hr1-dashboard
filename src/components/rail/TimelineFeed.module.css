@@ -87,8 +87,9 @@
 
 .item {
   display: grid;
-  grid-template-columns: 1.75rem minmax(0, 1fr);
-  gap: var(--space-2);
+  /* Just wide enough for a two-digit day, so the text sits close to it. */
+  grid-template-columns: 1.3rem minmax(0, 1fr);
+  gap: var(--space-1);
   padding: var(--space-2) 0;
   border-bottom: 1px solid var(--hairline);
 }

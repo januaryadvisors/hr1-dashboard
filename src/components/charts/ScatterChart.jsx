@@ -89,26 +89,28 @@ export function ScatterChart({
   /** Inset from the axis lines, so a county clamped to an end is not drawn on the axis. */
   const INSET = 10;
   /**
-   * Extra room under the top edge for the upper quadrant labels, so the
-   * highest dots start below that text instead of sitting on it (and stealing
-   * its hover).
+   * Dot radius in pixels: R_MIN for the smallest county, R_MIN + R_SPAN for the
+   * largest. Clearances below are measured from a dot's EDGE, so they use the
+   * largest radius.
+   */
+  const R_MIN = 3;
+  const R_SPAN = 9;
+  const R_MAX = R_MIN + R_SPAN;
+  /**
+   * Height of the corner quadrant labels' band along the top and bottom edges
+   * of the plot, and the gap kept between that band and the nearest dot edge.
+   * Dot centres stop LABEL_BAND + GAP + R_MAX from the edge, so even the
+   * largest county clears the label text instead of sitting on it (and
+   * stealing its hover).
    */
   const LABEL_BAND = 16;
+  const GAP = 3;
+  const CLEAR = LABEL_BAND + GAP + R_MAX;
 
-  /**
-   * Height of the strip along the bottom that holds the zeros on a `ySplit:
-   * 'any'` axis. Without it the "none listed" counties — most of Texas on a
-   * capacity axis — would sit ON the x axis and the two lower quadrants would
-   * have no height to tint or label.
-   */
-  const FLOOR = ySplit === 'any' ? 34 : 0;
-  /** Zeros ride in the strip's upper half; its lower half is left for the two corner labels. */
-  const FLOOR_DOTS = 11;
-
-  const { scales, split, ticks } = useMemo(() => {
+  const { scales, split, ticks, floor: FLOOR, floorDots: FLOOR_DOTS } = useMemo(() => {
     if (!points.length) {
       const id = (v) => v;
-      return { scales: { x: id, y: id, r: () => 0 }, split: splitQuadrants([], ySplit), ticks: null };
+      return { scales: { x: id, y: id, r: () => 0 }, split: splitQuadrants([], ySplit), ticks: null, floor: 0, floorDots: 0 };
     }
     const split = splitQuadrants(points, ySplit);
     const bottom = height - M.bottom;
@@ -125,23 +127,40 @@ export function ScatterChart({
     const yLo = yVals.length ? Math.min(quantile(yVals, 0.02), yMid) : 0;
     const yHi = yVals.length ? Math.max(quantile(yVals, 0.98), yMid) : 1;
 
-    const x = pivotScale(xLo, split.mx, xHi, M.left + INSET, W - M.right - INSET);
-    const yPos = pivotScale(yLo, yMid, yHi, bottom - FLOOR - INSET, M.top + INSET + LABEL_BAND);
     const maxWeight = Math.max(...points.map((p) => p.weight)) || 1;
+    /*
+       Radii are PIXELS, not viewBox units — the caller authors the viewBox
+       at the element's real size, so a 3px dot is 3px on screen. Floored
+       at R_MIN so the smallest counties stay a visible mark (and a big enough
+       hover target) instead of a speck.
+    */
+    const r = (w) => R_MIN + Math.sqrt(w / maxWeight) * R_SPAN;
+
+    /*
+       The strip along the bottom that holds the zeros on a `ySplit: 'any'`
+       axis. Without it the "none listed" counties — most of Texas on a
+       capacity axis — would sit ON the x axis and the two lower quadrants
+       would have no height to tint or label. Sized to its own largest dot: a
+       gap, the row of dots, a gap, then the corner labels' band.
+    */
+    const zeroR = Math.max(R_MIN, ...points.filter((p) => p.y <= 0).map((p) => r(p.weight)));
+    const floor = ySplit === 'any' ? GAP + 2 * zeroR + GAP + LABEL_BAND : 0;
+    /** Zeros ride at the top of the strip; its bottom is left for the two corner labels. */
+    const floorDots = GAP + zeroR;
+
+    const x = pivotScale(xLo, split.mx, xHi, M.left + INSET, W - M.right - INSET);
+    // Over a floor the lower labels are in the strip, so only INSET is needed there.
+    const yPos = pivotScale(yLo, yMid, yHi, bottom - (floor ? floor + INSET : CLEAR), M.top + CLEAR);
 
     return {
       scales: {
         x,
-        y: (v) => (FLOOR && v <= 0 ? bottom - FLOOR + FLOOR_DOTS : yPos(v)),
-        /*
-           Radii are PIXELS, not viewBox units — the caller authors the viewBox
-           at the element's real size, so a 3px dot is 3px on screen. Floored
-           at 3 so the smallest counties stay a visible mark (and a big enough
-           hover target) instead of a speck.
-        */
-        r: (w) => 3 + Math.sqrt(w / maxWeight) * 9,
+        y: (v) => (floor && v <= 0 ? bottom - floor + floorDots : yPos(v)),
+        r,
       },
       split,
+      floor,
+      floorDots,
       // Ends get ≤ / ≥ only when some county actually lies past them.
       ticks: {
         x: [

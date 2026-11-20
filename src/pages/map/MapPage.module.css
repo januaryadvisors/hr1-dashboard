@@ -1,6 +1,6 @@
 .root {
   /* One width for every right-hand column, so their edges line up down the page. */
-  --col-side: clamp(260px, 28vw, 440px);
+  --col-side: clamp(290px, 32vw, 520px);
   --col-gap: var(--space-6);
   /* One width for the map's side panel and the scatter's. */
   --side-panel: 288px;

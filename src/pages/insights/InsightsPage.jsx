@@ -14,6 +14,7 @@ import { LineChart } from '../../components/charts/LineChart';
 import { LossMap } from '../../components/charts/LossMap';
 import { PieChart } from '../../components/charts/PieChart';
 import { PlaceRankList, rankUnits } from '../../components/charts/PlaceRankList';
+import { FunderLogo } from '../../components/shell/FunderLogo';
 import { Methodology } from '../../components/shell/Methodology';
 import { ScopeBar } from '../../components/shell/ScopeBar';
 import {
@@ -361,6 +362,8 @@ export default function InsightsPage() {
             They are not the real export.
           </p>
         )}
+
+        <FunderLogo className={styles.funderLogo} />
       </main>
     </div>
   );

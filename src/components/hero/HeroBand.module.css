@@ -89,6 +89,30 @@
   flex: 0 0 auto;
 }
 
+/* The partner lockup, under the last stat. Kept narrower than the stats so it
+   reads as a credit, not another figure. */
+.partner {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  /* The same rule the stats are divided by. */
+  border-top: 1px solid var(--on-green-rule);
+}
+
+.partner img {
+  width: 130px;
+}
+
+/* Under the shared label size, to stay in proportion with the logo. */
+.stats > .partner span {
+  font-size: 0.5625rem;
+}
+
+/* Right-aligned under the stats; the rule above still spans the column.
+   `.stats >` outranks FunderLogo's own left alignment. */
+.stats > .partner {
+  align-items: flex-end;
+}
+
 @media (max-width: 640px) {
   .inner {
     grid-template-columns: minmax(0, 1fr);

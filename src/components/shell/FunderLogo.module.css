@@ -1,0 +1,37 @@
+/* The label stacked over the logo, both left-aligned to the mark's edge. */
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.label {
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Width-led: the mark is a wide 5.7:1 lockup, so a fixed width keeps it
+   legible without it towering over the content beside it. */
+.logo {
+  display: block;
+  width: 180px;
+  max-width: 100%;
+  height: auto;
+}
+
+.onGreen .label {
+  color: var(--on-green-muted);
+}
+
+/* A cream silhouette: black first, then inverted to white. */
+.onGreen .logo {
+  filter: brightness(0) invert(1);
+  opacity: 0.94;
+}
