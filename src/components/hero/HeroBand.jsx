@@ -1,6 +1,7 @@
 /**
  * The green band at the top of the Map page: the headline change in SNAP
- * enrollment, the download button, the period brush and three statewide facts.
+ * enrollment, the download button, the period brush, three statewide facts
+ * and, under them, the partner logo.
  *
  * While the brush is scrolled out of view, a copy of it sits in the header
  * (#header-period), so the period every figure follows can always be changed.
@@ -10,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { cx } from '../../lib/cx';
 import { fmtDelta, fmtMonthBody, fmtMonthFull, fmtMonthTick } from '../../lib/format';
 import { headerHeight } from '../../lib/layout';
+import { FunderLogo } from '../shell/FunderLogo';
 import { BrushChart } from './BrushChart';
 import { HeadlineStats } from './HeadlineStats';
 import { PeriodControl } from './PeriodControl';
@@ -105,6 +107,7 @@ export function HeroBand({ change, window: [from, to], policyStart, brushProps, 
 
         <div className={styles.stats}>
           <HeadlineStats stats={stats} />
+          <FunderLogo onGreen className={styles.partner} />
         </div>
       </div>
     </section>

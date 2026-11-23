@@ -1,6 +1,7 @@
 /**
- * "Download data": a CSV of what the map currently shows, and a companion
- * JSON with everything, including margins of error and provenance.
+ * "Download data": a CSV of what the map currently shows, a companion JSON with
+ * everything, including margins of error and provenance, and a long CSV of
+ * every county's monthly SNAP figures over the full history.
  *
  * @typedef {import('../data/load').Dataset} Dataset
  */
@@ -39,6 +40,45 @@ function triggerDownload(filename, mime, body) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+/** HHSC age band → CSV column, in the order the bands run. */
+const AGE_COLUMNS = [
+  ['Under 5', 'snap_age_under_5'],
+  ['5–17', 'snap_age_5_17'],
+  ['18–59', 'snap_age_18_59'],
+  ['60–64', 'snap_age_60_64'],
+  ['65+', 'snap_age_65_plus'],
+];
+
+/**
+ * One row per county per month, every month the data has — long rather than
+ * wide, so it pivots or filters in a spreadsheet without reshaping. Values are
+ * HHSC's monthly figures as loaded; nothing is smoothed or estimated.
+ *
+ * @param {Dataset['counties']} counties
+ * @param {string[]} months - statewide meta.months; each county series is parallel to it.
+ * @param {[string, string]} window - Months inside it are flagged `in_selected_period`.
+ * @returns {Record<string, CsvValue>[]}
+ */
+export function monthlyRows(counties, months, window) {
+  const rows = [];
+  for (const c of counties) {
+    months.forEach((month, i) => {
+      const row = {
+        geoid: c.geoid,
+        name: c.name,
+        month,
+        in_selected_period: month >= window[0] && month <= window[1],
+        snap_enrolled: c.snap_enrolled?.[i] ?? null,
+        snap_children: c.snap_children?.[i] ?? null,
+      };
+      for (const [band, col] of AGE_COLUMNS) row[col] = c.snap_age?.[band]?.[i] ?? null;
+      row.snap_benefits_paid = c.snap_payments?.[i] ?? null;
+      rows.push(row);
+    });
+  }
+  return rows;
 }
 
 export function downloadSelection(data, state) {
@@ -104,6 +144,13 @@ export function downloadSelection(data, state) {
   const stamp = `${state.window[0]}_${state.window[1]}`;
   triggerDownload(`tx-snap-hr1-${state.layer}-${stamp}.csv`, 'text/csv;charset=utf-8', toCsv(rows));
 
+  // The full history, not just the window: the window's months are flagged in it.
+  triggerDownload(
+    `tx-snap-hr1-county-monthly-${months[0]}_${months[months.length - 1]}.csv`,
+    'text/csv;charset=utf-8',
+    toCsv(monthlyRows(counties, months, state.window)),
+  );
+
   triggerDownload(
     `tx-snap-hr1-${state.layer}-${stamp}.json`,
     'application/json',
@@ -129,6 +176,7 @@ export function downloadSelection(data, state) {
               ? 'layer_value is observed enrollment loss over `window`, floored at zero — a county whose caseload grew reads 0. snap_change carries the true signed change.'
               : null,
             'snap_children_* is the county under-18 series (HHSC age bands under 5 + 5–17).',
+            'The county-monthly CSV has one row per county per month for every month loaded: people enrolled, children, the five HHSC age bands, and SNAP benefits paid to the county\'s households (whole dollars). in_selected_period marks the months inside `window`.',
             data.isFixture
               ? 'FIXTURE DATA — synthetic test values, not the real export.'
               : null,
