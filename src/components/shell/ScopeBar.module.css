@@ -279,7 +279,7 @@
     gap: 6px;
   }
   /* Over the card, at the page's own heading size. */
-  .printTitle {
+  .root .printTitle {
     display: block;
     margin: 0;
     font-family: var(--font-figure);
@@ -289,29 +289,48 @@
     letter-spacing: -0.02em;
     text-wrap: balance;
   }
-  /* Smaller as more counties are added together (titleSize in lib/printTitle.js). */
-  .printTitle[data-size='md'] {
-    font-size: 19px;
-  }
-  .printTitle[data-size='sm'] {
-    font-size: 17px;
-  }
-  .printTitle[data-size='xs'] {
-    font-size: 15px;
-  }
-  /* The card's first line on paper: a district's badge on the left, its member
-     on the right. Gone when there is neither. */
+  /* The card's first line on paper: a district's badge, the place's name, and
+     the district's member on the right. */
   .titleRow {
     display: flex;
     align-items: center;
     gap: 8px;
   }
-  .titleRow:not(:has(.badgeRow, .printOfficial)) {
+  .card .screenOnly {
     display: none;
   }
-  .card .screenOnly,
-  .titleRow .name {
+  .name {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.15;
+  }
+  /* With four or more counties, the "Added together" list under the name says
+     more than "Harris, Fort Bend and 8 other counties" does: it stands in as
+     the place's name on paper, and the short name (with its line) goes. */
+  .titleRow:has(+ .included) {
     display: none;
+  }
+  .body .included {
+    font-family: var(--font-figure);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.25;
+    color: var(--text);
+  }
+  .body .included[data-size='xs'] {
+    font-size: 10px;
+  }
+  /* Smaller as more counties are added together (titleSize in lib/printTitle.js). */
+  .name[data-size='md'] {
+    font-size: 16px;
+  }
+  .name[data-size='sm'] {
+    font-size: 15px;
+  }
+  .name[data-size='xs'] {
+    font-size: 14px;
   }
   /* A district's member, on one line at the right of the card's first line:
      "U.S. Representative  Christian Menefee (D)  takes office Jan 2027". */

@@ -8,7 +8,7 @@ import react from '@vitejs/plugin-react';
 
 /**
  * GitHub Pages serves static files only — there is no server to rewrite unknown
- * paths onto the app shell. So /hr1-dashboard/map 404s, because no such file
+ * paths onto the app shell. So /map 404s, because no such file
  * exists, even though react-router would happily render it.
  *
  * Pages does serve 404.html for any unmatched path, and it does so WITHOUT
@@ -40,11 +40,12 @@ function githubPagesSpaFallback() {
   };
 }
 
-// `base` must match the GitHub Pages path: https://januaryadvisors.github.io/hr1-dashboard/
-// Change it in ONE place here if the repo is renamed or moves to a custom domain
-// (a custom domain means base: '/').
+// `base` is '/' because the site is served from the root of its custom domain,
+// https://snaptracker.feedingtexas.org/ (GitHub redirects the old
+// januaryadvisors.github.io/hr1-dashboard/ address there). Change it here alone if
+// the site ever moves back under a path; the router and data fetches follow it.
 export default defineConfig({
-  base: '/hr1-dashboard/',
+  base: '/',
   plugins: [react(), githubPagesSpaFallback()],
   build: {
     // The whole payload, geometry included, should stay under ~900KB gzipped.

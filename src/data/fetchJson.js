@@ -9,8 +9,8 @@ export class MissingDataError extends Error {
   }
 }
 
-// BASE_URL carries vite's `base`, so this works at / in dev and at
-// /hr1-dashboard/ on Pages.
+// BASE_URL carries vite's `base`, so data paths follow it if the site ever
+// moves under a path.
 const dataUrl = (file) => `${import.meta.env.BASE_URL}data/${file}`;
 
 /**

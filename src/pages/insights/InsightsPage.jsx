@@ -43,6 +43,7 @@ import { lossShare, windowEnds } from '../../lib/series';
 import { useLoaded } from '../../lib/useLoaded';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { printWithTitle, usePrintMode } from '../../lib/usePrintMode';
+import { titleSize } from '../../lib/printTitle';
 import { useSectionInView } from '../../lib/useSectionInView';
 import { enrollmentHeadline, placeVsTexas, rankingHeadline } from './copy';
 import { mapShapes, placeKeysFor, placeOutline } from './places';
@@ -192,7 +193,9 @@ export default function InsightsPage() {
   const printing = usePrintMode();
   const phone = useMediaQuery(PHONE);
   const viewWidth = printing ? PRINT_VIEW_WIDTH : phone ? PHONE_VIEW_WIDTH : VIEW_WIDTH;
-  const chartHeight = (screen) => (printing ? PRINT_CHART_H : screen);
+  /** Seven or more counties added together: a shorter chart on paper, to leave the ranking its rows. */
+  const manyCounties = titleSize(scope.counties?.length ?? 0) === 'xs';
+  const chartHeight = (screen) => (printing ? PRINT_CHART_H - (manyCounties ? 20 : 0) : screen);
 
   const inView = useSectionInView(SECTION_IDS);
   // A tab link lands on its section, once.
@@ -202,9 +205,12 @@ export default function InsightsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** The one-pager's title, and (with the latest month) its PDF file name. */
-  const printTitle = `Tracking SNAP Enrollment in ${scope.label} since H.R. 1 was enacted`;
-  const printReport = () => printWithTitle(`${printTitle} (through ${endLabel})`);
+  /**
+   * The one-pager's title, the same for every place; the place is named in the
+   * report box under it. The PDF's file name adds the place and the latest month.
+   */
+  const printTitle = 'Tracking Texas SNAP Enrollment After H.R. 1';
+  const printReport = () => printWithTitle(`${printTitle} — ${scope.label} (through ${endLabel})`);
   /**
    * The page's own address, printed as the one-pager's source line. Read while
    * printing, so it is the address of the place on paper (the scope is

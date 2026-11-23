@@ -2,7 +2,7 @@
  * Serve dist/ with GitHub Pages semantics, for checking deep links before a deploy.
  *
  *   npm run build && npm run serve:pages
- *   → http://localhost:4330/hr1-dashboard/map
+ *   → http://localhost:4330/map
  *
  * `vite preview` cannot be used for this: it has its own SPA fallback, so every
  * deep route works there whether or not the deploy would actually serve it.
@@ -10,7 +10,6 @@
  *
  *   - serve the file if it exists
  *   - otherwise serve 404.html WITH a 404 status and WITHOUT changing the URL
- *   - serve nothing outside the /hr1-dashboard/ base
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -18,7 +17,8 @@ import { extname, join, normalize } from 'node:path';
 import { ROOT as REPO } from './lib/paths.mjs';
 
 const ROOT = join(REPO, 'dist');
-const BASE = '/hr1-dashboard';
+// vite's `base`, minus the trailing slash: '' at the custom domain's root.
+const BASE = '';
 const PORT = Number(process.env.PORT ?? 4330);
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',

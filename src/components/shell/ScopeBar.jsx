@@ -43,7 +43,7 @@ import styles from './ScopeBar.module.css';
  *   shape has loaded.
  * @property {import('../../lib/officials').Official | null} official - A district's member in
  *   the chamber picked, under its outline; null for a county or Texas.
- * @property {string} printTitle - The one-pager's title, printed over the card in place of the place's name.
+ * @property {string} printTitle - The one-pager's title, printed over the card.
  */
 
 /** "Harris (part)", "Travis, Hays", "Bowie +4" — enough to recognise a district in a list. */
@@ -174,12 +174,9 @@ export function ScopeBar({
         </div>
       </div>
 
-      {/* Paper only: the one-pager's title, over the card. A step smaller for
-          each band of counties added together, since more counties mean a
-          longer name, an "Added together" line and more rows in the ranking. */}
-      <h1 className={styles.printTitle} data-size={titleSize(picked.length)}>
-        {printTitle}
-      </h1>
+      {/* Paper only: the one-pager's title, over the card. The place is named
+          in the card. */}
+      <p className={styles.printTitle}>{printTitle}</p>
 
       <header className={styles.card}>
         {outline && <PlaceOutline {...outline} />}
@@ -189,8 +186,8 @@ export function ScopeBar({
 
         <div className={styles.body}>
           {/* Exact vs estimated, over a district's name — the first thing a
-              reader copying a figure out of this box sees. On paper the badge
-              and the district's member share the card's first line. */}
+              reader copying a figure out of this box sees. On paper the badge,
+              the name and the district's member share the card's first line. */}
           <div className={styles.titleRow}>
             {district && (
               <div className={styles.badgeRow}>
@@ -206,14 +203,19 @@ export function ScopeBar({
                 </span>
               </div>
             )}
-            {/* The place's name on screen. On paper the title above the card
-                (printTitle) names it instead. */}
-            <h1 className={styles.name}>{scope.label}</h1>
+            {/* The place's name. On paper it is a step smaller for each band of
+                counties added together, since more counties mean a longer name,
+                an "Added together" line and more rows in the ranking. */}
+            <h1 className={styles.name} data-size={titleSize(picked.length)}>
+              {scope.label}
+            </h1>
             {official && <Official official={official} className={cx(styles.printOfficial, styles.printOnly)} />}
           </div>
           {/* A long list is named by its first two counties; the rest are listed here. */}
           {picked.length > 3 && (
-            <p className={styles.included}>Added together: {picked.map((c) => c.name).join(', ')}</p>
+            <p className={styles.included} data-size={titleSize(picked.length)}>
+              Added together: {picked.map((c) => c.name).join(', ')}
+            </p>
           )}
 
           {/*

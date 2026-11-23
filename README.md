@@ -3,14 +3,14 @@
 County and legislative-district mapping of H.R. 1's impact on SNAP and ACA
 Marketplace coverage in Texas, for Feeding Texas.
 
-**Live:** https://januaryadvisors.github.io/hr1-dashboard/ (`noindex` while the
+**Live:** https://snaptracker.feedingtexas.org/ (`noindex` while the
 figures are preliminary).
 
 ## Run it
 
 ```bash
 npm install
-npm run dev     # http://localhost:5173/hr1-dashboard/
+npm run dev     # http://localhost:5173/
 npm test
 npm run build   # → dist/
 ```
