@@ -37,7 +37,7 @@ export function ScatterPanel({ counties, presets, preset, onChangePreset, x, ctx
       <h3 className={styles.question}>{preset.question}</h3>
 
       <div className={styles.form}>
-        <div className={cx(styles.field, styles.compare)}>
+        <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor="scatter-preset">
             Compare
           </label>

@@ -21,7 +21,7 @@ export function AppHeader() {
   const navigate = useNavigate();
   // Districts are a scope of the Insights page, not a page of their own.
   const page = location.pathname.startsWith('/insights') ? 'insights' : 'map';
-  const onMap = location.pathname === '/map';
+  const onMap = location.pathname === '/';
 
   /*
      Two states. At the top of the Map page the header is the hero's green, so
@@ -72,7 +72,7 @@ export function AppHeader() {
           // link: it opens at the top rather than where the link points (see useStory).
           onChange={(v) =>
             navigate(
-              { pathname: v === 'map' ? '/map' : '/insights/decline', search: location.search },
+              { pathname: v === 'map' ? '/' : '/insights/decline', search: location.search },
               { state: { fromSwitch: true } },
             )
           }

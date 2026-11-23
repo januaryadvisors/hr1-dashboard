@@ -71,10 +71,9 @@
 }
 
 /*
- * Corner labels for the four quadrants. The three ordinary ones are recessive —
- * they are there so the structure reads, not to be looked at — and the one
- * carrying the finding is burgundy, matching its tint and every other "this is
- * the finding" mark on the page.
+ * Corner labels for the four quadrants: the text colour, except the one carrying
+ * the finding, which is burgundy like its tint. Each starts or ends with a small
+ * grey arrow pointing the way its x reads (lower left, higher right).
  *
  * `paint-order: stroke` puts a halo of the card's own white behind the glyphs,
  * because a corner label sits over the point cloud wherever the cloud reaches
@@ -84,22 +83,23 @@
   font-family: var(--font-display);
   font-size: var(--text-2xs);
   font-weight: 600;
-  fill: var(--text-faint);
+  fill: var(--text);
   paint-order: stroke;
   stroke: var(--surface);
   stroke-width: 3px;
   stroke-linejoin: round;
 }
 
+/* Composes the base, so the print size rule on .quadrantLabel covers it too. */
 .quadrantLabelConcern {
-  font-family: var(--font-display);
-  font-size: var(--text-2xs);
-  font-weight: 600;
+  composes: quadrantLabel;
   fill: var(--ja-burgundy);
-  paint-order: stroke;
-  stroke: var(--surface);
-  stroke-width: 3px;
-  stroke-linejoin: round;
+}
+
+/* Smaller and greyer than the words: a pointer, not part of the label. */
+.quadrantArrow {
+  font-size: 0.8em;
+  fill: var(--text-muted);
 }
 
 .point {
@@ -194,7 +194,6 @@
   .dumbbellLabel,
   .dumbbellValue,
   .quadrantLabel,
-  .quadrantLabelConcern,
   .highlightLabel {
     font-size: 10px;
   }

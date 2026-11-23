@@ -363,9 +363,9 @@ export const SCATTER_PRESETS = [
     y: 'sites_per_10k',
     ySplit: 'any',
     quadrants: [
-      { corner: 'hi-lo', label: 'Highest need, none listed', concern: true },
+      { corner: 'hi-lo', label: 'Highest need, no help listed', concern: true },
       { corner: 'hi-hi', label: 'Highest need, help listed' },
-      { corner: 'lo-lo', label: 'Lower need, none listed' },
+      { corner: 'lo-lo', label: 'Lower need, no help listed' },
       { corner: 'lo-hi', label: 'Lower need, help listed' },
     ],
   },
@@ -377,9 +377,9 @@ export const SCATTER_PRESETS = [
     y: 'sites_per_10k',
     ySplit: 'any',
     quadrants: [
-      { corner: 'hi-lo', label: 'Losing fastest, none listed', concern: true },
+      { corner: 'hi-lo', label: 'Losing fastest, no help listed', concern: true },
       { corner: 'hi-hi', label: 'Losing fastest, help listed' },
-      { corner: 'lo-lo', label: 'Losing slower, none listed' },
+      { corner: 'lo-lo', label: 'Losing slower, no help listed' },
       { corner: 'lo-hi', label: 'Losing slower, help listed' },
     ],
   },

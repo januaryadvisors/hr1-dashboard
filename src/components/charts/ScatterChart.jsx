@@ -185,7 +185,7 @@ export function ScatterChart({
   if (!points.length) return null;
 
   /*
-     Geometry and population for each named quadrant.
+     Geometry for each named quadrant.
 
      `hi` on y is the TOP of the plot whatever the metric means, so a preset
      that worries about high capacity and one that worries about low capacity
@@ -218,9 +218,6 @@ export function ScatterChart({
       labelX: hiX ? edge.right - PAD : edge.left + PAD,
       labelY: hiY ? edge.top + 9 : edge.bottom - PAD,
       anchor: hiX ? 'end' : 'start',
-      count: points.filter(
-        (p) => split.isHiX(p) === hiX && split.isHiY(p) === hiY,
-      ).length,
     };
   });
 
@@ -258,8 +255,16 @@ export function ScatterChart({
             textAnchor={q.anchor}
             className={q.concern ? styles.quadrantLabelConcern : styles.quadrantLabel}
           >
-            {q.label}
-            {q.concern ? ` · ${q.count} ${q.count === 1 ? 'county' : 'counties'}` : ''}
+            {/* Arrows point the way each label's x reads: lower to the left, higher to the right. */}
+            {q.corner.startsWith('hi') ? (
+              <>
+                {q.label} <tspan className={styles.quadrantArrow}>→</tspan>
+              </>
+            ) : (
+              <>
+                <tspan className={styles.quadrantArrow}>←</tspan> {q.label}
+              </>
+            )}
           </text>
         </g>
       ))}

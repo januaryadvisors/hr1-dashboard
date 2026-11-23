@@ -15,16 +15,13 @@
   color: var(--text);
 }
 
-/* One row: the question picker on the left, search on the right. */
+/* One row: the question picker takes three quarters, the county search the
+   rest. A county name needs far less room than a comparison's name. */
 .form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-columns: minmax(0, 3fr) minmax(200px, 1fr);
   gap: var(--space-5);
   align-items: end;
-}
-
-.compare {
-  max-width: 640px;
 }
 
 .field {

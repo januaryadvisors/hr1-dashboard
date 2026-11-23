@@ -118,9 +118,7 @@ const STORY = [
               `${f.shortfallMore ? 'more' : 'less'} in SNAP benefits than if payments had stayed at their ` +
               `monthly average from the year before H.R. 1 was signed (${f.baseRange}).`
             : 'Total SNAP benefits paid each month since H.R. 1 was signed.',
-        subhead: (f) =>
-          'Total SNAP benefits paid to Texas households each month, in millions of dollars. ' +
-          `Hatched: the amount below the ${f.baseRange} monthly average.`,
+        subhead: () => 'Total SNAP benefits paid to Texas households each month, in millions of dollars.',
         chart: 'shortfall',
         sources: HHSC,
         measure: 'count',

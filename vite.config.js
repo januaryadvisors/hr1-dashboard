@@ -8,7 +8,7 @@ import react from '@vitejs/plugin-react';
 
 /**
  * GitHub Pages serves static files only — there is no server to rewrite unknown
- * paths onto the app shell. So /map 404s, because no such file
+ * paths onto the app shell. So /insights/decline 404s, because no such file
  * exists, even though react-router would happily render it.
  *
  * Pages does serve 404.html for any unmatched path, and it does so WITHOUT

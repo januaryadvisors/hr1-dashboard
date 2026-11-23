@@ -1,4 +1,4 @@
-/** Routes: /map and /insights/:tab. /districts redirects to Insights, which handles district scopes. */
+/** Routes: / (the Map page) and /insights/:tab. /map redirects to /. /districts redirects to Insights, which handles district scopes. */
 import { useLayoutEffect, useRef } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppHeader } from './components/shell/AppHeader';
@@ -8,6 +8,15 @@ import { MissingDataError } from './data/load';
 import MapPage from './pages/map/MapPage';
 import InsightsPage from './pages/insights/InsightsPage';
 import styles from './App.module.css';
+
+/**
+ * The Map page used to live at /map. Old links, including the github.io ones
+ * GitHub now forwards here, keep their query string and section link.
+ */
+function MapRedirect() {
+  const { search, hash } = useLocation();
+  return <Navigate to={{ pathname: '/', search, hash }} replace />;
+}
 
 /** Keeps the query string, so a /districts?district=… link opens that district. */
 function DistrictsRedirect() {
@@ -40,11 +49,12 @@ function Shell() {
       <AppHeader />
       <main className={styles.main}>
         <Routes>
-          <Route path="/map" element={<MapPage />} />
+          <Route path="/" element={<MapPage />} />
+          <Route path="/map" element={<MapRedirect />} />
           <Route path="/insights" element={<Navigate to="/insights/decline" replace />} />
           <Route path="/insights/:tab" element={<InsightsPage />} />
           <Route path="/districts" element={<DistrictsRedirect />} />
-          <Route path="*" element={<Navigate to="/map" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
