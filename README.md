@@ -1,4 +1,4 @@
-# Texas SNAP & H.R. 1 — county dashboard
+# Texas SNAP Tracker — county dashboard
 
 County and legislative-district mapping of H.R. 1's impact on SNAP and ACA
 Marketplace coverage in Texas, for Feeding Texas.

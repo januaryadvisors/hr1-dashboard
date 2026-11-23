@@ -61,3 +61,19 @@
   vector-effect: non-scaling-stroke;
 }
 
+/* On paper: the shape fills the report's narrow first column, the locator
+   smaller under it. */
+@media print {
+  .root,
+  .locator {
+    gap: 4px;
+  }
+  .frame {
+    padding: 6px;
+  }
+  .miniFrame {
+    width: 40px;
+    height: 40px;
+    padding: 4px;
+  }
+}

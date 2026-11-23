@@ -127,13 +127,17 @@
     margin-bottom: 0;
   }
   .legend > * {
-    max-width: 2in;
+    max-width: 1.8in;
   }
   .legend :global(*) {
     line-height: 1.25;
   }
+  /* The key's heading at the card's label size, not the screen's. */
+  .legend > * > :first-child {
+    font-size: 9px;
+  }
   .single {
-    width: 3.1in;
+    width: 2.6in;
     max-width: none;
   }
 }

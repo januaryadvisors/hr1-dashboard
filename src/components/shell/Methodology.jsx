@@ -143,3 +143,54 @@ export function Methodology({ from, to, county, district }) {
     </section>
   );
 }
+
+/**
+ * <MethodologyBrief> — the one-pager's short version: the same definitions as
+ * <Methodology>, cut to a line each, and a link to this page for the rest.
+ * Printed only (InsightsPage's footer); the full note stays on screen.
+ *
+ * @param {{ from: string, to: string, district: boolean, url: string }} props
+ *   `url`: the page's own address, where the full methodology is.
+ */
+export function MethodologyBrief({ from, to, district, url }) {
+  const jobs = SNAP_MULTIPLIERS.jobsPerBillion.toLocaleString('en-US');
+  return (
+    <section className={styles.brief}>
+      <h2 className={styles.briefTitle}>Methodology</h2>
+      <div className={styles.briefBody}>
+        <p>
+          <strong>Data.</strong> Monthly SNAP enrollment and benefits paid by county, from{' '}
+          <Source href={SOURCES.hhsc}>Texas HHSC SNAP statistics</Source>.
+        </p>
+        {district && (
+          <p>
+            <strong>Exact count vs. Estimated.</strong> HHSC only reports SNAP numbers by county. If a
+            district is made up of whole counties, we add those counties together, so the figure is
+            exact. If a district covers only part of a county, we estimate its share of that
+            county&rsquo;s SNAP enrollment from where the county&rsquo;s SNAP households live, according
+            to the Census Bureau&rsquo;s American Community Survey (2020–24).
+          </p>
+        )}
+        <p>
+          <strong>People no longer on SNAP.</strong> Enrollment in {from}, when H.R. 1 was signed, minus
+          enrollment in {to}: a net change.
+        </p>
+        <p>
+          <strong>Change in benefits paid.</strong> An estimate: each month&rsquo;s benefits after {from}{' '}
+          against the average month over the 12 months before, summed.
+        </p>
+        <p>
+          <strong>Economic activity, jobs and meals.</strong> Each SNAP dollar generates about $
+          {SNAP_MULTIPLIERS.economic} in local economic activity, and $1 billion in benefits supports {jobs}{' '}
+          jobs (<Source href={SOURCES.usdaMultiplier}>USDA research</Source>); a meal in Texas costs $
+          {SNAP_MULTIPLIERS.mealCost} on average (
+          <Source href={SOURCES.mealGap}>Feeding America, Map the Meal Gap</Source>). Each is applied to the
+          change in benefits paid.
+        </p>
+      </div>
+      <p className={styles.briefMore}>
+        To read the full methodology, go to <a href={url}>{url.replace(/^https?:\/\//, '')}</a>
+      </p>
+    </section>
+  );
+}
