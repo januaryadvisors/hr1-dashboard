@@ -115,10 +115,25 @@
   color: var(--text-faint);
 }
 
-/* Bottom right of the report. */
-.funderLogo {
+/* Bottom right of the report: Feeding Texas, then the partner lockup, on one
+   baseline. */
+.screenLogos {
+  display: flex;
   align-self: flex-end;
+  align-items: flex-end;
+  gap: var(--space-5);
   padding-top: var(--space-5);
+}
+
+.screenFtLogo {
+  display: block;
+  height: 44px;
+  width: auto;
+}
+
+/* The one-pager's footer: paper only (see the print block below). */
+.printFooter {
+  display: none;
 }
 
 @media (max-width: 1023px) {
@@ -155,7 +170,7 @@
     display: block;
     max-width: none;
     min-height: 0;
-    padding: 0.4in 0.4in 0;
+    padding: 0.22in 0.4in 0;
     background: #fff;
   }
   /*
@@ -165,10 +180,13 @@
    * redraw at print sizes (InsightsPage.jsx).
    */
   .content {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    /* The page less its top padding and a bottom margin, so the footer below
+       can sit at the foot of the sheet. A little short of the full 10.78in,
+       so rounding never tips it onto a second page. */
+    min-height: 10.45in;
   }
   .content .section {
     display: contents;
@@ -178,7 +196,7 @@
   .content .sectionPair {
     display: flex;
     flex-direction: row;
-    gap: 8px;
+    gap: 5px;
     align-items: stretch;
     padding-top: 0;
     border-top: 0;
@@ -195,11 +213,11 @@
     padding: 6px 8px 4px;
   }
   .chartTitle {
-    font-size: 11px;
+    font-size: 12px;
   }
   .chartSubhead {
     margin: 1px 0 3px;
-    font-size: 9px;
+    font-size: 9.5px;
     line-height: 1.3;
   }
   .tabs {
@@ -209,5 +227,45 @@
     break-inside: avoid;
     page-break-inside: avoid;
     border-color: #ccc;
+  }
+  /* The screen's logos give way to the print footer, which carries both. */
+  .screenLogos {
+    display: none;
+  }
+  /* The short methodology on the left, Feeding Texas and the partner on the right. */
+  .printFooter {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: auto;
+    padding-top: 6px;
+    border-top: 1px solid var(--hairline);
+    break-inside: avoid;
+  }
+  .printFooter > :first-child {
+    flex: 1 1 auto;
+  }
+  /* Stacked, so the methodology beside them gets the width. */
+  .printLogos {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .printFtLogo {
+    display: block;
+    height: 30px;
+    width: auto;
+  }
+  .printFunder {
+    align-items: flex-end;
+  }
+  .printFunder img {
+    width: 120px;
+  }
+  .printFunder span {
+    font-size: 7px;
   }
 }

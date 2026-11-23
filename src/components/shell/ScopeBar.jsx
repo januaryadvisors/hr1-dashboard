@@ -14,6 +14,7 @@ import { HelpList } from '../map/HelpList';
 import { PlaceOutline } from './PlaceOutline';
 import { Official } from './Officials';
 import { cx } from '../../lib/cx';
+import { titleSize } from '../../lib/printTitle';
 import { fmtDelta, fmtInt, fmtMonthBody, fmtPctDelta } from '../../lib/format';
 import { impactLabels, shortfallLabels, SPENDING_LABEL } from '../../lib/insights';
 import styles from './ScopeBar.module.css';
@@ -42,6 +43,7 @@ import styles from './ScopeBar.module.css';
  *   shape has loaded.
  * @property {import('../../lib/officials').Official | null} official - A district's member in
  *   the chamber picked, under its outline; null for a county or Texas.
+ * @property {string} printTitle - The one-pager's title, printed over the card in place of the place's name.
  */
 
 /** "Harris (part)", "Travis, Hays", "Bowie +4" — enough to recognise a district in a list. */
@@ -64,6 +66,7 @@ export function ScopeBar({
   onPrint,
   outline,
   official,
+  printTitle,
 }) {
   const isScoped = scope.kind !== 'state';
   const county = scope.county;
@@ -171,29 +174,43 @@ export function ScopeBar({
         </div>
       </div>
 
+      {/* Paper only: the one-pager's title, over the card. A step smaller for
+          each band of counties added together, since more counties mean a
+          longer name, an "Added together" line and more rows in the ranking. */}
+      <h1 className={styles.printTitle} data-size={titleSize(picked.length)}>
+        {printTitle}
+      </h1>
+
       <header className={styles.card}>
         {outline && <PlaceOutline {...outline} />}
-        {/* A district's member, under its shape. Counties and Texas name none. */}
-        {official && <Official official={official} className={styles.officials} />}
+        {/* A district's member, under its shape. Counties and Texas name none.
+            On paper it moves to the end of the title line instead (below). */}
+        {official && <Official official={official} className={cx(styles.officials, styles.screenOnly)} />}
 
         <div className={styles.body}>
           {/* Exact vs estimated, over a district's name — the first thing a
-              reader copying a figure out of this box sees. */}
-          {district && (
-            <div className={styles.badgeRow}>
-              <span
-                className={cx(styles.badge, district.exact ? styles.badgeExact : styles.badgeEstimated)}
-                title={
-                  district.exact
-                    ? 'Built from whole counties: the published HHSC caseloads, added up.'
-                    : 'Includes part of a county split across districts: apportioned from the county total.'
-                }
-              >
-                {district.exact ? 'Exact count' : 'Estimated'}
-              </span>
-            </div>
-          )}
-          <h1 className={styles.name}>{scope.label}</h1>
+              reader copying a figure out of this box sees. On paper the badge
+              and the district's member share the card's first line. */}
+          <div className={styles.titleRow}>
+            {district && (
+              <div className={styles.badgeRow}>
+                <span
+                  className={cx(styles.badge, district.exact ? styles.badgeExact : styles.badgeEstimated)}
+                  title={
+                    district.exact
+                      ? 'Built from whole counties: the published HHSC caseloads, added up.'
+                      : 'Includes part of a county split across districts: apportioned from the county total.'
+                  }
+                >
+                  {district.exact ? 'Exact count' : 'Estimated'}
+                </span>
+              </div>
+            )}
+            {/* The place's name on screen. On paper the title above the card
+                (printTitle) names it instead. */}
+            <h1 className={styles.name}>{scope.label}</h1>
+            {official && <Official official={official} className={cx(styles.printOfficial, styles.printOnly)} />}
+          </div>
           {/* A long list is named by its first two counties; the rest are listed here. */}
           {picked.length > 3 && (
             <p className={styles.included}>Added together: {picked.map((c) => c.name).join(', ')}</p>

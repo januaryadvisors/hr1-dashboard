@@ -105,7 +105,7 @@
     padding: 0 var(--space-4);
   }
   /* Beside the logo the name does not fit on one line at phone width, and an
-     ellipsis would cut "H.R. 1" — so it wraps to two, which the 64px bar holds. */
+     ellipsis would cut the name — so it wraps to two, which the 64px bar holds. */
   .title {
     font-size: var(--text-base);
     line-height: 1.15;

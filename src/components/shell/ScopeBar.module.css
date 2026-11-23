@@ -85,6 +85,22 @@
   grid-area: officials;
 }
 
+/* The badge and the name. On screen they stack as before (the wrapper takes
+   no part in the layout); on paper they share one line. */
+.titleRow {
+  display: contents;
+}
+
+/* Scoped to the card so they outrank a child component's own display. */
+.card .printOnly {
+  display: none;
+}
+
+/* The one-pager's title: paper only. */
+.printTitle {
+  display: none;
+}
+
 /* Holds the badge to its own width in the column. */
 .badgeRow {
   display: flex;
@@ -241,30 +257,83 @@
 }
 
 /* On paper the report is a compact title block: no controls, the shape small,
-   the three figures on one row, small type — the whole report aims for one page. */
+   the three figures on one row, small type — the whole report aims for one page.
+   A district's member sits under the shape, not on a row of its own. */
 @media print {
   .controls {
     display: none;
   }
   .card {
     grid-template-columns: 72px minmax(0, 1fr);
-    grid-template-areas:
-      'outline body'
-      '. officials';
+    grid-template-areas: 'outline body';
+    grid-template-rows: auto;
     gap: 12px;
-    padding: 8px 12px;
+    padding: 6px 12px;
     border-left-width: 3px;
     break-inside: avoid;
   }
   .body {
     gap: 4px;
   }
-  .name {
-    font-size: 18px;
+  .root {
+    gap: 6px;
   }
+  /* Over the card, at the page's own heading size. */
+  .printTitle {
+    display: block;
+    margin: 0;
+    font-family: var(--font-figure);
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  /* Smaller as more counties are added together (titleSize in lib/printTitle.js). */
+  .printTitle[data-size='md'] {
+    font-size: 19px;
+  }
+  .printTitle[data-size='sm'] {
+    font-size: 17px;
+  }
+  .printTitle[data-size='xs'] {
+    font-size: 15px;
+  }
+  /* The card's first line on paper: a district's badge on the left, its member
+     on the right. Gone when there is neither. */
+  .titleRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .titleRow:not(:has(.badgeRow, .printOfficial)) {
+    display: none;
+  }
+  .card .screenOnly,
+  .titleRow .name {
+    display: none;
+  }
+  /* A district's member, on one line at the right of the card's first line:
+     "U.S. Representative  Christian Menefee (D)  takes office Jan 2027". */
+  .card .printOfficial.printOnly {
+    display: flex;
+    flex: 0 1 auto;
+    flex-flow: row wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 0 6px;
+    margin-left: auto;
+    text-align: right;
+  }
+  .badge {
+    padding: 1px 6px;
+    font-size: 8px;
+  }
+  /* The third column wider: its note (the benefits estimate) is the long one. */
   .root .stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    padding-top: 6px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr);
+    gap: 0;
+    padding-top: 4px;
   }
   .root .stat {
     padding: 0 10px;
@@ -277,40 +346,48 @@
   }
   .root .stat + .stat::before {
     display: block;
+    top: 1px;
+    bottom: 1px;
+  }
+  .statLabel {
+    line-height: 1.2;
   }
   .statValue,
   .impact .statValue {
+    margin-top: 1px;
     font-size: 18px;
+    line-height: 1.05;
   }
   .impact {
-    padding-top: 6px;
+    padding-top: 4px;
   }
   .statLabel,
-  .statSub,
   .included {
     font-size: 9px;
   }
-  .capacity {
-    padding-top: 6px;
+  .statSub {
+    margin-top: 1px;
+    font-size: 8.5px;
+    line-height: 1.25;
   }
-  .root .officials {
-    padding-top: 6px;
-    border-top: 1px solid var(--hairline);
+  .capacity {
+    padding-top: 4px;
   }
   /* minmax(0, …) so a long item wraps inside its column rather than running
      past the card's edge. */
   .helpList {
     grid-template-columns: repeat(4, minmax(0, max-content));
-    gap: 2px 14px;
-    font-size: 9px;
+    gap: 1px 14px;
+    font-size: 8.5px;
+    line-height: 1.25;
   }
   .helpList svg {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
   }
   .capacityTitle {
-    margin-bottom: 2px;
-    font-size: 10px;
+    margin-bottom: 1px;
+    font-size: 9px;
   }
 }
 

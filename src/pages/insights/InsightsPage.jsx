@@ -14,8 +14,9 @@ import { LineChart } from '../../components/charts/LineChart';
 import { LossMap } from '../../components/charts/LossMap';
 import { PieChart } from '../../components/charts/PieChart';
 import { PlaceRankList, rankUnits } from '../../components/charts/PlaceRankList';
+import feedingTexasLogo from '../../assets/feeding-texas-logo.png';
 import { FunderLogo } from '../../components/shell/FunderLogo';
-import { Methodology } from '../../components/shell/Methodology';
+import { Methodology, MethodologyBrief } from '../../components/shell/Methodology';
 import { ScopeBar } from '../../components/shell/ScopeBar';
 import {
   AGE_COLORS,
@@ -56,7 +57,7 @@ const PHONE_VIEW_WIDTH = 470;
 const PRINT_VIEW_WIDTH = 720;
 /** On paper the pie and the arrows share a row, so the arrows draw at half width. */
 const PRINT_HALF_VIEW_WIDTH = 350;
-const PRINT_CHART_H = 140;
+const PRINT_CHART_H = 145;
 
 const SECTIONS = [
   { id: 'enrollment', title: 'Enrollment' },
@@ -201,8 +202,15 @@ export default function InsightsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const printReport = () =>
-    printWithTitle(`${scope.label} — SNAP and H.R. 1, ${startLabel} to ${endLabel}`);
+  /** The one-pager's title, and (with the latest month) its PDF file name. */
+  const printTitle = `Tracking SNAP Enrollment in ${scope.label} since H.R. 1 was enacted`;
+  const printReport = () => printWithTitle(`${printTitle} (through ${endLabel})`);
+  /**
+   * The page's own address, printed as the one-pager's source line. Read while
+   * printing, so it is the address of the place on paper (the scope is
+   * mirrored to the URL).
+   */
+  const pageUrl = printing ? window.location.href : '';
 
   return (
     <div className={styles.page}>
@@ -235,6 +243,7 @@ export default function InsightsPage() {
           onPrint={printReport}
           outline={outline}
           official={holder}
+          printTitle={printTitle}
         />
 
         <section id="enrollment" className={styles.section}>
@@ -297,7 +306,7 @@ export default function InsightsPage() {
                   count: g.lost > 0 ? fmtDelta(-g.lost) : '—',
                   share: g.lost > 0 ? fmtPct(g.share, 1) : '—',
                 }))}
-                size={printing ? 96 : phone ? 170 : 210}
+                size={printing ? 104 : phone ? 170 : 210}
                 countLabel="Change in enrollment"
                 shareLabel="Share of total loss"
                 title={`Residents no longer on SNAP in ${scope.label}, by age group`}
@@ -312,7 +321,7 @@ export default function InsightsPage() {
             <DumbbellChart
               rows={ageGroups ?? ageBandRows(scope.ageSeries, i0, i1)}
               viewWidth={printing && anyLost ? PRINT_HALF_VIEW_WIDTH : viewWidth}
-              rowH={printing ? 22 : 40}
+              rowH={printing ? 24 : 40}
               ticks={printing || phone ? 4 : 8}
             />
           </ChartCard>
@@ -363,7 +372,21 @@ export default function InsightsPage() {
           </p>
         )}
 
-        <FunderLogo className={styles.funderLogo} />
+        {/* Bottom right: Feeding Texas beside its partner. Paper has its own footer. */}
+        <div className={styles.screenLogos}>
+          <img className={styles.screenFtLogo} src={feedingTexasLogo} alt="Feeding Texas" />
+          <FunderLogo />
+        </div>
+
+        {/* Paper only: the short methodology with a link to the full one, and
+            whose report it is. */}
+        <footer className={styles.printFooter}>
+          <MethodologyBrief from={startLabel} to={endLabel} district={Boolean(scope.district)} url={pageUrl} />
+          <div className={styles.printLogos}>
+            <img className={styles.printFtLogo} src={feedingTexasLogo} alt="Feeding Texas" />
+            <FunderLogo className={styles.printFunder} />
+          </div>
+        </footer>
       </main>
     </div>
   );

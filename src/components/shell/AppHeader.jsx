@@ -48,7 +48,7 @@ export function AppHeader() {
     <header className={cx(styles.header, green && styles.green, slim && styles.slim)}>
       <div className={styles.brand}>
         <img className={styles.logo} src={logoUrl} alt="Feeding Texas" />
-        <span className={styles.title}>Texas SNAP &amp; H.R.&nbsp;1</span>
+        <span className={styles.title}>Texas SNAP Tracker</span>
       </div>
       {/*
         The Map page's period control, once its brush has scrolled away
