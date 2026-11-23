@@ -285,7 +285,7 @@ export const METRICS = [
   {
     id: 'sites_per_10k',
     label: 'Listed assistance organizations per 10,000 residents',
-    axis: 'Assistance orgs per 10k',
+    axis: 'Enrollment assistance orgs per 10k',
     group: 'Capacity',
     format: (v) => v.toFixed(2),
     value: (c) => (c.pop <= 0 ? null : (sites(c) / c.pop) * 10000),
@@ -357,8 +357,8 @@ export const metricById = (id) =>
 export const SCATTER_PRESETS = [
   {
     id: 'vulnerability-capacity',
-    label: 'Vulnerability against capacity',
-    question: 'Where does the highest modelled need meet no listed assistance?',
+    label: 'Vulnerability against enrollment capacity',
+    question: 'Where does the highest modelled need meet no listed enrollment assistance?',
     x: 'vulnerability',
     y: 'sites_per_10k',
     ySplit: 'any',
@@ -371,7 +371,7 @@ export const SCATTER_PRESETS = [
   },
   {
     id: 'loss-capacity',
-    label: 'Loss against capacity',
+    label: 'Loss against enrollment capacity',
     question: 'Where is the caseload falling fastest with no listed help?',
     x: 'loss_share',
     y: 'sites_per_10k',
@@ -418,7 +418,7 @@ export const SCATTER_PRESETS = [
   {
     id: 'aca-snap',
     label: 'Marketplace subsidies against SNAP loss',
-    question: 'Where is SNAP falling fastest where the Marketplace tax credit reaches fewest people?',
+    question: 'Where is SNAP falling fastest where the Marketplace tax credit reaches the fewest people?',
     x: 'loss_share',
     y: 'aptc_per_1k',
     quadrants: [
