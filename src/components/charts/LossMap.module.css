@@ -140,4 +140,8 @@
     width: 2.6in;
     max-width: none;
   }
+  /* Finer borders on paper, where the map is small and 0.5px reads heavy. */
+  .shape {
+    stroke-width: 0.25;
+  }
 }
